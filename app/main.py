@@ -39,11 +39,18 @@ from app.appointments.appointment_management import AppointmentService
 from app.patients.patient_service import PatientSelfServiceService
 from app.agent.patient_access_agent import AIPatientAccessAgent
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
     version="10.0.0",
     description="Enterprise Multi-Hospital Voice Agent Platform & Self-Service Hospital Onboarding Engine"
 )
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -64,11 +71,14 @@ def get_db():
 
 @app.get("/")
 def read_root():
+    if os.path.exists("static/index.html"):
+        return FileResponse("static/index.html")
     return {
         "status": "ONLINE",
         "platform": "Autonomous Multi-Hospital Patient Intake Voice Platform",
         "step": "Section 5.1: Self-Service Hospital Onboarding Active"
     }
+
 
 
 # =========================================================================

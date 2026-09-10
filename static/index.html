@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Multi-Hospital Patient Intake & Voice Platform</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+  <header>
+    <h1>Autonomous Multi-Hospital Patient Intake Platform</h1>
+    <span>System Status: ONLINE | v10.0.0</span>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tab-onboarding">Hospital Onboarding & Admin</button>
+    <button class="tab-btn" data-tab="tab-doctors">Doctor & Calendar Management</button>
+    <button class="tab-btn" data-tab="tab-patients">Patient Self-Service</button>
+    <button class="tab-btn" data-tab="tab-voice">AI Voice & Chat Access Console</button>
+  </nav>
+
+  <main class="container">
+
+    <!-- PORTAL 1: HOSPITAL ONBOARDING & PLATFORM ADMIN -->
+    <section id="tab-onboarding" class="tab-content active">
+      <div class="grid">
+        <div class="card">
+          <h2>Self-Service Hospital Registration (5.1)</h2>
+          <form id="form-draft-hospital">
+            <div class="form-group">
+              <label>Hospital Name</label>
+              <input type="text" id="hosp-name" placeholder="e.g. City General Hospital" required>
+            </div>
+            <div class="form-group">
+              <label>Hospital Code</label>
+              <input type="text" id="hosp-code" placeholder="e.g. CITYGEN" required>
+            </div>
+            <div class="form-group">
+              <label>Contact Email</label>
+              <input type="email" id="hosp-email" placeholder="admin@citygen.org" required>
+            </div>
+            <div class="form-group">
+              <label>Admin Name</label>
+              <input type="text" id="hosp-admin-name" placeholder="Dr. Sarah Connor" required>
+            </div>
+            <div class="form-group">
+              <label>Admin Email</label>
+              <input type="email" id="hosp-admin-email" placeholder="sarah@citygen.org" required>
+            </div>
+            <button type="submit" class="btn">Register Draft Hospital</button>
+          </form>
+          <div id="hosp-draft-output" class="status-box" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Platform Admin Approval & Review (5.2)</h2>
+          <div class="form-group">
+            <label>Hospital ID to Review</label>
+            <input type="text" id="admin-hosp-id" placeholder="Enter Hospital UUID">
+          </div>
+          <button id="btn-admin-review" class="btn btn-secondary">Review Information</button>
+          <button id="btn-admin-approve" class="btn btn-success">Approve Hospital</button>
+          <button id="btn-admin-reject" class="btn btn-danger">Reject Hospital</button>
+          <div id="admin-action-output" class="status-box" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PORTAL 2: DOCTOR & CALENDAR MANAGEMENT -->
+    <section id="tab-doctors" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>Doctor Onboarding (5.4)</h2>
+          <form id="form-invite-doctor">
+            <div class="form-group">
+              <label>Hospital ID</label>
+              <input type="text" id="doc-hosp-id" placeholder="Hospital UUID" required>
+            </div>
+            <div class="form-group">
+              <label>Doctor Name</label>
+              <input type="text" id="doc-name" placeholder="Dr. Gregory House" required>
+            </div>
+            <div class="form-group">
+              <label>Specialty</label>
+              <input type="text" id="doc-specialty" placeholder="Diagnostics" required>
+            </div>
+            <div class="form-group">
+              <label>Department</label>
+              <input type="text" id="doc-dept" placeholder="Internal Medicine">
+            </div>
+            <button type="submit" class="btn">Invite Doctor</button>
+          </form>
+          <div id="doc-output" class="status-box" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Doctor Calendar Inspector (5.5 & 5.6)</h2>
+          <div class="form-group">
+            <label>Doctor ID</label>
+            <input type="text" id="cal-doc-id" placeholder="Doctor UUID">
+          </div>
+          <div class="form-group">
+            <label>Target Date</label>
+            <input type="date" id="cal-target-date">
+          </div>
+          <button id="btn-query-availability" class="btn">Query Available Slots</button>
+          <div id="cal-output" class="status-box" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PORTAL 3: PATIENT SELF-SERVICE -->
+    <section id="tab-patients" class="tab-content">
+      <div class="grid">
+        <div class="card">
+          <h2>Patient Profile Registration (5.8)</h2>
+          <form id="form-register-patient">
+            <div class="form-group">
+              <label>Patient Name</label>
+              <input type="text" id="pat-name" placeholder="Alice Smith" required>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="text" id="pat-phone" placeholder="+15550001111" required>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="pat-email" placeholder="alice@example.com">
+            </div>
+            <div class="form-group">
+              <label>Preferred Language</label>
+              <input type="text" id="pat-lang" value="en">
+            </div>
+            <button type="submit" class="btn">Register Patient Profile</button>
+          </form>
+          <div id="pat-output" class="status-box" style="display:none;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Pre-Visit Questionnaire Submission (5.8)</h2>
+          <form id="form-submit-questionnaire">
+            <div class="form-group">
+              <label>Patient ID</label>
+              <input type="text" id="quest-pat-id" placeholder="Patient UUID" required>
+            </div>
+            <div class="form-group">
+              <label>Questionnaire ID</label>
+              <input type="text" id="quest-id" placeholder="Questionnaire UUID" required>
+            </div>
+            <div class="form-group">
+              <label>Responses (JSON)</label>
+              <textarea id="quest-answers" rows="3" placeholder='{"allergies": "Penicillin", "medications": "None"}'></textarea>
+            </div>
+            <button type="submit" class="btn">Submit Questionnaire</button>
+          </form>
+          <div id="quest-output" class="status-box" style="display:none;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PORTAL 4: AI VOICE ACCESS CONSOLE -->
+    <section id="tab-voice" class="tab-content">
+      <div class="grid">
+        <div class="card" style="grid-column: span 2;">
+          <h2>AI Patient Access Agent - Real-Time Web Voice & Text Console (5.9)</h2>
+          <div class="chat-box" id="chat-messages">
+            <div class="chat-message agent">
+              Hello! I am your automated AI Patient Access Agent. Speak or type your request below to schedule appointments, check doctor availability, or register.
+            </div>
+          </div>
+
+          <div class="voice-controls">
+            <input type="text" id="user-input-text" placeholder="Type your message or use voice mic..." style="flex:1; padding:0.6rem; border:1px solid var(--border-color); border-radius:4px;">
+            <button id="btn-send-turn" class="btn">Send Text</button>
+            <button id="btn-mic-toggle" class="btn btn-secondary">Start Voice Mic</button>
+          </div>
+
+          <div id="ai-telemetry-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
