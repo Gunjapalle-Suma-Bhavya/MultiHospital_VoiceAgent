@@ -10,7 +10,7 @@ from datetime import datetime, time
 from enum import Enum
 import uuid
 from sqlalchemy import (
-    Column, String, Boolean, Integer, Float, DateTime, Time, Text, ForeignKey, Enum as SQLEnum
+    Column, String, Boolean, Integer, Float, DateTime, Date, Time, Text, ForeignKey, Enum as SQLEnum
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -295,6 +295,11 @@ class PatientProfile(Base):
     phone_number = Column(String(50), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=True)
     email = Column(String(255), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    preferred_language = Column(String(50), default="English")
+    emergency_contact_json = Column(Text, nullable=True)
+    external_patient_id = Column(String(100), nullable=True, index=True)
+    saved_preferences_json = Column(Text, nullable=True)
     
     last_hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True)
     last_doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=True)
@@ -306,6 +311,29 @@ class PatientProfile(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     sessions = relationship("PatientSessionState", back_populates="patient", cascade="all, delete-orphan")
+    questionnaire_responses = relationship("PatientQuestionnaireResponse", back_populates="patient", cascade="all, delete-orphan")
+
+    @property
+    def name(self):
+        return self.full_name or ""
+
+    @name.setter
+    def name(self, value):
+        self.full_name = value
+
+
+
+class PatientQuestionnaireResponse(Base):
+    __tablename__ = "patient_questionnaire_responses"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    questionnaire_id = Column(String(36), ForeignKey("hospital_questionnaires.id"), nullable=False)
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=True)
+    answers_json = Column(Text, nullable=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
+    patient = relationship("PatientProfile", back_populates="questionnaire_responses")
 
 
 class PatientSessionState(Base):

@@ -36,6 +36,8 @@ from app.doctors.doctor_management import DoctorManagementService
 from app.calendars.doctor_calendar import DoctorCalendarService
 from app.scheduling.availability_engine import AvailabilityEngine
 from app.appointments.appointment_management import AppointmentService
+from app.patients.patient_service import PatientSelfServiceService
+from app.agent.patient_access_agent import AIPatientAccessAgent
 
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
@@ -903,3 +905,153 @@ def async_lifecycle(appointment_id: str, db: Session = Depends(get_db)):
 def get_health_report(db: Session = Depends(get_db)):
     pipeline = HorizontalPlatformPipeline(db)
     return pipeline.telemetry.get_system_health_report()
+
+
+# =========================================================================
+# SECTION 5.8: PATIENT REGISTRATION & PROFILE ENDPOINTS
+# =========================================================================
+
+class RegisterPatientInput(BaseModel):
+    name: str
+    phone_number: str
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    preferred_language: str = "en"
+    emergency_contact: Optional[Dict[str, Any]] = None
+    external_patient_id: Optional[str] = None
+    saved_preferences: Optional[Dict[str, Any]] = None
+
+class UpdatePatientProfileInput(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    preferred_language: Optional[str] = None
+    emergency_contact: Optional[Dict[str, Any]] = None
+    external_patient_id: Optional[str] = None
+    saved_preferences: Optional[Dict[str, Any]] = None
+
+class PatientRescheduleInput(BaseModel):
+    new_start_datetime: datetime
+    reason: Optional[str] = None
+
+class PatientCancelInput(BaseModel):
+    reason: Optional[str] = None
+
+class SubmitQuestionnaireInput(BaseModel):
+    questionnaire_id: str
+    appointment_id: Optional[str] = None
+    responses: Dict[str, Any]
+
+@app.post("/api/v1/patients/register")
+def register_patient(payload: RegisterPatientInput, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        patient = service.register_patient(
+            name=payload.name, phone_number=payload.phone_number, email=payload.email,
+            date_of_birth=payload.date_of_birth, preferred_language=payload.preferred_language,
+            emergency_contact=payload.emergency_contact, external_patient_id=payload.external_patient_id,
+            saved_preferences=payload.saved_preferences
+        )
+        return {"patient_id": patient.id, "name": patient.name, "phone_number": patient.phone_number, "external_patient_id": patient.external_patient_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/patients/{patient_id}")
+def get_patient_profile(patient_id: str, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        return service.get_patient_profile(patient_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.put("/api/v1/patients/{patient_id}")
+def update_patient_profile(patient_id: str, payload: UpdatePatientProfileInput, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        patient = service.update_patient_profile(
+            patient_id=patient_id, name=payload.name, email=payload.email,
+            date_of_birth=payload.date_of_birth, preferred_language=payload.preferred_language,
+            emergency_contact=payload.emergency_contact, external_patient_id=payload.external_patient_id,
+            saved_preferences=payload.saved_preferences
+        )
+        return {"patient_id": patient.id, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/patients/{patient_id}/appointments")
+def list_patient_appointments(patient_id: str, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        return service.list_patient_appointments(patient_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/api/v1/patients/{patient_id}/appointments/{appointment_id}/cancel")
+def patient_cancel_appointment(patient_id: str, appointment_id: str, payload: PatientCancelInput, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        appt = service.cancel_appointment_self_service(patient_id=patient_id, appointment_id=appointment_id, reason=payload.reason)
+        return {"appointment_id": appt.id, "status": appt.status.value, "cancelled_by": "PATIENT"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/patients/{patient_id}/appointments/{appointment_id}/reschedule-request")
+def patient_reschedule_appointment(patient_id: str, appointment_id: str, payload: PatientRescheduleInput, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        appt = service.request_reschedule_self_service(patient_id=patient_id, appointment_id=appointment_id, new_start_datetime=payload.new_start_datetime, reason=payload.reason)
+        return {"appointment_id": appt.id, "status": appt.status.value, "new_start_datetime": appt.start_datetime.isoformat()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/patients/{patient_id}/questionnaires/submit")
+def submit_questionnaire_response(patient_id: str, payload: SubmitQuestionnaireInput, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        resp = service.submit_questionnaire_response(
+            patient_id=patient_id, questionnaire_id=payload.questionnaire_id,
+            responses=payload.responses, appointment_id=payload.appointment_id
+        )
+        return {"response_id": resp.id, "patient_id": patient_id, "submitted": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/patients/{patient_id}/questionnaires/responses")
+def get_patient_questionnaire_responses(patient_id: str, db: Session = Depends(get_db)):
+    service = PatientSelfServiceService(db)
+    try:
+        return service.get_patient_questionnaire_responses(patient_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.9: AI PATIENT ACCESS AGENT ENDPOINTS
+# =========================================================================
+
+class ProcessAgentTurnInput(BaseModel):
+    channel: str = "web_voice"
+    patient_identifier: str
+    user_utterance: str
+    session_id: Optional[str] = None
+    context_override: Optional[Dict[str, Any]] = None
+    hospital_id: Optional[str] = None
+    doctor_id: Optional[str] = None
+
+@app.post("/api/v1/ai-agent/turn")
+def process_ai_agent_turn(payload: ProcessAgentTurnInput, db: Session = Depends(get_db)):
+    agent = AIPatientAccessAgent(db)
+    try:
+        res = agent.process_patient_turn(
+            channel=payload.channel,
+            patient_identifier=payload.patient_identifier,
+            user_utterance=payload.user_utterance,
+            session_id=payload.session_id,
+            context_override=payload.context_override,
+            hospital_id=payload.hospital_id,
+            doctor_id=payload.doctor_id
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

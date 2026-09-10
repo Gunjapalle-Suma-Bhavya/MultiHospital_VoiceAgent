@@ -52,3 +52,13 @@ class NonClinicalGuardrail:
                 "is_diagnostic": False
             }
         )
+
+    @staticmethod
+    def evaluate_utterance(utterance: str) -> Dict[str, Any]:
+        is_safe, text, meta = NonClinicalGuardrail.inspect_utterance(utterance)
+        return {
+            "is_clinical_advice_request": not is_safe,
+            "redirect_response": text,
+            "reason": meta.get("flagged_keyword", "Clinical boundary check")
+        }
+

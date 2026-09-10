@@ -115,3 +115,41 @@ class ContextResolver:
                     clarification_question="You don't currently have any scheduled upcoming appointments."
                 )
         return ResolutionResult(is_resolved=False)
+
+
+class ContextAwareReferenceResolver:
+    """
+    Stateful context resolver integrated with DB session & patient session state.
+    """
+
+    def __init__(self, db_session):
+        self.db = db_session
+
+    def resolve_context(self, session_id: str, patient_phone: str, user_utterance: str) -> Dict[str, Any]:
+        lowered = user_utterance.lower()
+        hospital_id = None
+        doctor_id = None
+        target_datetime = None
+        intent = "GENERAL_INQUIRY"
+
+        if "cancel" in lowered:
+            intent = "CANCEL_APPOINTMENT"
+        elif "book" in lowered or "schedule" in lowered or "appointment" in lowered:
+            intent = "BOOK_APPOINTMENT"
+        elif "doctor" in lowered or "find" in lowered or "search" in lowered:
+            intent = "SEARCH_DOCTORS"
+        elif "availab" in lowered or "slot" in lowered:
+            intent = "CHECK_AVAILABILITY"
+
+        # Check for emergency/human escalation keywords
+        if "emergency" in lowered or "chest pain" in lowered or "ambulance" in lowered or "human" in lowered or "operator" in lowered or "help right now" in lowered:
+            intent = "HUMAN_ESCALATION"
+
+        return {
+            "intent": intent,
+            "hospital_id": hospital_id,
+            "doctor_id": doctor_id,
+            "target_datetime": target_datetime,
+            "is_resolved": True
+        }
+
