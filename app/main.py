@@ -2,6 +2,7 @@
 FastAPI Main Entrypoint for Multi-Hospital Patient Intake, Scheduling & Pre-Visit Voice Agent.
 
 Exposes end-to-end REST endpoints for:
+- Self-Service Hospital Registration & Onboarding (Section 5.1)
 - 13-Step Platform Admin Journey (Section 4.4)
 - 19-Step Patient Journey (Section 4.3)
 - 10-Step Doctor Journey (Section 4.2)
@@ -28,11 +29,12 @@ from app.journeys.hospital_journey import HospitalJourneyEngine
 from app.journeys.doctor_journey import DoctorJourneyEngine
 from app.journeys.patient_journey import PatientJourneyEngine
 from app.journeys.admin_journey import PlatformAdminJourneyEngine
+from app.onboarding.hospital_onboarding import HospitalSelfServiceOnboardingService
 
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
-    version="9.0.0",
-    description="Enterprise Multi-Hospital Voice Agent Platform, Hospital, Doctor, Patient & Admin Journey Engines"
+    version="10.0.0",
+    description="Enterprise Multi-Hospital Voice Agent Platform & Self-Service Hospital Onboarding Engine"
 )
 
 from sqlalchemy import create_engine
@@ -57,8 +59,85 @@ def read_root():
     return {
         "status": "ONLINE",
         "platform": "Autonomous Multi-Hospital Patient Intake Voice Platform",
-        "step": "Section 4.4: Platform Admin Journey Ecosystem Active"
+        "step": "Section 5.1: Self-Service Hospital Onboarding Active"
     }
+
+
+# =========================================================================
+# SECTION 5.1: SELF-SERVICE HOSPITAL REGISTRATION & ONBOARDING ENDPOINTS
+# =========================================================================
+
+class CreateDraftHospitalInput(BaseModel):
+    name: str
+    code: str
+    contact_email: str
+    admin_name: str
+    admin_email: str
+
+@app.post("/onboarding/hospital/draft")
+def create_draft_hospital(payload: CreateDraftHospitalInput, db: Session = Depends(get_db)):
+    onboarding = HospitalSelfServiceOnboardingService(db)
+    hosp = onboarding.create_draft_hospital(
+        name=payload.name,
+        code=payload.code,
+        contact_email=payload.contact_email,
+        admin_name=payload.admin_name,
+        admin_email=payload.admin_email
+    )
+    return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+
+
+class UpdateDraftMetadataInput(BaseModel):
+    organization_info: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    departments: Optional[List[str]] = None
+    specialties: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+    tax_id: Optional[str] = None
+    license_id: Optional[str] = None
+
+@app.put("/onboarding/hospital/{hospital_id}/metadata")
+def update_draft_metadata(hospital_id: str, payload: UpdateDraftMetadataInput, db: Session = Depends(get_db)):
+    onboarding = HospitalSelfServiceOnboardingService(db)
+    hosp = onboarding.update_hospital_draft_metadata(
+        hospital_id=hospital_id,
+        organization_info=payload.organization_info,
+        address=payload.address,
+        phone=payload.phone,
+        website=payload.website,
+        departments=payload.departments,
+        specialties=payload.specialties,
+        services=payload.services,
+        tax_id=payload.tax_id,
+        license_id=payload.license_id
+    )
+    return {"hospital_id": hosp.id, "status": hosp.hospital_status.value}
+
+
+@app.post("/onboarding/hospital/{hospital_id}/submit")
+def submit_application(hospital_id: str, db: Session = Depends(get_db)):
+    onboarding = HospitalSelfServiceOnboardingService(db)
+    hosp = onboarding.submit_application(hospital_id)
+    return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+
+
+@app.post("/onboarding/hospital/{hospital_id}/approve")
+def approve_hospital(hospital_id: str, db: Session = Depends(get_db)):
+    onboarding = HospitalSelfServiceOnboardingService(db)
+    hosp = onboarding.approve_hospital(hospital_id)
+    return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+
+
+class RejectHospitalInput(BaseModel):
+    reason: str
+
+@app.post("/onboarding/hospital/{hospital_id}/reject")
+def reject_hospital(hospital_id: str, payload: RejectHospitalInput, db: Session = Depends(get_db)):
+    onboarding = HospitalSelfServiceOnboardingService(db)
+    hosp = onboarding.reject_hospital(hospital_id, payload.reason)
+    return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
 
 
 # =========================================================================

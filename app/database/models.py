@@ -3,7 +3,7 @@ Database models for Multi-Hospital Voice Agent platform.
 Enforces multi-tenant hospital structure, doctor-controlled calendars,
 appointment scheduling, persistent patient context, privacy boundaries,
 EHR Identity Mappings, Workflow-Driven Operations, Operational Intelligence,
-Hospital Journey (Section 4.1), and Doctor Journey (Section 4.2).
+and Self-Service Hospital Registration & Onboarding Lifecycle (Section 5.1).
 """
 
 from datetime import datetime, time
@@ -18,11 +18,11 @@ Base = declarative_base()
 
 
 class HospitalStatus(str, Enum):
-    REGISTERED = "REGISTERED"
+    DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
     APPROVED = "APPROVED"
-    CONFIGURED = "CONFIGURED"
-    PUBLISHED = "PUBLISHED"
+    REJECTED = "REJECTED"
 
 
 class AppointmentStatus(str, Enum):
@@ -59,17 +59,47 @@ class WorkflowStatus(str, Enum):
 
 
 class Hospital(Base):
+    """
+    Hospital entity maintaining full self-service onboarding configuration (Section 5.1).
+    Lifecycle: Draft -> Submitted -> Under Review -> Approved / Rejected.
+    Only APPROVED hospitals become active.
+    """
     __tablename__ = "hospitals"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     code = Column(String(50), unique=True, nullable=False)
-    timezone = Column(String(50), default="UTC")
-    hospital_status = Column(SQLEnum(HospitalStatus), default=HospitalStatus.REGISTERED)
+    organization_info = Column(Text, nullable=True)
     address = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
     contact_email = Column(String(255), nullable=True)
+    website = Column(String(255), nullable=True)
+    timezone = Column(String(50), default="UTC")
+    
+    # Detailed metadata fields
+    departments_json = Column(Text, nullable=True)     # JSON list of departments
+    specialties_json = Column(Text, nullable=True)       # JSON list of specialties
+    operating_hours_json = Column(Text, nullable=True)   # JSON operating hours schedule
+    services_json = Column(Text, nullable=True)          # JSON list of services
+    
+    # Organization Administrator info
+    admin_name = Column(String(255), nullable=True)
+    admin_email = Column(String(255), nullable=True)
+    admin_phone = Column(String(50), nullable=True)
+    
+    # Verification details
+    verification_tax_id = Column(String(100), nullable=True)
+    verification_license_id = Column(String(100), nullable=True)
+    accreditation_details = Column(Text, nullable=True)
+    supported_systems_json = Column(Text, nullable=True)
+    
+    # Onboarding Lifecycle State
+    hospital_status = Column(SQLEnum(HospitalStatus), default=HospitalStatus.APPROVED)
+    rejection_reason = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     doctors = relationship("Doctor", back_populates="hospital", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="hospital")
@@ -121,7 +151,6 @@ class EHRIntegrationConfig(Base):
 
 
 class Doctor(Base):
-    """Doctor entity with Section 4.2 Doctor Journey profile & question controls."""
     __tablename__ = "doctors"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -142,9 +171,6 @@ class Doctor(Base):
 
 
 class DoctorApprovedQuestion(Base):
-    """
-    Doctor-approved pre-visit intake question (Section 4.2 / Step 7).
-    """
     __tablename__ = "doctor_approved_questions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))

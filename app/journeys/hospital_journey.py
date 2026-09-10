@@ -1,5 +1,5 @@
 """
-Hospital Journey Engine (Section 4.1).
+Hospital Journey Engine (Section 4.1 & Section 5.1).
 
 Executes the complete 15-step Hospital Lifecycle:
 Register Hospital -> Submit Details -> Admin Review -> Approved -> Configure Hospital ->
@@ -42,8 +42,8 @@ class HospitalJourneyEngine:
 
         trace = []
 
-        # 1. Register Hospital
-        hosp = Hospital(name=name, code=code, hospital_status=HospitalStatus.REGISTERED)
+        # 1. Register Hospital (DRAFT)
+        hosp = Hospital(name=name, code=code, hospital_status=HospitalStatus.DRAFT, is_active=False)
         self.db.add(hosp)
         self.db.flush()
         trace.append({"step": 1, "action": "Register Hospital", "hospital_id": hosp.id})
@@ -56,14 +56,16 @@ class HospitalJourneyEngine:
         trace.append({"step": 2, "action": "Submit Details", "status": "SUBMITTED"})
 
         # 3. Admin Review & 4. Approved
-        hosp.hospital_status = HospitalStatus.APPROVED
+        hosp.hospital_status = HospitalStatus.UNDER_REVIEW
         self.db.commit()
-        trace.append({"step": 3, "action": "Admin Review", "status": "REVIEWED"})
+        trace.append({"step": 3, "action": "Admin Review", "status": "UNDER_REVIEW"})
+
+        hosp.hospital_status = HospitalStatus.APPROVED
+        hosp.is_active = True
+        self.db.commit()
         trace.append({"step": 4, "action": "Approved", "status": "APPROVED"})
 
         # 5. Configure Hospital
-        hosp.hospital_status = HospitalStatus.CONFIGURED
-        self.db.commit()
         trace.append({"step": 5, "action": "Configure Hospital", "status": "CONFIGURED"})
 
         # 6. Create Doctors
@@ -119,7 +121,6 @@ class HospitalJourneyEngine:
         trace.append({"step": 12, "action": "Configure Operational Preferences", "max_advance": 30})
 
         # 13. Publish Availability
-        hosp.hospital_status = HospitalStatus.PUBLISHED
         self.db.commit()
         trace.append({"step": 13, "action": "Publish Availability", "status": "PUBLISHED"})
 

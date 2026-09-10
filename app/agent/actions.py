@@ -1,9 +1,10 @@
 """
-Action Execution Engine (Section 1.4, 1.5, 1.6 & 1.7 Telemetry).
+Action Execution Engine (Section 1.4, 1.5, 1.6, 1.7 & 5.1 Onboarding Filter).
 
 Executes authorized actions with:
 - Strict Pydantic input/output schemas
 - Multi-hospital scope validation & authorization
+- Filter for APPROVED hospitals ONLY (Section 5.1)
 - Database transaction handling & slot availability checks
 - EHR Integration & Authoritative Verification Engine (1.5)
 - Observable & Traceable Event-Driven Workflows (1.6)
@@ -29,7 +30,7 @@ from app.schemas.actions import (
     SyncEHRAppointmentInput, SyncEHRAppointmentOutput
 )
 from app.database.models import (
-    Hospital, Doctor, DoctorWorkingHour, BlockedSlot, Appointment,
+    Hospital, HospitalStatus, Doctor, DoctorWorkingHour, BlockedSlot, Appointment,
     AppointmentStatus, AuditLog
 )
 from app.agent.context_manager import ContextBoundaryGuard
@@ -63,7 +64,11 @@ class ActionExecutor:
 
     def search_hospitals(self, payload: SearchHospitalsInput) -> SearchHospitalsOutput:
         start_t = time.time()
-        query = self.db.query(Hospital).filter(Hospital.is_active == True)
+        # SECTION 5.1 ENFORCEMENT: Only APPROVED and ACTIVE hospitals can be searched
+        query = self.db.query(Hospital).filter(
+            Hospital.is_active == True,
+            Hospital.hospital_status == HospitalStatus.APPROVED
+        )
         if payload.query:
             query = query.filter(Hospital.name.ilike(f"%{payload.query}%"))
         hospitals = query.all()
@@ -88,14 +93,19 @@ class ActionExecutor:
         return SearchHospitalsOutput(
             success=True,
             action_type=ActionType.SEARCH_HOSPITALS,
-            message=f"Found {len(dtos)} hospitals",
+            message=f"Found {len(dtos)} approved hospitals",
             hospitals=dtos,
             audit_id=audit_id
         )
 
     def search_doctors(self, payload: SearchDoctorsInput) -> SearchDoctorsOutput:
         start_t = time.time()
-        query = self.db.query(Doctor).filter(Doctor.is_active == True)
+        # SECTION 5.1 ENFORCEMENT: Only doctors in APPROVED & ACTIVE hospitals can be searched
+        query = self.db.query(Doctor).join(Hospital).filter(
+            Doctor.is_active == True,
+            Hospital.is_active == True,
+            Hospital.hospital_status == HospitalStatus.APPROVED
+        )
         if payload.hospital_id:
             query = query.filter(Doctor.hospital_id == payload.hospital_id)
         if payload.specialty:

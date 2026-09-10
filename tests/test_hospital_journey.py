@@ -35,7 +35,7 @@ def test_full_15_step_hospital_journey():
     )
 
     assert res["success"] is True
-    assert res["hospital_status"] == HospitalStatus.PUBLISHED.value
+    assert res["hospital_status"] == HospitalStatus.APPROVED.value
     assert len(res["15_step_journey_trace"]) == 15
 
     step_actions = [s["action"] for s in res["15_step_journey_trace"]]
