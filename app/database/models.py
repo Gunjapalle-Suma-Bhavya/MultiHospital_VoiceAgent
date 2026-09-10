@@ -1,0 +1,354 @@
+"""
+Database models for Multi-Hospital Voice Agent platform.
+Enforces multi-tenant hospital structure, doctor-controlled calendars,
+appointment scheduling, persistent patient context, privacy boundaries,
+EHR Identity Mappings, Workflow-Driven Operations, Operational Intelligence,
+Hospital Journey (Section 4.1), and Doctor Journey (Section 4.2).
+"""
+
+from datetime import datetime, time
+from enum import Enum
+import uuid
+from sqlalchemy import (
+    Column, String, Boolean, Integer, Float, DateTime, Time, Text, ForeignKey, Enum as SQLEnum
+)
+from sqlalchemy.orm import declarative_base, relationship
+
+Base = declarative_base()
+
+
+class HospitalStatus(str, Enum):
+    REGISTERED = "REGISTERED"
+    SUBMITTED = "SUBMITTED"
+    APPROVED = "APPROVED"
+    CONFIGURED = "CONFIGURED"
+    PUBLISHED = "PUBLISHED"
+
+
+class AppointmentStatus(str, Enum):
+    SCHEDULED = "SCHEDULED"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+    NO_SHOW = "NO_SHOW"
+    PENDING_EHR_VERIFICATION = "PENDING_EHR_VERIFICATION"
+
+
+class PreferredTimeWindow(str, Enum):
+    MORNING = "MORNING"
+    AFTERNOON = "AFTERNOON"
+    EVENING = "EVENING"
+    ANYTIME = "ANYTIME"
+
+
+class EHRAdapterType(str, Enum):
+    FHIR_R4 = "FHIR_R4"
+    HL7_V2 = "HL7_V2"
+    EPIC_MYCHART = "EPIC_MYCHART"
+    CERNER_MILLENNIUM = "CERNER_MILLENNIUM"
+    ATHENA_HEALTH = "ATHENA_HEALTH"
+    MOCK_EHR = "MOCK_EHR"
+
+
+class WorkflowStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    WAITING = "WAITING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    ESCALATED = "ESCALATED"
+
+
+class Hospital(Base):
+    __tablename__ = "hospitals"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), unique=True, nullable=False)
+    timezone = Column(String(50), default="UTC")
+    hospital_status = Column(SQLEnum(HospitalStatus), default=HospitalStatus.REGISTERED)
+    address = Column(String(255), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    doctors = relationship("Doctor", back_populates="hospital", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="hospital")
+    ehr_config = relationship("EHRIntegrationConfig", back_populates="hospital", uselist=False)
+    questionnaires = relationship("HospitalQuestionnaire", back_populates="hospital", cascade="all, delete-orphan")
+    preferences = relationship("HospitalOperationalPreference", back_populates="hospital", uselist=False)
+
+
+class HospitalQuestionnaire(Base):
+    __tablename__ = "hospital_questionnaires"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    specialty = Column(String(100), nullable=False)
+    questions_json = Column(Text, nullable=False)
+    is_approved_by_clinician = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="questionnaires")
+
+
+class HospitalOperationalPreference(Base):
+    __tablename__ = "hospital_operational_preferences"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False, unique=True)
+    max_advance_booking_days = Column(Integer, default=30)
+    cancellation_notice_hours = Column(Integer, default=24)
+    auto_reminders_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="preferences")
+
+
+class EHRIntegrationConfig(Base):
+    __tablename__ = "ehr_integration_configs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False, unique=True)
+    adapter_type = Column(SQLEnum(EHRAdapterType), default=EHRAdapterType.MOCK_EHR)
+    api_base_url = Column(String(255), nullable=True)
+    auth_credentials_json = Column(Text, nullable=True)
+    is_sync_enabled = Column(Boolean, default=True)
+    require_external_verification = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="ehr_config")
+
+
+class Doctor(Base):
+    """Doctor entity with Section 4.2 Doctor Journey profile & question controls."""
+    __tablename__ = "doctors"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    specialty = Column(String(100), nullable=False, index=True)
+    bio = Column(Text, nullable=True)
+    profile_completed = Column(Boolean, default=False)
+    default_appointment_duration = Column(Integer, default=30)
+    is_active = Column(Boolean, default=True)
+    special_instructions = Column(Text, nullable=True)
+
+    hospital = relationship("Hospital", back_populates="doctors")
+    working_hours = relationship("DoctorWorkingHour", back_populates="doctor", cascade="all, delete-orphan")
+    blocked_slots = relationship("BlockedSlot", back_populates="doctor", cascade="all, delete-orphan")
+    appointments = relationship("Appointment", back_populates="doctor")
+    approved_questions = relationship("DoctorApprovedQuestion", back_populates="doctor", cascade="all, delete-orphan")
+
+
+class DoctorApprovedQuestion(Base):
+    """
+    Doctor-approved pre-visit intake question (Section 4.2 / Step 7).
+    """
+    __tablename__ = "doctor_approved_questions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    question_text = Column(Text, nullable=False)
+    question_type = Column(String(50), default="TEXT")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    doctor = relationship("Doctor", back_populates="approved_questions")
+
+
+class DoctorWorkingHour(Base):
+    __tablename__ = "doctor_working_hours"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    day_of_week = Column(Integer, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    break_start = Column(Time, nullable=True)
+    break_end = Column(Time, nullable=True)
+
+    doctor = relationship("Doctor", back_populates="working_hours")
+
+
+class BlockedSlot(Base):
+    __tablename__ = "blocked_slots"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    start_datetime = Column(DateTime, nullable=False)
+    end_datetime = Column(DateTime, nullable=False)
+    reason = Column(String(255), nullable=True)
+
+    doctor = relationship("Doctor", back_populates="blocked_slots")
+
+
+class PatientProfile(Base):
+    __tablename__ = "patient_profiles"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    phone_number = Column(String(50), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    
+    last_hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True)
+    last_doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=True)
+    preferred_time_window = Column(SQLEnum(PreferredTimeWindow), default=PreferredTimeWindow.ANYTIME)
+    communication_preference = Column(String(50), default="VOICE_AND_SMS")
+    interaction_notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    sessions = relationship("PatientSessionState", back_populates="patient", cascade="all, delete-orphan")
+
+
+class PatientSessionState(Base):
+    __tablename__ = "patient_session_states"
+
+    session_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=False)
+    
+    current_intent = Column(String(100), nullable=True)
+    workflow_step = Column(String(100), nullable=True)
+    active_draft_booking_json = Column(Text, nullable=True)
+    completed_workflow_steps_json = Column(Text, nullable=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    patient = relationship("PatientProfile", back_populates="sessions")
+
+
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=True)
+    patient_name = Column(String(255), nullable=False)
+    patient_phone = Column(String(50), nullable=False)
+    patient_email = Column(String(255), nullable=True)
+    start_datetime = Column(DateTime, nullable=False)
+    end_datetime = Column(DateTime, nullable=False)
+    status = Column(SQLEnum(AppointmentStatus), default=AppointmentStatus.PENDING_EHR_VERIFICATION)
+    external_appointment_id = Column(String(255), nullable=True)
+    is_ehr_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="appointments")
+    doctor = relationship("Doctor", back_populates="appointments")
+    intake_record = relationship("PatientIntakeRecord", back_populates="appointment", uselist=False)
+    workflows = relationship("WorkflowInstance", back_populates="appointment", cascade="all, delete-orphan")
+
+
+class WorkflowInstance(Base):
+    __tablename__ = "workflow_instances"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=True)
+    workflow_name = Column(String(100), nullable=False)
+    trigger_event = Column(String(100), nullable=False)
+    status = Column(SQLEnum(WorkflowStatus), default=WorkflowStatus.PENDING)
+    payload_json = Column(Text, nullable=True)
+    scheduled_for = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    appointment = relationship("Appointment", back_populates="workflows")
+    step_logs = relationship("WorkflowStepLog", back_populates="workflow", cascade="all, delete-orphan")
+
+
+class WorkflowStepLog(Base):
+    __tablename__ = "workflow_step_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workflow_id = Column(String(36), ForeignKey("workflow_instances.id"), nullable=False)
+    step_name = Column(String(100), nullable=False)
+    step_status = Column(String(50), nullable=False)
+    attempt_count = Column(Integer, default=1)
+    message = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    workflow = relationship("WorkflowInstance", back_populates="step_logs")
+
+
+class AITelemetryLog(Base):
+    __tablename__ = "ai_telemetry_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(36), nullable=False, index=True)
+    hospital_id = Column(String(36), nullable=True)
+    
+    ai_attempt_summary = Column(String(255), nullable=False)
+    capability_invoked = Column(String(100), nullable=True)
+    model_name = Column(String(100), default="gemini-3.6-flash")
+    
+    ehr_system_contacted = Column(String(100), nullable=True)
+    ehr_connector_used = Column(String(100), nullable=True)
+    
+    latency_ms = Column(Float, default=0.0)
+    failure_location = Column(String(255), nullable=True)
+    retries_triggered = Column(Integer, default=0)
+    verification_succeeded = Column(Boolean, default=True)
+    reconciliation_required = Column(Boolean, default=False)
+    recovery_succeeded = Column(Boolean, default=True)
+    escalated_to_human = Column(Boolean, default=False)
+    
+    prompt_tokens = Column(Integer, default=0)
+    completion_tokens = Column(Integer, default=0)
+    total_tokens = Column(Integer, default=0)
+    estimated_cost_usd = Column(Float, default=0.0000)
+    
+    workflow_health_status = Column(String(50), default="HEALTHY")
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class EHRMapping(Base):
+    __tablename__ = "ehr_mappings"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    entity_type = Column(String(50), nullable=False)
+    internal_id = Column(String(255), nullable=False, index=True)
+    external_ehr_id = Column(String(255), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class EHRSyncLog(Base):
+    __tablename__ = "ehr_sync_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=False)
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    action_type = Column(String(50), nullable=False)
+    sync_status = Column(String(50), nullable=False)
+    external_reference_id = Column(String(255), nullable=True)
+    details_json = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class PatientIntakeRecord(Base):
+    __tablename__ = "patient_intake_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=False)
+    patient_reported_summary = Column(Text, nullable=False)
+    intake_answers_json = Column(Text, nullable=True)
+    is_patient_reported_only = Column(Boolean, default=True)
+    encryption_status = Column(String(50), default="ENCRYPTED_AT_REST")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    appointment = relationship("Appointment", back_populates="intake_record")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(36), nullable=True)
+    hospital_id = Column(String(36), nullable=True)
+    event_type = Column(String(100), nullable=False)
+    payload_json = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
