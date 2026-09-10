@@ -143,3 +143,19 @@ class FHIRR4Adapter(BaseEHRAdapter):
             message="FHIR R4 GET /Appointment verified.",
             raw_response={"resourceType": "Appointment", "id": external_appointment_id, "status": "booked"}
         )
+
+
+class MockEHRService:
+    """Convenience Mock EHR Service for direct booking verification."""
+    
+    @staticmethod
+    def createAndVerifyBooking(patient_id: str, doctor_id: str, start_datetime: datetime, force_fail: bool = False) -> Dict[str, Any]:
+        if force_fail:
+            return {"success": False, "status": "RECONCILIATION_REQUIRED", "message": "EHR verification connection timed out."}
+        return {
+            "success": True,
+            "external_appointment_id": f"EHR-VERIFIED-{int(datetime.utcnow().timestamp())}",
+            "status": "CONFIRMED",
+            "message": "Booking verified in EHR system."
+        }
+

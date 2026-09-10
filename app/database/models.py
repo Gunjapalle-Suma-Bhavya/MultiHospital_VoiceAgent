@@ -501,6 +501,9 @@ class AuditLog(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String(36), nullable=True)
     hospital_id = Column(String(36), nullable=True)
+    correlation_id = Column(String(100), nullable=True, index=True)
     event_type = Column(String(100), nullable=False)
+    tool_invocation_json = Column(Text, nullable=True)
     payload_json = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
+

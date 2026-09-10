@@ -1065,3 +1065,219 @@ def process_ai_agent_turn(payload: ProcessAgentTurnInput, db: Session = Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# =========================================================================
+# SECTION 5.10 & STRATEGY BLUEPRINT: REAL-TIME VOICE CHAT ORCHESTRATOR
+# =========================================================================
+
+import json
+import uuid
+from app.agent.intent_understanding import SymptomIntentResolver
+from app.voice.realtime_pipeline import RealTimeVoicePipelineEngine
+from app.telephony.inbound_service import TelephonyInboundService
+from app.ehr.adapters import MockEHRService
+from app.database.models import AuditLog, Appointment, PatientProfile, Doctor, Hospital, AppointmentStatus
+
+class VoiceChatInput(BaseModel):
+    patient_id: Optional[str] = None
+    patient_phone: Optional[str] = "+15551234567"
+    user_utterance: str
+    session_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+    force_ehr_fail: bool = False
+
+@app.post("/api/voice/chat")
+def voice_chat_orchestrator(payload: VoiceChatInput, db: Session = Depends(get_db)):
+    corr_id = payload.correlation_id or str(uuid.uuid4())
+    session_id = payload.session_id or str(uuid.uuid4())
+    pipeline = RealTimeVoicePipelineEngine()
+
+    def process_turn():
+        # 1. Symptom & Specialty Inference (5.12)
+        symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(payload.user_utterance)
+
+        # Audit Log: Context resolution & Symptom inference
+        audit_entry = AuditLog(
+            session_id=session_id,
+            correlation_id=corr_id,
+            event_type="CONTEXT_RESOLUTION",
+            payload_json=symptom_res.model_dump_json()
+        )
+        db.add(audit_entry)
+        db.commit()
+
+        lowered = payload.user_utterance.lower()
+
+        if "book" in lowered or "schedule" in lowered:
+            # Tool: book_appointment
+            doc = db.query(Doctor).filter(Doctor.is_active == True).first()
+            hosp = db.query(Hospital).filter(Hospital.is_active == True).first()
+            patient = db.query(PatientProfile).filter((PatientProfile.id == payload.patient_id) | (PatientProfile.phone_number == payload.patient_phone)).first()
+            if not patient:
+                patient = PatientProfile(phone_number=payload.patient_phone or "+15551234567", full_name="Valued Patient")
+                db.add(patient)
+                db.commit()
+
+            start_dt = datetime.utcnow() + timedelta(days=2, hours=10)
+
+            # Atomic DB Transaction Lock simulation
+            with db.begin_nested():
+                _ = db.query(Appointment).filter(
+                    Appointment.doctor_id == (doc.id if doc else "DOC-100"),
+                    Appointment.start_datetime == start_dt
+                ).first()
+
+            # Mock EHR Verification
+            ehr_res = MockEHRService.createAndVerifyBooking(
+                patient_id=patient.id,
+                doctor_id=doc.id if doc else "DOC-100",
+                start_datetime=start_dt,
+                force_fail=payload.force_ehr_fail
+            )
+
+            # Audit Log EHR Status Check
+            ehr_audit = AuditLog(
+                session_id=session_id,
+                correlation_id=corr_id,
+                event_type="EHR_STATUS_CHECK",
+                tool_invocation_json='{"tool": "book_appointment"}',
+                payload_json=json.dumps(ehr_res)
+            )
+            db.add(ehr_audit)
+            db.commit()
+
+            if not ehr_res["success"]:
+                # Verification Rule: RECONCILIATION_REQUIRED
+                appt = Appointment(
+                    hospital_id=hosp.id if hosp else "HOSP-100",
+                    doctor_id=doc.id if doc else "DOC-100",
+                    patient_id=patient.id,
+                    patient_name=patient.name,
+                    patient_phone=patient.phone_number,
+                    start_datetime=start_dt,
+                    end_datetime=start_dt + timedelta(minutes=30),
+                    status=AppointmentStatus.RECONCILIATION_REQUIRED,
+                    external_status="EHR_VERIFICATION_PENDING"
+                )
+                db.add(appt)
+                db.commit()
+
+                speech = "Hospital system verification is pending. Your appointment requires reconciliation before final confirmation."
+                return {
+                    "status": "RECONCILIATION_REQUIRED",
+                    "speech_response": speech,
+                    "agent_response": speech,
+                    "correlation_id": corr_id,
+                    "tool_called": "book_appointment",
+                    "ehr_verification_success": False
+                }
+            else:
+                appt = Appointment(
+                    hospital_id=hosp.id if hosp else "HOSP-100",
+                    doctor_id=doc.id if doc else "DOC-100",
+                    patient_id=patient.id,
+                    patient_name=patient.name,
+                    patient_phone=patient.phone_number,
+                    start_datetime=start_dt,
+                    end_datetime=start_dt + timedelta(minutes=30),
+                    status=AppointmentStatus.CONFIRMED,
+                    external_status="EHR_CONFIRMED",
+                    is_ehr_verified=True
+                )
+                db.add(appt)
+                db.commit()
+
+                speech = f"Your appointment with {doc.name if doc else 'the doctor'} is confirmed for {start_dt.strftime('%B %d at %I:%M %p')}."
+                return {
+                    "status": "SUCCESS",
+                    "speech_response": speech,
+                    "agent_response": speech,
+                    "correlation_id": corr_id,
+                    "tool_called": "book_appointment",
+                    "ehr_verification_success": True
+                }
+
+        elif "available" in lowered or "slot" in lowered:
+            doc = db.query(Doctor).filter(Doctor.is_active == True).first()
+            audit_entry = AuditLog(
+                session_id=session_id,
+                correlation_id=corr_id,
+                event_type="TOOL_INVOCATION",
+                tool_invocation_json='{"tool": "check_availability"}'
+            )
+            db.add(audit_entry)
+            db.commit()
+            speech = f"Doctor {doc.name if doc else 'Gregory House'} is available tomorrow at 10:00 AM and 2:00 PM."
+            return {
+                "status": "SUCCESS",
+                "speech_response": speech,
+                "agent_response": speech,
+                "correlation_id": corr_id,
+                "tool_called": "check_availability"
+            }
+
+        elif "doctor" in lowered or "specialty" in lowered or symptom_res.has_symptom:
+            audit_entry = AuditLog(
+                session_id=session_id,
+                correlation_id=corr_id,
+                event_type="TOOL_INVOCATION",
+                tool_invocation_json='{"tool": "search_doctors"}'
+            )
+            db.add(audit_entry)
+            db.commit()
+            speech = symptom_res.cautious_response
+            return {
+                "status": "SUCCESS",
+                "speech_response": speech,
+                "agent_response": speech,
+                "correlation_id": corr_id,
+                "tool_called": "search_doctors",
+                "symptom_inference": symptom_res.model_dump()
+            }
+
+        else:
+            speech = "I am your automated hospital receptionist assistant. How can I help you search doctors or schedule an appointment?"
+            return {
+                "status": "SUCCESS",
+                "speech_response": speech,
+                "agent_response": speech,
+                "correlation_id": corr_id
+            }
+
+    return pipeline.execute_low_latency_turn(session_id=session_id, user_utterance=payload.user_utterance, turn_processor_fn=process_turn)
+
+
+# =========================================================================
+# SECTION 5.11: TELEPHONY INTEGRATION ENDPOINTS
+# =========================================================================
+
+class InboundCallInput(BaseModel):
+    caller_phone_number: str
+
+class TelephonyTurnInput(BaseModel):
+    session_id: str
+    caller_phone_number: str
+    speech_text: str
+    hospital_id: Optional[str] = None
+
+@app.post("/api/v1/telephony/inbound-call")
+def telephony_inbound_call(payload: InboundCallInput, db: Session = Depends(get_db)):
+    svc = TelephonyInboundService(db)
+    return svc.handle_inbound_call(payload.caller_phone_number)
+
+@app.post("/api/v1/telephony/process-turn")
+def telephony_process_turn(payload: TelephonyTurnInput, db: Session = Depends(get_db)):
+    svc = TelephonyInboundService(db)
+    return svc.process_telephony_turn(
+        session_id=payload.session_id,
+        caller_phone_number=payload.caller_phone_number,
+        speech_text=payload.speech_text,
+        hospital_id=payload.hospital_id
+    )
+
+@app.post("/api/v1/telephony/escalate")
+def telephony_escalate(session_id: str, db: Session = Depends(get_db)):
+    svc = TelephonyInboundService(db)
+    return svc.terminate_call(session_id=session_id, reason="ESCALATED_TO_HUMAN")
+
+

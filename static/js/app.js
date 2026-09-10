@@ -243,13 +243,20 @@ function setupVoiceConsole() {
   let recognition = null;
   let isListening = false;
 
-  // Initialize Web Speech API if supported
+  // Initialize Web Speech API with Real-Time Barge-in & Interruption Handling
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRecognition) {
     recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = "en-US";
+
+    // BARGE-IN / INTERRUPTION HANDLING: Immediately cancel active speech synthesis if user starts speaking
+    recognition.onspeechstart = () => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
@@ -280,6 +287,9 @@ function setupVoiceConsole() {
       if (isListening) {
         recognition.stop();
       } else {
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel(); // Halt any active TTS output
+        }
         recognition.start();
         isListening = true;
         btnMic.textContent = "Listening... (Click to Stop)";
@@ -312,15 +322,17 @@ function setupVoiceConsole() {
   }
 
   async function sendAgentTurn(utterance) {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel(); // Barge-in halt
+    }
     appendMessage(utterance, "user");
 
     try {
-      const res = await fetch("/api/v1/ai-agent/turn", {
+      const res = await fetch("/api/voice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          channel: "web_voice",
-          patient_identifier: "+15551234567",
+          patient_phone: "+15551234567",
           user_utterance: utterance
         })
       });
@@ -331,7 +343,7 @@ function setupVoiceConsole() {
       speakResponse(responseText);
 
       telemetryOutput.style.display = "block";
-      telemetryOutput.textContent = `[Telemetry Debug Log]\nIntent: ${data.detected_intent}\nAction: ${data.action_executed || 'None'}\nCapabilities Invoked: ${JSON.stringify(data.capabilities_invoked)}`;
+      telemetryOutput.textContent = `[Real-Time Telemetry Log]\nStatus: ${data.status}\nTool Invoked: ${data.tool_called || 'None'}\nCorrelation ID: ${data.correlation_id}\nPerceived Latency: ${data.latency_ms || 0}ms (Target Sub-2s: ${data.sub_2_sec_target_met !== false})`;
     } catch (err) {
       appendMessage("Error communicating with AI agent server: " + err.message, "agent");
     }
@@ -349,9 +361,10 @@ function setupVoiceConsole() {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
+      utterance.rate = 1.05; // Fast, sub-2s responsive speech rate
       utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   }
 }
+
