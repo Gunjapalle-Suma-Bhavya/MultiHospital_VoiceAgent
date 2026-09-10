@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
-from app.database.models import Base, EHRAdapterType
+from app.database.models import Base, EHRAdapterType, DoctorStatus, ConsultationType
 from app.pipeline.orchestrator import HorizontalPlatformPipeline
 from app.vision.executive_summary import ProductVisionEngine
 from app.agent.coordinator import ProductVision16StepCoordinator
@@ -31,6 +31,8 @@ from app.journeys.patient_journey import PatientJourneyEngine
 from app.journeys.admin_journey import PlatformAdminJourneyEngine
 from app.onboarding.hospital_onboarding import HospitalSelfServiceOnboardingService
 from app.admin.admin_approval import PlatformAdminApprovalService
+from app.admin.hospital_admin import HospitalAdminService
+from app.doctors.doctor_management import DoctorManagementService
 
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
@@ -228,6 +230,270 @@ def admin_activate_ehr_config(hospital_id: str, db: Session = Depends(get_db)):
         return {"hospital_id": hospital_id, "config_id": config.id, "is_active": config.is_active}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.3: HOSPITAL ADMINISTRATION ENDPOINTS
+# =========================================================================
+
+class UpdateHospitalProfileInput(BaseModel):
+    name: Optional[str] = None
+    organization_info: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    website: Optional[str] = None
+    timezone: Optional[str] = None
+
+class UpdateDepartmentsSpecialtiesInput(BaseModel):
+    departments: Optional[List[str]] = None
+    specialties: Optional[List[str]] = None
+    services: Optional[List[str]] = None
+
+class UpdateAppointmentSettingsInput(BaseModel):
+    max_advance_booking_days: int = 30
+    cancellation_notice_hours: int = 24
+    auto_reminders_enabled: bool = True
+
+class AddStaffInput(BaseModel):
+    name: str
+    email: str
+    role: str = "STAFF"
+    phone: Optional[str] = None
+
+class UpdateCommunicationPrefInput(BaseModel):
+    communication_preference: str = "VOICE_AND_SMS"
+    sms_enabled: bool = True
+    voice_enabled: bool = True
+
+class CreateQuestionnaireInput(BaseModel):
+    title: str
+    specialty: str
+    questions: List[str]
+
+class ConfigureEHRInput(BaseModel):
+    adapter_type: EHRAdapterType
+    endpoint_url: Optional[str] = None
+    api_base_url: Optional[str] = None
+    is_sync_enabled: bool = True
+
+@app.get("/api/v1/hospital-admin/{hospital_id}/profile")
+def get_hospital_admin_profile(hospital_id: str, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        return service.get_hospital_profile(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.put("/api/v1/hospital-admin/{hospital_id}/profile")
+def update_hospital_admin_profile(hospital_id: str, payload: UpdateHospitalProfileInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        hosp = service.update_hospital_profile(
+            hospital_id=hospital_id, name=payload.name, organization_info=payload.organization_info,
+            address=payload.address, phone=payload.phone, contact_email=payload.contact_email,
+            website=payload.website, timezone=payload.timezone
+        )
+        return {"hospital_id": hosp.id, "name": hosp.name, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/v1/hospital-admin/{hospital_id}/departments-specialties")
+def update_departments_specialties(hospital_id: str, payload: UpdateDepartmentsSpecialtiesInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        hosp = service.update_departments_and_specialties(
+            hospital_id=hospital_id, departments=payload.departments, specialties=payload.specialties, services=payload.services
+        )
+        return {"hospital_id": hosp.id, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/v1/hospital-admin/{hospital_id}/appointment-settings")
+def update_appointment_settings(hospital_id: str, payload: UpdateAppointmentSettingsInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        pref = service.update_appointment_settings(
+            hospital_id=hospital_id, max_advance_booking_days=payload.max_advance_booking_days,
+            cancellation_notice_hours=payload.cancellation_notice_hours, auto_reminders_enabled=payload.auto_reminders_enabled
+        )
+        return {"hospital_id": hospital_id, "max_advance_days": pref.max_advance_booking_days, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/hospital-admin/{hospital_id}/staff")
+def add_hospital_staff(hospital_id: str, payload: AddStaffInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        staff = service.add_staff_member(hospital_id=hospital_id, name=payload.name, email=payload.email, role=payload.role, phone=payload.phone)
+        return {"staff_id": staff.id, "hospital_id": hospital_id, "name": staff.name, "role": staff.role}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/hospital-admin/{hospital_id}/staff")
+def list_hospital_staff(hospital_id: str, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        return service.list_staff_members(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.put("/api/v1/hospital-admin/{hospital_id}/communication-preferences")
+def update_comm_preferences(hospital_id: str, payload: UpdateCommunicationPrefInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        pref = service.update_communication_preferences(
+            hospital_id=hospital_id, communication_preference=payload.communication_preference,
+            sms_enabled=payload.sms_enabled, voice_enabled=payload.voice_enabled
+        )
+        return {"hospital_id": hospital_id, "communication_preference": pref.communication_preference, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/hospital-admin/{hospital_id}/questionnaires")
+def create_hospital_questionnaire(hospital_id: str, payload: CreateQuestionnaireInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        q = service.create_questionnaire(hospital_id=hospital_id, title=payload.title, specialty=payload.specialty, questions=payload.questions)
+        return {"questionnaire_id": q.id, "hospital_id": hospital_id, "title": q.title}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/hospital-admin/{hospital_id}/questionnaires")
+def list_hospital_questionnaires(hospital_id: str, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        return service.list_questionnaires(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.put("/api/v1/hospital-admin/{hospital_id}/ehr-integration")
+def configure_hospital_ehr(hospital_id: str, payload: ConfigureEHRInput, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        config = service.configure_ehr_integration(
+            hospital_id=hospital_id, adapter_type=payload.adapter_type,
+            endpoint_url=payload.endpoint_url, api_base_url=payload.api_base_url, is_sync_enabled=payload.is_sync_enabled
+        )
+        return {"config_id": config.id, "hospital_id": hospital_id, "adapter_type": config.adapter_type.value, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/hospital-admin/{hospital_id}/analytics")
+def get_hospital_analytics(hospital_id: str, db: Session = Depends(get_db)):
+    service = HospitalAdminService(db)
+    try:
+        return service.get_isolated_hospital_analytics(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.4: DOCTOR MANAGEMENT ENDPOINTS
+# =========================================================================
+
+class InviteDoctorInput(BaseModel):
+    hospital_id: str
+    name: str
+    specialty: str
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+    experience_years: int = 0
+    languages: Optional[List[str]] = None
+    consultation_type: ConsultationType = ConsultationType.IN_PERSON
+    default_appointment_duration: int = 30
+    external_provider_id: Optional[str] = None
+
+class SuspendDoctorInput(BaseModel):
+    reason: Optional[str] = None
+
+class UpdateDoctorProfileInput(BaseModel):
+    name: Optional[str] = None
+    photo_url: Optional[str] = None
+    specialty: Optional[str] = None
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+    experience_years: Optional[int] = None
+    languages: Optional[List[str]] = None
+    consultation_type: Optional[ConsultationType] = None
+    default_appointment_duration: Optional[int] = None
+    external_provider_id: Optional[str] = None
+    bio: Optional[str] = None
+    professional_info: Optional[str] = None
+    special_instructions: Optional[str] = None
+
+@app.post("/api/v1/doctors/invite")
+def invite_doctor(payload: InviteDoctorInput, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        doc = service.invite_doctor(
+            hospital_id=payload.hospital_id, name=payload.name, specialty=payload.specialty,
+            department=payload.department, qualifications=payload.qualifications,
+            experience_years=payload.experience_years, languages=payload.languages,
+            consultation_type=payload.consultation_type, default_appointment_duration=payload.default_appointment_duration,
+            external_provider_id=payload.external_provider_id
+        )
+        return {"doctor_id": doc.id, "status": doc.doctor_status.value, "is_active": doc.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/doctors/{doctor_id}/activate")
+def activate_doctor(doctor_id: str, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        doc = service.activate_doctor(doctor_id)
+        return {"doctor_id": doc.id, "status": doc.doctor_status.value, "is_active": doc.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/doctors/{doctor_id}/deactivate")
+def deactivate_doctor(doctor_id: str, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        doc = service.deactivate_doctor(doctor_id)
+        return {"doctor_id": doc.id, "status": doc.doctor_status.value, "is_active": doc.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/doctors/{doctor_id}/suspend")
+def suspend_doctor(doctor_id: str, payload: SuspendDoctorInput, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        doc = service.suspend_doctor(doctor_id, payload.reason)
+        return {"doctor_id": doc.id, "status": doc.doctor_status.value, "is_active": doc.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/v1/doctors/{doctor_id}/profile")
+def update_doctor_profile(doctor_id: str, payload: UpdateDoctorProfileInput, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        doc = service.update_doctor_profile(
+            doctor_id=doctor_id, name=payload.name, photo_url=payload.photo_url, specialty=payload.specialty,
+            department=payload.department, qualifications=payload.qualifications, experience_years=payload.experience_years,
+            languages=payload.languages, consultation_type=payload.consultation_type, default_appointment_duration=payload.default_appointment_duration,
+            external_provider_id=payload.external_provider_id, bio=payload.bio, professional_info=payload.professional_info,
+            special_instructions=payload.special_instructions
+        )
+        return {"doctor_id": doc.id, "updated": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/doctors/{doctor_id}")
+def get_doctor_profile(doctor_id: str, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        return service.get_doctor_profile(doctor_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/api/v1/hospitals/{hospital_id}/doctors")
+def list_doctors_for_hospital(hospital_id: str, status: Optional[DoctorStatus] = None, db: Session = Depends(get_db)):
+    service = DoctorManagementService(db)
+    try:
+        return service.list_doctors_for_hospital(hospital_id=hospital_id, status_filter=status)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # =========================================================================

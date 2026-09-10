@@ -42,6 +42,20 @@ class PreferredTimeWindow(str, Enum):
     ANYTIME = "ANYTIME"
 
 
+class DoctorStatus(str, Enum):
+    INVITED = "INVITED"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class ConsultationType(str, Enum):
+    IN_PERSON = "IN_PERSON"
+    VIDEO = "VIDEO"
+    PHONE = "PHONE"
+    HYBRID = "HYBRID"
+
+
 class EHRAdapterType(str, Enum):
     FHIR_R4 = "FHIR_R4"
     HL7_V2 = "HL7_V2"
@@ -110,6 +124,7 @@ class Hospital(Base):
     ehr_config = relationship("EHRIntegrationConfig", back_populates="hospital", uselist=False)
     questionnaires = relationship("HospitalQuestionnaire", back_populates="hospital", cascade="all, delete-orphan")
     preferences = relationship("HospitalOperationalPreference", back_populates="hospital", uselist=False)
+    staff_members = relationship("HospitalStaff", back_populates="hospital", cascade="all, delete-orphan")
 
 
 class HospitalQuestionnaire(Base):
@@ -134,9 +149,27 @@ class HospitalOperationalPreference(Base):
     max_advance_booking_days = Column(Integer, default=30)
     cancellation_notice_hours = Column(Integer, default=24)
     auto_reminders_enabled = Column(Boolean, default=True)
+    communication_preference = Column(String(50), default="VOICE_AND_SMS")
+    sms_enabled = Column(Boolean, default=True)
+    voice_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     hospital = relationship("Hospital", back_populates="preferences")
+
+
+class HospitalStaff(Base):
+    __tablename__ = "hospital_staff"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    role = Column(String(100), default="STAFF")
+    phone = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    hospital = relationship("Hospital", back_populates="staff_members")
 
 
 class EHRIntegrationConfig(Base):
@@ -163,11 +196,22 @@ class Doctor(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
     name = Column(String(255), nullable=False)
+    photo_url = Column(String(255), nullable=True)
     specialty = Column(String(100), nullable=False, index=True)
-    bio = Column(Text, nullable=True)
-    profile_completed = Column(Boolean, default=False)
+    department = Column(String(100), nullable=True)
+    qualifications = Column(String(255), nullable=True)
+    experience_years = Column(Integer, default=0)
+    languages_json = Column(Text, nullable=True)  # JSON list of languages
+    consultation_type = Column(SQLEnum(ConsultationType), default=ConsultationType.IN_PERSON)
     default_appointment_duration = Column(Integer, default=30)
+    
+    doctor_status = Column(SQLEnum(DoctorStatus), default=DoctorStatus.ACTIVE)
     is_active = Column(Boolean, default=True)
+    external_provider_id = Column(String(100), nullable=True, index=True)
+    
+    bio = Column(Text, nullable=True)
+    professional_info = Column(Text, nullable=True)
+    profile_completed = Column(Boolean, default=False)
     special_instructions = Column(Text, nullable=True)
 
     hospital = relationship("Hospital", back_populates="doctors")

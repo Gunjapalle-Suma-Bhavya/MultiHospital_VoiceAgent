@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
 from app.database.models import (
-    Doctor, DoctorWorkingHour, BlockedSlot, DoctorApprovedQuestion,
+    Doctor, DoctorStatus, DoctorWorkingHour, BlockedSlot, DoctorApprovedQuestion,
     Appointment, PatientIntakeRecord, PatientProfile, Hospital, HospitalStatus
 )
 from app.vision.executive_summary import ProductVisionEngine
@@ -47,7 +47,7 @@ class DoctorJourneyEngine:
         trace = []
 
         # 1. Doctor Created
-        doc = Doctor(hospital_id=hospital_id, name=doctor_name, specialty=specialty)
+        doc = Doctor(hospital_id=hospital_id, name=doctor_name, specialty=specialty, doctor_status=DoctorStatus.ACTIVE, is_active=True)
         self.db.add(doc)
         self.db.flush()
         trace.append({"step": 1, "action": "Doctor Created", "doctor_id": doc.id})

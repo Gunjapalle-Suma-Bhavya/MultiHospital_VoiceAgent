@@ -30,7 +30,7 @@ from app.schemas.actions import (
     SyncEHRAppointmentInput, SyncEHRAppointmentOutput
 )
 from app.database.models import (
-    Hospital, HospitalStatus, Doctor, DoctorWorkingHour, BlockedSlot, Appointment,
+    Hospital, HospitalStatus, Doctor, DoctorStatus, DoctorWorkingHour, BlockedSlot, Appointment,
     AppointmentStatus, AuditLog
 )
 from app.agent.context_manager import ContextBoundaryGuard
@@ -100,9 +100,10 @@ class ActionExecutor:
 
     def search_doctors(self, payload: SearchDoctorsInput) -> SearchDoctorsOutput:
         start_t = time.time()
-        # SECTION 5.1 ENFORCEMENT: Only doctors in APPROVED & ACTIVE hospitals can be searched
+        # SECTION 5.1 & 5.4 ENFORCEMENT: Only ACTIVE doctors in APPROVED & ACTIVE hospitals can be searched
         query = self.db.query(Doctor).join(Hospital).filter(
             Doctor.is_active == True,
+            Doctor.doctor_status == DoctorStatus.ACTIVE,
             Hospital.is_active == True,
             Hospital.hospital_status == HospitalStatus.APPROVED
         )
@@ -165,6 +166,14 @@ class ActionExecutor:
                 action_type=ActionType.CREATE_APPOINTMENT,
                 message=f"Cannot book appointment: Hospital '{hosp.name}' is not approved or is inactive.",
                 error_code="HOSPITAL_NOT_APPROVED"
+            )
+
+        if doc.doctor_status != DoctorStatus.ACTIVE or not doc.is_active:
+            return CreateAppointmentOutput(
+                success=False,
+                action_type=ActionType.CREATE_APPOINTMENT,
+                message=f"Cannot book appointment: Doctor '{doc.name}' is in status '{doc.doctor_status.value if doc.doctor_status else 'INACTIVE'}' and cannot receive appointments.",
+                error_code="DOCTOR_NOT_ACTIVE"
             )
 
         existing = self.db.query(Appointment).filter(
