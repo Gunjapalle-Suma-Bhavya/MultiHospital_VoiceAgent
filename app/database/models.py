@@ -21,8 +21,10 @@ class HospitalStatus(str, Enum):
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
     UNDER_REVIEW = "UNDER_REVIEW"
+    CORRECTION_REQUESTED = "CORRECTION_REQUESTED"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
 
 
 class AppointmentStatus(str, Enum):
@@ -96,6 +98,8 @@ class Hospital(Base):
     # Onboarding Lifecycle State
     hospital_status = Column(SQLEnum(HospitalStatus), default=HospitalStatus.APPROVED)
     rejection_reason = Column(Text, nullable=True)
+    correction_notes = Column(Text, nullable=True)
+    suspension_reason = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -141,10 +145,13 @@ class EHRIntegrationConfig(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False, unique=True)
     adapter_type = Column(SQLEnum(EHRAdapterType), default=EHRAdapterType.MOCK_EHR)
+    endpoint_url = Column(String(255), nullable=True)
     api_base_url = Column(String(255), nullable=True)
     auth_credentials_json = Column(Text, nullable=True)
     is_sync_enabled = Column(Boolean, default=True)
     require_external_verification = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=False)
+    last_sync_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     hospital = relationship("Hospital", back_populates="ehr_config")

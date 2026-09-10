@@ -149,6 +149,24 @@ class ActionExecutor:
 
     def create_appointment(self, payload: CreateAppointmentInput) -> CreateAppointmentOutput:
         start_t = time.time()
+        doc = self.db.query(Doctor).filter(Doctor.id == payload.doctor_id).first()
+        hosp = self.db.query(Hospital).filter(Hospital.id == payload.hospital_id).first()
+        if not doc or not hosp:
+            return CreateAppointmentOutput(
+                success=False,
+                action_type=ActionType.CREATE_APPOINTMENT,
+                message="Invalid hospital or doctor specified.",
+                error_code="INVALID_ENTITY"
+            )
+
+        if hosp.hospital_status != HospitalStatus.APPROVED or not hosp.is_active:
+            return CreateAppointmentOutput(
+                success=False,
+                action_type=ActionType.CREATE_APPOINTMENT,
+                message=f"Cannot book appointment: Hospital '{hosp.name}' is not approved or is inactive.",
+                error_code="HOSPITAL_NOT_APPROVED"
+            )
+
         existing = self.db.query(Appointment).filter(
             Appointment.doctor_id == payload.doctor_id,
             Appointment.start_datetime == payload.start_datetime,
@@ -161,16 +179,6 @@ class ActionExecutor:
                 action_type=ActionType.CREATE_APPOINTMENT,
                 message="Requested slot is no longer available.",
                 error_code="SLOT_CONFLICT"
-            )
-
-        doc = self.db.query(Doctor).filter(Doctor.id == payload.doctor_id).first()
-        hosp = self.db.query(Hospital).filter(Hospital.id == payload.hospital_id).first()
-        if not doc or not hosp:
-            return CreateAppointmentOutput(
-                success=False,
-                action_type=ActionType.CREATE_APPOINTMENT,
-                message="Invalid hospital or doctor specified.",
-                error_code="INVALID_ENTITY"
             )
 
         end_dt = payload.start_datetime + timedelta(minutes=doc.default_appointment_duration)

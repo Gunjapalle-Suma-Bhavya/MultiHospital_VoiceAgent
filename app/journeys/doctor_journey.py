@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database.models import (
     Doctor, DoctorWorkingHour, BlockedSlot, DoctorApprovedQuestion,
-    Appointment, PatientIntakeRecord, PatientProfile
+    Appointment, PatientIntakeRecord, PatientProfile, Hospital, HospitalStatus
 )
 from app.vision.executive_summary import ProductVisionEngine
 
@@ -38,6 +38,11 @@ class DoctorJourneyEngine:
         blocked_leave_start: Optional[datetime] = None,
         blocked_leave_end: Optional[datetime] = None
     ) -> Dict[str, Any]:
+
+        # ENFORCEMENT SECTION 5.2: Check if hospital is approved and active
+        hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+        if not hosp or hosp.hospital_status != HospitalStatus.APPROVED or not hosp.is_active:
+            raise ValueError(f"Cannot create active doctor or publish availability for hospital '{hospital_id}'. Hospital is not approved or is inactive.")
 
         trace = []
 
@@ -123,3 +128,40 @@ class DoctorJourneyEngine:
             "appointments_count": len(appts),
             "appointments": appt_briefings
         }
+
+    def create_active_doctor(self, hospital_id: str, name: str, specialty: str) -> Doctor:
+        """
+        Creates an active doctor.
+        ENFORCEMENT: Only approved and active hospitals can create active doctors.
+        """
+        hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+        if not hosp or hosp.hospital_status != HospitalStatus.APPROVED or not hosp.is_active:
+            raise ValueError(f"Cannot create active doctor for hospital in status {hosp.hospital_status.value if hosp else 'NONE'}. Only APPROVED and active hospitals can create active doctors.")
+
+        doc = Doctor(hospital_id=hospital_id, name=name, specialty=specialty, is_active=True)
+        self.db.add(doc)
+        self.db.commit()
+        return doc
+
+    def publish_doctor_availability(self, doctor_id: str, day_of_week: int, start_time: time, end_time: time) -> DoctorWorkingHour:
+        """
+        Publishes doctor working hours/availability.
+        ENFORCEMENT: Only approved and active hospitals can publish availability.
+        """
+        doc = self.db.query(Doctor).filter(Doctor.id == doctor_id).first()
+        if not doc:
+            raise ValueError("Doctor not found")
+
+        hosp = self.db.query(Hospital).filter(Hospital.id == doc.hospital_id).first()
+        if not hosp or hosp.hospital_status != HospitalStatus.APPROVED or not hosp.is_active:
+            raise ValueError(f"Cannot publish availability for doctor in hospital status {hosp.hospital_status.value if hosp else 'NONE'}. Only APPROVED and active hospitals can publish availability.")
+
+        wh = DoctorWorkingHour(
+            doctor_id=doctor_id,
+            day_of_week=day_of_week,
+            start_time=start_time,
+            end_time=end_time
+        )
+        self.db.add(wh)
+        self.db.commit()
+        return wh

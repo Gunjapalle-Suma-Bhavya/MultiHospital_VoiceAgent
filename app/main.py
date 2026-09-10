@@ -30,6 +30,7 @@ from app.journeys.doctor_journey import DoctorJourneyEngine
 from app.journeys.patient_journey import PatientJourneyEngine
 from app.journeys.admin_journey import PlatformAdminJourneyEngine
 from app.onboarding.hospital_onboarding import HospitalSelfServiceOnboardingService
+from app.admin.admin_approval import PlatformAdminApprovalService
 
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
@@ -138,6 +139,95 @@ def reject_hospital(hospital_id: str, payload: RejectHospitalInput, db: Session 
     onboarding = HospitalSelfServiceOnboardingService(db)
     hosp = onboarding.reject_hospital(hospital_id, payload.reason)
     return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
+
+
+# =========================================================================
+# SECTION 5.2: PLATFORM ADMIN APPROVAL ENDPOINTS
+# =========================================================================
+
+class RequestCorrectionsInput(BaseModel):
+    notes: str
+
+class SuspendHospitalInput(BaseModel):
+    reason: str
+
+@app.get("/api/v1/admin/hospitals/{hospital_id}")
+def admin_review_hospital_info(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        return admin_service.review_hospital_info(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/approve")
+def admin_approve_hospital(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        hosp = admin_service.approve_hospital(hospital_id)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/reject")
+def admin_reject_hospital(hospital_id: str, payload: RejectHospitalInput, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        hosp = admin_service.reject_hospital(hospital_id, payload.reason)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/request-corrections")
+def admin_request_corrections(hospital_id: str, payload: RequestCorrectionsInput, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        hosp = admin_service.request_corrections(hospital_id, payload.notes)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "correction_notes": hosp.correction_notes}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/suspend")
+def admin_suspend_hospital(hospital_id: str, payload: SuspendHospitalInput, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        hosp = admin_service.suspend_hospital(hospital_id, payload.reason)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "suspension_reason": hosp.suspension_reason}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/reactivate")
+def admin_reactivate_hospital(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        hosp = admin_service.reactivate_hospital(hospital_id)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/admin/hospitals/{hospital_id}/activity")
+def admin_view_hospital_activity(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        return admin_service.view_hospital_activity(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/api/v1/admin/hospitals/{hospital_id}/ehr-config")
+def admin_review_ehr_config(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        return admin_service.review_ehr_integration_config(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.post("/api/v1/admin/hospitals/{hospital_id}/ehr-config/activate")
+def admin_activate_ehr_config(hospital_id: str, db: Session = Depends(get_db)):
+    admin_service = PlatformAdminApprovalService(db)
+    try:
+        config = admin_service.activate_ehr_integration(hospital_id)
+        return {"hospital_id": hospital_id, "config_id": config.id, "is_active": config.is_active}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # =========================================================================
