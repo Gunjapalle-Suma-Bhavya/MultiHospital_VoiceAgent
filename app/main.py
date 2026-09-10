@@ -1304,4 +1304,50 @@ def execute_capability(payload: CapabilityExecutionRequest, db: Session = Depend
     return registry.execute(payload)
 
 
+# =========================================================================
+# SECTIONS 5.15 - 5.19: CAPABILITY DISCOVERY, CONTEXT & AMBIGUITY RESOLUTION
+# =========================================================================
+
+from app.agent.capability_discovery import CapabilityDiscoveryService, CapabilityCategory
+from app.agent.multi_tier_context import MultiTierContextEngine
+from app.agent.anaphora_and_ambiguity import AnaphoraContextResolver, AmbiguityClarificationEngine
+
+class ContextResolveInput(BaseModel):
+    session_id: str
+    patient_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    user_utterance: str
+
+@app.get("/api/v1/capabilities/discover")
+def discover_capabilities_catalog(category: Optional[str] = None, caller_role: str = "PATIENT_AGENT", db: Session = Depends(get_db)):
+    svc = CapabilityDiscoveryService(db)
+    cat_enum = CapabilityCategory(category) if category else None
+    descriptors = svc.discover_capabilities(category=cat_enum, caller_role=caller_role)
+    return {"count": len(descriptors), "capabilities": descriptors}
+
+@app.get("/api/v1/context/state")
+def get_context_state(session_id: str, patient_id: Optional[str] = None, phone_number: Optional[str] = None, db: Session = Depends(get_db)):
+    engine = MultiTierContextEngine(db)
+    bundle = engine.get_hierarchical_context(session_id=session_id, patient_id=patient_id, phone_number=phone_number)
+    return {
+        "bundle": bundle.model_dump(),
+        "natural_hint": bundle.generate_natural_prompt_hint()
+    }
+
+@app.post("/api/v1/context/resolve")
+def resolve_context_reference(payload: ContextResolveInput, db: Session = Depends(get_db)):
+    context_engine = MultiTierContextEngine(db)
+    bundle = context_engine.get_hierarchical_context(
+        session_id=payload.session_id,
+        patient_id=payload.patient_id,
+        phone_number=payload.phone_number
+    )
+    result = AnaphoraContextResolver.resolve_reference(
+        user_utterance=payload.user_utterance,
+        context_bundle=bundle
+    )
+    return result.model_dump()
+
+
+
 

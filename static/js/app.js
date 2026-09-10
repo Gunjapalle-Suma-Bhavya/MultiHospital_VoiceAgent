@@ -395,5 +395,38 @@ function setupVoiceConsole() {
       window.speechSynthesis.speak(utterance);
     }
   }
+
+  setupContextResolverForm();
 }
+
+function setupContextResolverForm() {
+  const formRes = document.getElementById("form-resolve-context");
+  const ctxOutput = document.getElementById("context-output");
+
+  if (formRes) {
+    formRes.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const utterance = document.getElementById("context-utterance").value;
+      const sessionId = document.getElementById("context-session-id").value;
+
+      try {
+        const res = await fetch("/api/v1/context/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: sessionId,
+            user_utterance: utterance
+          })
+        });
+        const data = await res.json();
+        ctxOutput.style.display = "block";
+        ctxOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        ctxOutput.style.display = "block";
+        ctxOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
