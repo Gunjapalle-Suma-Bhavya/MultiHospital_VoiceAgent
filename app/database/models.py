@@ -28,11 +28,25 @@ class HospitalStatus(str, Enum):
 
 
 class AppointmentStatus(str, Enum):
+    REQUESTED = "REQUESTED"
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
     SCHEDULED = "SCHEDULED"
+    RESCHEDULED = "RESCHEDULED"
     CANCELLED = "CANCELLED"
     COMPLETED = "COMPLETED"
     NO_SHOW = "NO_SHOW"
+    FAILED = "FAILED"
+    SYNCHRONIZATION_PENDING = "SYNCHRONIZATION_PENDING"
+    RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
     PENDING_EHR_VERIFICATION = "PENDING_EHR_VERIFICATION"
+
+
+class CalendarType(str, Enum):
+    HOSPITAL_CONSULTATION = "HOSPITAL_CONSULTATION"
+    ONLINE_CONSULTATION = "ONLINE_CONSULTATION"
+    FOLLOW_UP = "FOLLOW_UP"
+    SPECIALTY_CONSULTATION = "SPECIALTY_CONSULTATION"
 
 
 class PreferredTimeWindow(str, Enum):
@@ -219,6 +233,21 @@ class Doctor(Base):
     blocked_slots = relationship("BlockedSlot", back_populates="doctor", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="doctor")
     approved_questions = relationship("DoctorApprovedQuestion", back_populates="doctor", cascade="all, delete-orphan")
+    calendars = relationship("DoctorCalendar", back_populates="doctor", cascade="all, delete-orphan")
+
+
+class DoctorCalendar(Base):
+    __tablename__ = "doctor_calendars"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    calendar_name = Column(String(255), nullable=False)
+    calendar_type = Column(SQLEnum(CalendarType), default=CalendarType.HOSPITAL_CONSULTATION)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    doctor = relationship("Doctor", back_populates="calendars")
+    appointments = relationship("Appointment", back_populates="calendar")
 
 
 class DoctorApprovedQuestion(Base):
@@ -303,6 +332,7 @@ class Appointment(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False)
     doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    calendar_id = Column(String(36), ForeignKey("doctor_calendars.id"), nullable=True)
     patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=True)
     patient_name = Column(String(255), nullable=False)
     patient_phone = Column(String(50), nullable=False)
@@ -310,14 +340,31 @@ class Appointment(Base):
     start_datetime = Column(DateTime, nullable=False)
     end_datetime = Column(DateTime, nullable=False)
     status = Column(SQLEnum(AppointmentStatus), default=AppointmentStatus.PENDING_EHR_VERIFICATION)
+    external_status = Column(String(100), nullable=True)
     external_appointment_id = Column(String(255), nullable=True)
     is_ehr_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     hospital = relationship("Hospital", back_populates="appointments")
     doctor = relationship("Doctor", back_populates="appointments")
+    calendar = relationship("DoctorCalendar", back_populates="appointments")
     intake_record = relationship("PatientIntakeRecord", back_populates="appointment", uselist=False)
     workflows = relationship("WorkflowInstance", back_populates="appointment", cascade="all, delete-orphan")
+    state_history = relationship("AppointmentStateHistory", back_populates="appointment", cascade="all, delete-orphan")
+
+
+class AppointmentStateHistory(Base):
+    __tablename__ = "appointment_state_histories"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=False)
+    previous_status = Column(String(50), nullable=True)
+    new_status = Column(String(50), nullable=False)
+    changed_by = Column(String(100), default="SYSTEM")
+    reason = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    appointment = relationship("Appointment", back_populates="state_history")
 
 
 class WorkflowInstance(Base):

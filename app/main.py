@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
-from app.database.models import Base, EHRAdapterType, DoctorStatus, ConsultationType
+from app.database.models import Base, EHRAdapterType, DoctorStatus, ConsultationType, CalendarType, AppointmentStatus
 from app.pipeline.orchestrator import HorizontalPlatformPipeline
 from app.vision.executive_summary import ProductVisionEngine
 from app.agent.coordinator import ProductVision16StepCoordinator
@@ -33,6 +33,9 @@ from app.onboarding.hospital_onboarding import HospitalSelfServiceOnboardingServ
 from app.admin.admin_approval import PlatformAdminApprovalService
 from app.admin.hospital_admin import HospitalAdminService
 from app.doctors.doctor_management import DoctorManagementService
+from app.calendars.doctor_calendar import DoctorCalendarService
+from app.scheduling.availability_engine import AvailabilityEngine
+from app.appointments.appointment_management import AppointmentService
 
 app = FastAPI(
     title="Autonomous Multi-Hospital Voice Agent Network API",
@@ -492,6 +495,159 @@ def list_doctors_for_hospital(hospital_id: str, status: Optional[DoctorStatus] =
     service = DoctorManagementService(db)
     try:
         return service.list_doctors_for_hospital(hospital_id=hospital_id, status_filter=status)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.5: DOCTOR CALENDAR MANAGEMENT ENDPOINTS
+# =========================================================================
+
+class CreateDoctorCalendarInput(BaseModel):
+    doctor_id: str
+    calendar_name: str
+    calendar_type: CalendarType = CalendarType.HOSPITAL_CONSULTATION
+
+@app.post("/api/v1/calendars")
+def create_doctor_calendar(payload: CreateDoctorCalendarInput, db: Session = Depends(get_db)):
+    service = DoctorCalendarService(db)
+    try:
+        cal = service.create_doctor_calendar(doctor_id=payload.doctor_id, calendar_name=payload.calendar_name, calendar_type=payload.calendar_type)
+        return {"calendar_id": cal.id, "doctor_id": cal.doctor_id, "calendar_name": cal.calendar_name, "calendar_type": cal.calendar_type.value}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/doctors/{doctor_id}/calendars")
+def list_doctor_calendars(doctor_id: str, db: Session = Depends(get_db)):
+    service = DoctorCalendarService(db)
+    try:
+        return service.list_doctor_calendars(doctor_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.get("/api/v1/doctors/{doctor_id}/calendar-view")
+def get_calendar_aggregated_view(doctor_id: str, target_date: str, calendar_id: Optional[str] = None, db: Session = Depends(get_db)):
+    service = DoctorCalendarService(db)
+    try:
+        dt = datetime.strptime(target_date, "%Y-%m-%d").date()
+        return service.get_calendar_aggregated_view(doctor_id=doctor_id, target_date=dt, calendar_id=calendar_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.6: AVAILABILITY & SLOT ENGINE ENDPOINTS
+# =========================================================================
+
+class EvaluateSlotInput(BaseModel):
+    doctor_id: str
+    slot_start: datetime
+    slot_end: datetime
+    calendar_id: Optional[str] = None
+    appointment_type: Optional[str] = None
+
+@app.post("/api/v1/availability/evaluate-slot")
+def evaluate_slot_pipeline(payload: EvaluateSlotInput, db: Session = Depends(get_db)):
+    engine = AvailabilityEngine(db)
+    return engine.evaluate_slot_pipeline(
+        doctor_id=payload.doctor_id, slot_start=payload.slot_start, slot_end=payload.slot_end,
+        calendar_id=payload.calendar_id, appointment_type=payload.appointment_type
+    )
+
+@app.get("/api/v1/doctors/{doctor_id}/availability")
+def query_actual_availability(doctor_id: str, target_date: str, calendar_id: Optional[str] = None, time_window: str = "ANYTIME", db: Session = Depends(get_db)):
+    engine = AvailabilityEngine(db)
+    try:
+        dt = datetime.strptime(target_date, "%Y-%m-%d").date()
+        return engine.query_actual_availability(doctor_id=doctor_id, target_date=dt, calendar_id=calendar_id, time_window=time_window)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =========================================================================
+# SECTION 5.7: APPOINTMENT MANAGEMENT ENDPOINTS
+# =========================================================================
+
+class RequestAppointmentInput(BaseModel):
+    hospital_id: str
+    doctor_id: str
+    patient_name: str
+    patient_phone: str
+    start_datetime: datetime
+    calendar_id: Optional[str] = None
+    patient_email: Optional[str] = None
+    patient_id: Optional[str] = None
+
+class RescheduleAppointmentInput(BaseModel):
+    new_start_datetime: datetime
+    reason: Optional[str] = None
+
+class CancelAppointmentInput(BaseModel):
+    reason: Optional[str] = None
+
+@app.post("/api/v1/appointments/request")
+def request_appointment(payload: RequestAppointmentInput, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.create_appointment_request(
+            hospital_id=payload.hospital_id, doctor_id=payload.doctor_id, patient_name=payload.patient_name,
+            patient_phone=payload.patient_phone, start_datetime=payload.start_datetime, calendar_id=payload.calendar_id,
+            patient_email=payload.patient_email, patient_id=payload.patient_id
+        )
+        return {"appointment_id": appt.id, "status": appt.status.value, "external_status": appt.external_status}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/appointments/{appointment_id}/confirm")
+def confirm_appointment(appointment_id: str, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.confirm_appointment(appointment_id)
+        return {"appointment_id": appt.id, "status": appt.status.value, "external_status": appt.external_status, "is_ehr_verified": appt.is_ehr_verified}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/appointments/{appointment_id}/reschedule")
+def reschedule_appointment(appointment_id: str, payload: RescheduleAppointmentInput, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.reschedule_appointment(appointment_id=appointment_id, new_start_datetime=payload.new_start_datetime, reason=payload.reason)
+        return {"appointment_id": appt.id, "new_start_datetime": appt.start_datetime.isoformat(), "status": appt.status.value}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/appointments/{appointment_id}/cancel")
+def cancel_appointment(appointment_id: str, payload: CancelAppointmentInput, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.cancel_appointment(appointment_id=appointment_id, reason=payload.reason)
+        return {"appointment_id": appt.id, "status": appt.status.value, "external_status": appt.external_status}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/appointments/{appointment_id}/complete")
+def complete_appointment(appointment_id: str, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.complete_appointment(appointment_id)
+        return {"appointment_id": appt.id, "status": appt.status.value}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/appointments/{appointment_id}/no-show")
+def mark_appointment_no_show(appointment_id: str, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        appt = service.mark_no_show(appointment_id)
+        return {"appointment_id": appt.id, "status": appt.status.value}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/appointments/{appointment_id}/history")
+def get_appointment_history(appointment_id: str, db: Session = Depends(get_db)):
+    service = AppointmentService(db)
+    try:
+        return service.get_appointment_history(appointment_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

@@ -37,6 +37,8 @@ from app.agent.context_manager import ContextBoundaryGuard
 from app.ehr.integration_layer import EHRIntegrationService
 from app.workflows.engine import WorkflowEngine
 from app.telemetry.intelligence import OperationalIntelligenceService
+from app.scheduling.availability_engine import AvailabilityEngine
+from app.appointments.appointment_management import AppointmentService
 
 
 class ActionExecutor:
@@ -49,6 +51,8 @@ class ActionExecutor:
         self.ehr_service = EHRIntegrationService(db_session)
         self.workflow_engine = WorkflowEngine(db_session)
         self.telemetry = OperationalIntelligenceService(db_session)
+        self.availability_engine = AvailabilityEngine(db_session)
+        self.appointment_service = AppointmentService(db_session)
 
     def _create_audit_entry(self, session_id: str, hospital_id: str, event_type: str, payload: dict) -> str:
         sanitized_payload = ContextBoundaryGuard.sanitize_for_telemetry(payload)
@@ -145,6 +149,44 @@ class ActionExecutor:
             action_type=ActionType.SEARCH_DOCTORS,
             message=f"Found {len(dtos)} doctors matching criteria",
             doctors=dtos,
+            audit_id=audit_id
+        )
+
+    def check_availability(self, payload: CheckAvailabilityInput) -> CheckAvailabilityOutput:
+        start_t = time.time()
+        # SECTION 5.6 ANTI-HALLUCINATION GUARDRAIL: Query actual availability engine
+        slots_data = self.availability_engine.query_actual_availability(
+            doctor_id=payload.doctor_id,
+            target_date=payload.target_date,
+            time_window=payload.time_window or "ANYTIME"
+        )
+        slots = [
+            TimeSlotDTO(
+                start_datetime=datetime.fromisoformat(s["start_datetime"]),
+                end_datetime=datetime.fromisoformat(s["end_datetime"]),
+                is_available=s["is_available"]
+            )
+            for s in slots_data
+        ]
+        audit_id = self._create_audit_entry(payload.session_id, "", "CHECK_AVAILABILITY", payload.model_dump())
+        latency = (time.time() - start_t) * 1000
+
+        self.telemetry.record_turn_telemetry(
+            session_id=payload.session_id,
+            ai_attempt_summary="Check real doctor availability",
+            capability_invoked="CHECK_AVAILABILITY",
+            latency_ms=latency,
+            prompt_tokens=180,
+            completion_tokens=50
+        )
+
+        return CheckAvailabilityOutput(
+            success=True,
+            action_type=ActionType.CHECK_AVAILABILITY,
+            message=f"Found {len(slots)} available slots",
+            doctor_id=payload.doctor_id,
+            target_date=payload.target_date,
+            available_slots=slots,
             audit_id=audit_id
         )
 
