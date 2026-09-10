@@ -2,7 +2,7 @@
 Unit tests for Step 3: Product Vision & Executive Summary Engine.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -41,8 +41,8 @@ def test_doctor_preparation_briefing_generation():
         doctor_id="d-v1",
         patient_name="Tony Stark",
         patient_phone="+1-555-3000",
-        start_datetime=datetime.utcnow() + timedelta(days=1),
-        end_datetime=datetime.utcnow() + timedelta(days=1, hours=1),
+        start_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
+        end_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1, hours=1),
         status=AppointmentStatus.SCHEDULED,
         external_appointment_id="EXT-EHR-9988",
         is_ehr_verified=True

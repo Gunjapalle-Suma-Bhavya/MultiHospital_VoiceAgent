@@ -2,7 +2,7 @@
 Unit tests for Section 1.7: Operational Intelligence, AI Telemetry, Token Usage, and Cost Calculation.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -78,7 +78,7 @@ def test_end_to_end_action_telemetry():
         patient_id="p-tele",
         hospital_id="h-tele",
         doctor_id="d-tele",
-        start_datetime=datetime.utcnow() + timedelta(days=1),
+        start_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
         patient_name="Alice Vance",
         patient_phone="+1-555-9988"
     ))

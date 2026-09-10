@@ -2,7 +2,7 @@
 Unit tests for Section 1.6: Workflow-Driven Operations, Traceability, and Observability.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -28,7 +28,7 @@ def test_appointment_reminder_workflow_lifecycle():
     db.commit()
 
     executor = ActionExecutor(db)
-    now = datetime.utcnow() + timedelta(hours=2)  # Booking in 2 hours
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=2)  # Booking in 2 hours
 
     # Create Appointment (triggers reminder workflow automatically)
     res = executor.create_appointment(CreateAppointmentInput(
@@ -51,7 +51,7 @@ def test_appointment_reminder_workflow_lifecycle():
     assert wf.status == WorkflowStatus.WAITING
 
     # Force scheduled_for to past to simulate time arrival
-    wf.scheduled_for = datetime.utcnow() - timedelta(minutes=1)
+    wf.scheduled_for = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=1)
     db.commit()
 
     # Execute due reminder workflows

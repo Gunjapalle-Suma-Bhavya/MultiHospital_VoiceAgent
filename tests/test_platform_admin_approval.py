@@ -2,7 +2,7 @@
 Test Suite for Section 5.2 Platform Admin Approval & Strict Rules Enforcement.
 """
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -158,7 +158,7 @@ def test_strict_enforcement_receive_bookings(db_session):
     db_session.add(doc)
     db_session.commit()
 
-    start_dt = datetime.utcnow() + timedelta(days=2, hours=10)
+    start_dt = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=10)
     input_data = CreateAppointmentInput(
         session_id="sess-101", patient_id="pat-101", hospital_id=hosp.id, doctor_id=doc.id,
         patient_name="John Doe", patient_phone="+15550001", start_datetime=start_dt

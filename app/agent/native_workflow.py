@@ -8,7 +8,7 @@ Conversation -> Understanding -> Context -> Reasoning -> Capability Selection ->
 Benchmark: Judged by task completion reliability, not merely conversational quality.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 
@@ -94,7 +94,7 @@ class AINativeWorkflowEngine:
         target_doc = doc_search.doctors[0]
 
         # 6. Action
-        start_dt = datetime.utcnow() + timedelta(days=1, hours=4)
+        start_dt = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1, hours=4)
         create_res = self.actions.create_appointment(CreateAppointmentInput(
             session_id=session.session_id,
             patient_id=patient.id,

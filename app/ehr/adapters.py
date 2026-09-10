@@ -7,7 +7,7 @@ individual EHR implementations.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 
@@ -54,7 +54,7 @@ class MockEHRAdapter(BaseEHRAdapter):
         duration_minutes: int,
         special_instructions: Optional[str] = None
     ) -> EHRBookingResult:
-        ext_id = f"EHR-APPT-{int(datetime.utcnow().timestamp())}"
+        ext_id = f"EHR-APPT-{int(datetime.now(timezone.utc).replace(tzinfo=None).timestamp())}"
         return EHRBookingResult(
             is_confirmed=True,
             external_appointment_id=ext_id,
@@ -154,7 +154,7 @@ class MockEHRService:
             return {"success": False, "status": "RECONCILIATION_REQUIRED", "message": "EHR verification connection timed out."}
         return {
             "success": True,
-            "external_appointment_id": f"EHR-VERIFIED-{int(datetime.utcnow().timestamp())}",
+            "external_appointment_id": f"EHR-VERIFIED-{int(datetime.now(timezone.utc).replace(tzinfo=None).timestamp())}",
             "status": "CONFIRMED",
             "message": "Booking verified in EHR system."
         }

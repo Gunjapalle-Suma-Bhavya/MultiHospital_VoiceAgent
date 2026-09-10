@@ -17,7 +17,7 @@ Exposes end-to-end REST endpoints for:
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
 from app.database.models import Base, EHRAdapterType, DoctorStatus, ConsultationType, CalendarType, AppointmentStatus
@@ -1118,7 +1118,7 @@ def voice_chat_orchestrator(payload: VoiceChatInput, db: Session = Depends(get_d
                 db.add(patient)
                 db.commit()
 
-            start_dt = datetime.utcnow() + timedelta(days=2, hours=10)
+            start_dt = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=10)
 
             # Atomic DB Transaction Lock simulation
             with db.begin_nested():

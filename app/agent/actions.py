@@ -14,7 +14,7 @@ Executes authorized actions with:
 
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from sqlalchemy.orm import Session
 
@@ -342,7 +342,7 @@ class ActionExecutor:
             action_type=ActionType.CANCEL_APPOINTMENT,
             message="Appointment cancelled successfully.",
             appointment_id=appt.id,
-            cancelled_at=datetime.utcnow(),
+            cancelled_at=datetime.now(timezone.utc).replace(tzinfo=None),
             audit_id=audit_id
         )
 

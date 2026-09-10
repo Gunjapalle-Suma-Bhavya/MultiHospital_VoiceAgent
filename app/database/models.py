@@ -6,7 +6,7 @@ EHR Identity Mappings, Workflow-Driven Operations, Operational Intelligence,
 and Self-Service Hospital Registration & Onboarding Lifecycle (Section 5.1).
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from enum import Enum
 import uuid
 from sqlalchemy import (
@@ -130,8 +130,8 @@ class Hospital(Base):
     suspension_reason = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     doctors = relationship("Doctor", back_populates="hospital", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="hospital")
@@ -150,7 +150,7 @@ class HospitalQuestionnaire(Base):
     specialty = Column(String(100), nullable=False)
     questions_json = Column(Text, nullable=False)
     is_approved_by_clinician = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     hospital = relationship("Hospital", back_populates="questionnaires")
 
@@ -166,7 +166,7 @@ class HospitalOperationalPreference(Base):
     communication_preference = Column(String(50), default="VOICE_AND_SMS")
     sms_enabled = Column(Boolean, default=True)
     voice_enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     hospital = relationship("Hospital", back_populates="preferences")
 
@@ -181,7 +181,7 @@ class HospitalStaff(Base):
     role = Column(String(100), default="STAFF")
     phone = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     hospital = relationship("Hospital", back_populates="staff_members")
 
@@ -199,7 +199,7 @@ class EHRIntegrationConfig(Base):
     require_external_verification = Column(Boolean, default=True)
     is_active = Column(Boolean, default=False)
     last_sync_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     hospital = relationship("Hospital", back_populates="ehr_config")
 
@@ -244,7 +244,7 @@ class DoctorCalendar(Base):
     calendar_name = Column(String(255), nullable=False)
     calendar_type = Column(SQLEnum(CalendarType), default=CalendarType.HOSPITAL_CONSULTATION)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     doctor = relationship("Doctor", back_populates="calendars")
     appointments = relationship("Appointment", back_populates="calendar")
@@ -257,7 +257,7 @@ class DoctorApprovedQuestion(Base):
     doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
     question_text = Column(Text, nullable=False)
     question_type = Column(String(50), default="TEXT")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     doctor = relationship("Doctor", back_populates="approved_questions")
 
@@ -307,8 +307,8 @@ class PatientProfile(Base):
     communication_preference = Column(String(50), default="VOICE_AND_SMS")
     interaction_notes = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     sessions = relationship("PatientSessionState", back_populates="patient", cascade="all, delete-orphan")
     questionnaire_responses = relationship("PatientQuestionnaireResponse", back_populates="patient", cascade="all, delete-orphan")
@@ -331,7 +331,7 @@ class PatientQuestionnaireResponse(Base):
     questionnaire_id = Column(String(36), ForeignKey("hospital_questionnaires.id"), nullable=False)
     appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=True)
     answers_json = Column(Text, nullable=False)
-    submitted_at = Column(DateTime, default=datetime.utcnow)
+    submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     patient = relationship("PatientProfile", back_populates="questionnaire_responses")
 
@@ -348,8 +348,8 @@ class PatientSessionState(Base):
     completed_workflow_steps_json = Column(Text, nullable=True)
     
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     patient = relationship("PatientProfile", back_populates="sessions")
 
@@ -371,7 +371,7 @@ class Appointment(Base):
     external_status = Column(String(100), nullable=True)
     external_appointment_id = Column(String(255), nullable=True)
     is_ehr_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     hospital = relationship("Hospital", back_populates="appointments")
     doctor = relationship("Doctor", back_populates="appointments")
@@ -390,7 +390,7 @@ class AppointmentStateHistory(Base):
     new_status = Column(String(50), nullable=False)
     changed_by = Column(String(100), default="SYSTEM")
     reason = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     appointment = relationship("Appointment", back_populates="state_history")
 
@@ -405,8 +405,8 @@ class WorkflowInstance(Base):
     status = Column(SQLEnum(WorkflowStatus), default=WorkflowStatus.PENDING)
     payload_json = Column(Text, nullable=True)
     scheduled_for = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     appointment = relationship("Appointment", back_populates="workflows")
     step_logs = relationship("WorkflowStepLog", back_populates="workflow", cascade="all, delete-orphan")
@@ -421,7 +421,7 @@ class WorkflowStepLog(Base):
     step_status = Column(String(50), nullable=False)
     attempt_count = Column(Integer, default=1)
     message = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     workflow = relationship("WorkflowInstance", back_populates="step_logs")
 
@@ -454,7 +454,7 @@ class AITelemetryLog(Base):
     estimated_cost_usd = Column(Float, default=0.0000)
     
     workflow_health_status = Column(String(50), default="HEALTHY")
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class EHRMapping(Base):
@@ -465,7 +465,7 @@ class EHRMapping(Base):
     entity_type = Column(String(50), nullable=False)
     internal_id = Column(String(255), nullable=False, index=True)
     external_ehr_id = Column(String(255), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class EHRSyncLog(Base):
@@ -478,7 +478,7 @@ class EHRSyncLog(Base):
     sync_status = Column(String(50), nullable=False)
     external_reference_id = Column(String(255), nullable=True)
     details_json = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class PatientIntakeRecord(Base):
@@ -490,7 +490,7 @@ class PatientIntakeRecord(Base):
     intake_answers_json = Column(Text, nullable=True)
     is_patient_reported_only = Column(Boolean, default=True)
     encryption_status = Column(String(50), default="ENCRYPTED_AT_REST")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     appointment = relationship("Appointment", back_populates="intake_record")
 
@@ -505,5 +505,5 @@ class AuditLog(Base):
     event_type = Column(String(100), nullable=False)
     tool_invocation_json = Column(Text, nullable=True)
     payload_json = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 

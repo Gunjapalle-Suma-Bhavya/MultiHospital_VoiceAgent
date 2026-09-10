@@ -7,7 +7,7 @@ Supports immediate, asynchronous, scheduled, and event-driven workflows:
 Every step is logged and traceable via WorkflowStepLog.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
@@ -47,8 +47,8 @@ class WorkflowEngine:
 
         # Calculate reminder window (e.g., 24 hours before appointment)
         reminder_time = appt.start_datetime - timedelta(hours=24)
-        if reminder_time < datetime.utcnow():
-            reminder_time = datetime.utcnow() + timedelta(minutes=5)
+        if reminder_time < datetime.now(timezone.utc).replace(tzinfo=None):
+            reminder_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
 
         wf = WorkflowInstance(
             appointment_id=appointment_id,
@@ -68,7 +68,7 @@ class WorkflowEngine:
         """
         Executes pending reminder workflows whose scheduled_for time has arrived.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         due_workflows = self.db.query(WorkflowInstance).filter(
             WorkflowInstance.workflow_name == "APPOINTMENT_REMINDER_WORKFLOW",
             WorkflowInstance.status == WorkflowStatus.WAITING,

@@ -8,7 +8,7 @@ import time
 import uuid
 from enum import Enum
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class TurnState(str, Enum):
@@ -44,7 +44,7 @@ class VoicePipelineSession:
             "session_id": self.session_id,
             "event": "BARGE_IN_TRIGGERED",
             "action": "CANCEL_ACTIVE_TTS_PLAYBACK",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
 
     def start_thinking(self):

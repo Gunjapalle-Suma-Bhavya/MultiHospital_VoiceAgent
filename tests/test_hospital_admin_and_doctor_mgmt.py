@@ -2,7 +2,7 @@
 Test Suite for Section 5.3 Hospital Administration & Section 5.4 Doctor Management.
 """
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -119,7 +119,7 @@ def test_doctor_management_lifecycle_and_enforcement(db_session):
     assert len(search_res.doctors) == 0
 
     # BOOKING ENFORCEMENT: Booking attempt for INVITED doctor must fail
-    start_dt = datetime.utcnow() + timedelta(days=2, hours=9)
+    start_dt = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=9)
     input_data = CreateAppointmentInput(
         session_id="s1", patient_id="p1", hospital_id=hosp.id, doctor_id=doc.id,
         patient_name="Mark Smith", patient_phone="+15552222", start_datetime=start_dt

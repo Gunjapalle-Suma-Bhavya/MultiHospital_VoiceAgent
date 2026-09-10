@@ -2,7 +2,7 @@
 Unit tests for Step 2: Complete Horizontal Platform Flow Pipeline (Stages 1 through 5).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -47,7 +47,7 @@ def test_full_horizontal_pipeline_execution():
     # -------------------------------------------------------------------------
     # STAGE 3: SELECTION, SCHEDULING & EHR VERIFICATION
     # -------------------------------------------------------------------------
-    appt_time = datetime.utcnow() + timedelta(days=3)
+    appt_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=3)
     stg3 = pipeline.execute_stage_3_scheduling_and_ehr_verification(
         session_id=session_id,
         patient_id=patient_id,

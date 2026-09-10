@@ -9,7 +9,7 @@ Unit Test Suite for Sections 5.15 - 5.19:
 
 import pytest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -58,8 +58,8 @@ def setup_context_test_data(db_session):
         patient_id=patient.id,
         patient_name="Alice Smith",
         patient_phone="+15551112222",
-        start_datetime=datetime.utcnow() + timedelta(days=2),
-        end_datetime=datetime.utcnow() + timedelta(days=2, hours=1),
+        start_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2),
+        end_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=1),
         status=AppointmentStatus.CONFIRMED
     )
     db_session.add(appt1)
@@ -188,8 +188,8 @@ def test_section_5_18_anaphora_context_resolution(db_session, setup_context_test
         patient_id=patient.id,
         patient_name="Alice Smith",
         patient_phone="+15551112222",
-        start_datetime=datetime.utcnow() + timedelta(days=5),
-        end_datetime=datetime.utcnow() + timedelta(days=5, hours=1),
+        start_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=5),
+        end_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=5, hours=1),
         status=AppointmentStatus.CONFIRMED
     )
     db_session.add(appt2)

@@ -17,7 +17,7 @@ Persists in database until workflow completes, cancels, abandons, or expires (TT
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
@@ -47,13 +47,13 @@ class ConversationStateModel(BaseModel):
     appointment_status: str = "PENDING"
     workflow_status: WorkflowLifecycleStatus = WorkflowLifecycleStatus.ACTIVE
     collected_slots: Dict[str, Any] = {}
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    expires_at: str = Field(default_factory=lambda: (datetime.utcnow() + timedelta(minutes=15)).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
+    expires_at: str = Field(default_factory=lambda: (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=15)).isoformat())
 
     def is_expired(self) -> bool:
         exp_dt = datetime.fromisoformat(self.expires_at)
-        return datetime.utcnow() > exp_dt
+        return datetime.now(timezone.utc).replace(tzinfo=None) > exp_dt
 
 
 class ConversationStateManager:
@@ -68,7 +68,7 @@ class ConversationStateManager:
     def get_or_create_state(self, session_id: str, patient_id: Optional[str] = None) -> ConversationStateModel:
         row = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == session_id).first()
         if not row:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             expires = now + timedelta(minutes=self.ttl_minutes)
             init_draft = {
                 "intent": None,
@@ -100,8 +100,8 @@ class ConversationStateManager:
         draft = json.loads(row.active_draft_booking_json) if row.active_draft_booking_json else {}
         
         # Expiration Check
-        exp_dt = datetime.fromisoformat(draft.get("expires_at", datetime.utcnow().isoformat()))
-        if datetime.utcnow() > exp_dt and draft.get("workflow_status") == WorkflowLifecycleStatus.ACTIVE.value:
+        exp_dt = datetime.fromisoformat(draft.get("expires_at", datetime.now(timezone.utc).replace(tzinfo=None).isoformat()))
+        if datetime.now(timezone.utc).replace(tzinfo=None) > exp_dt and draft.get("workflow_status") == WorkflowLifecycleStatus.ACTIVE.value:
             draft["workflow_status"] = WorkflowLifecycleStatus.EXPIRED.value
             row.active_draft_booking_json = json.dumps(draft)
             row.is_active = False
@@ -120,9 +120,9 @@ class ConversationStateManager:
             appointment_status=draft.get("appointment_status", "PENDING"),
             workflow_status=WorkflowLifecycleStatus(draft.get("workflow_status", WorkflowLifecycleStatus.ACTIVE.value)),
             collected_slots=draft.get("collected_slots", {}),
-            created_at=draft.get("created_at", datetime.utcnow().isoformat()),
-            updated_at=draft.get("updated_at", datetime.utcnow().isoformat()),
-            expires_at=draft.get("expires_at", (datetime.utcnow() + timedelta(minutes=self.ttl_minutes)).isoformat())
+            created_at=draft.get("created_at", datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
+            updated_at=draft.get("updated_at", datetime.now(timezone.utc).replace(tzinfo=None).isoformat()),
+            expires_at=draft.get("expires_at", (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=self.ttl_minutes)).isoformat())
         )
 
     def update_state(
@@ -152,7 +152,7 @@ class ConversationStateManager:
         if workflow_status: state.workflow_status = workflow_status
         if additional_slots: state.collected_slots.update(additional_slots)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         state.updated_at = now.isoformat()
         state.expires_at = (now + timedelta(minutes=self.ttl_minutes)).isoformat()
 

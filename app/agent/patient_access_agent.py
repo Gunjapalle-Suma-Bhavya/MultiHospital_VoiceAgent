@@ -19,7 +19,7 @@ Multi-channel architecture reusable across: Web Voice, Telephone (SIP/Twilio), a
 """
 
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
@@ -171,7 +171,7 @@ class AIPatientAccessAgent:
                 agent_response = "To book your appointment, please specify the doctor and hospital you would like to visit."
                 capabilities_invoked.append("CLARIFICATION_PROMPTED")
             else:
-                target_dt = resolved_context.get("target_datetime") or (datetime.utcnow() + timedelta(days=2, hours=10))
+                target_dt = resolved_context.get("target_datetime") or (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=10))
                 book_output = self.executor.create_appointment(
                     CreateAppointmentInput(
                         session_id=sid,

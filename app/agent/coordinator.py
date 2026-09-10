@@ -25,7 +25,7 @@ Workflows execute. The platform records. Humans make clinical decisions.'
 16. Auditability
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -120,7 +120,7 @@ class ProductVision16StepCoordinator:
         # ---------------------------------------------------------------------
         # STEP 5: Availability Verification & STEP 6: Clarification
         # ---------------------------------------------------------------------
-        target_slot = datetime.utcnow() + timedelta(days=2, hours=10)  # Standard available window
+        target_slot = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=10)  # Standard available window
         execution_trace.append({"step": 5, "name": "Availability verification", "status": "COMPLETED"})
         execution_trace.append({"step": 6, "name": "Clarification", "clarification_needed": False})
 

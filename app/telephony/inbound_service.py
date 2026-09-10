@@ -9,7 +9,7 @@ Handles inbound phone interactions:
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
@@ -91,5 +91,5 @@ class TelephonyInboundService:
             "status": "CALL_TERMINATED",
             "session_id": session_id,
             "reason": reason,
-            "terminated_at": datetime.utcnow().isoformat()
+            "terminated_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }

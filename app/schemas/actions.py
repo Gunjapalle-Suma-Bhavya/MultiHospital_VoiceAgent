@@ -3,7 +3,7 @@ Input and Output schemas for Action-Oriented AI capabilities (Section 1.4).
 Each action has strict Pydantic schemas, validation rules, and audit requirements.
 """
 
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone
 from enum import Enum
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
@@ -135,7 +135,7 @@ class CancelAppointmentInput(ActionBaseInput):
 
 class CancelAppointmentOutput(ActionBaseOutput):
     appointment_id: str
-    cancelled_at: datetime = Field(default_factory=datetime.utcnow)
+    cancelled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 # --- 8. Get Questionnaire & 9. Submit Questionnaire ---

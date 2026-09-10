@@ -9,7 +9,7 @@ Synchronize State -> Pre-Visit Workflow -> Patient Responds -> Notifications/Fol
 Doctor Reviews -> Analytics Updated
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
@@ -86,7 +86,7 @@ class PatientJourneyEngine:
         chosen_doctor = search_res.doctors[0]
 
         # 7. Check Real Availability
-        slot_time = datetime.utcnow() + timedelta(days=2, hours=3)
+        slot_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2, hours=3)
         trace.append({"step": 7, "action": "Check Real Availability", "available_slot": str(slot_time)})
 
         # 8. Present Options & 9. Patient Chooses & 10. Confirm

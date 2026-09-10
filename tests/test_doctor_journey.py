@@ -2,7 +2,7 @@
 Unit tests for Section 4.2: Doctor Journey Lifecycle Engine.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -34,8 +34,8 @@ def test_full_10_step_doctor_journey():
         bio="Lead Chief Surgeon with 20 years experience.",
         special_instructions="Verify blood pressure prior to consultation.",
         approved_questions=approved_questions,
-        blocked_leave_start=datetime.utcnow() + timedelta(days=10),
-        blocked_leave_end=datetime.utcnow() + timedelta(days=15)
+        blocked_leave_start=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=10),
+        blocked_leave_end=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=15)
     )
 
     assert res["success"] is True

@@ -10,7 +10,7 @@ Tests:
 
 import pytest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -61,7 +61,7 @@ def setup_hospital_and_doctors(db_session):
     )
     doc_svc.activate_doctor(doc2.id)
 
-    from datetime import time
+    from datetime import time, timezone
     from app.calendars.doctor_calendar import DoctorCalendarService
     from app.database.models import DoctorWorkingHour, CalendarType
     cal_svc = DoctorCalendarService(db_session)
@@ -99,7 +99,7 @@ def test_section_5_13_discovery_engine_pipeline(db_session, setup_hospital_and_d
     discovery = HospitalDoctorDiscoveryEngine(db_session)
 
     # Execute natural query: "Find me a dermatologist tomorrow afternoon"
-    target_d = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+    target_d = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)).strftime("%Y-%m-%d")
     req = DiscoveryRequest(
         query_text="Find me a dermatologist tomorrow afternoon",
         time_window="AFTERNOON",

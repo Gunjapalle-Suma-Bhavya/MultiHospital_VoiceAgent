@@ -2,7 +2,7 @@
 Unit tests for Context-Aware Reference Resolver (1.3) and Action-Oriented AI capabilities (1.4).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -62,7 +62,7 @@ def test_action_executor_flow():
     assert len(doc_res.doctors) == 1
 
     # 3. Create Appointment
-    now = datetime.utcnow() + timedelta(days=1)
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1)
     create_res = executor.create_appointment(CreateAppointmentInput(
         session_id="s-1",
         patient_id="p-1",

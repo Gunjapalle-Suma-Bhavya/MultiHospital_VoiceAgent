@@ -27,7 +27,7 @@ Every capability includes: Structured Pydantic schema, validation, authorization
 
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -222,7 +222,7 @@ class CapabilityRegistry:
         target_d_str = args.get("target_date")
         if not doc_id:
             return CapabilityExecutionResult(success=False, capability_name="check_availability", message="doctor_id required.")
-        target_d = datetime.strptime(target_d_str, "%Y-%m-%d").date() if target_d_str else datetime.utcnow().date() + timedelta(days=1)
+        target_d = datetime.strptime(target_d_str, "%Y-%m-%d").date() if target_d_str else datetime.now(timezone.utc).replace(tzinfo=None).date() + timedelta(days=1)
         slots = self.avail_engine.query_actual_availability(doctor_id=doc_id, target_date=target_d)
         return CapabilityExecutionResult(
             success=True,
@@ -259,7 +259,7 @@ class CapabilityRegistry:
             doctor_id=args["doctor_id"],
             patient_name=args.get("patient_name", "Patient"),
             patient_phone=args.get("patient_phone", "+15550000000"),
-            start_datetime=start_dt or (datetime.utcnow() + timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0)
+            start_datetime=start_dt or (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2)).replace(hour=10, minute=0, second=0, microsecond=0)
         )
         return CapabilityExecutionResult(
             success=True,
@@ -272,7 +272,7 @@ class CapabilityRegistry:
         res = self.patient_service.request_reschedule_self_service(
             patient_id=args.get("patient_id", "P-1"),
             appointment_id=args["appointment_id"],
-            new_start_datetime=datetime.utcnow() + timedelta(days=3)
+            new_start_datetime=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=3)
         )
         return CapabilityExecutionResult(success=True, capability_name="reschedule_appointment", data=res, message="Reschedule processed.")
 
@@ -312,7 +312,7 @@ class CapabilityRegistry:
         return CapabilityExecutionResult(success=True, capability_name="update_user_preferences", data={"updated": True}, message="Preferences updated.")
 
     def _cap_verify_external_appointment(self, args: Dict[str, Any]) -> CapabilityExecutionResult:
-        ehr = MockEHRService.createAndVerifyBooking("P-1", "D-1", datetime.utcnow())
+        ehr = MockEHRService.createAndVerifyBooking("P-1", "D-1", datetime.now(timezone.utc).replace(tzinfo=None))
         return CapabilityExecutionResult(success=True, capability_name="verify_external_appointment", data=ehr, message="EHR verified.")
 
     def _cap_synchronize_appointment_state(self, args: Dict[str, Any]) -> CapabilityExecutionResult:

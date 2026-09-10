@@ -9,7 +9,7 @@ Tests:
 
 import pytest
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -131,7 +131,7 @@ def test_section_5_11_telephony_inbound_service(db_session, setup_data):
 def test_strategy_blueprint_mock_ehr_and_reconciliation_required(db_session, setup_data):
     hosp, doc, patient = setup_data
     corr_id = str(uuid.uuid4())
-    start_dt = datetime.utcnow() + timedelta(days=2)
+    start_dt = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2)
 
     # Test Successful EHR Verification
     ehr_ok = MockEHRService.createAndVerifyBooking(patient.id, doc.id, start_dt, force_fail=False)

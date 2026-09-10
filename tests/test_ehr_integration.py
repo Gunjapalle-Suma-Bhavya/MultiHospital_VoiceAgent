@@ -2,7 +2,7 @@
 Unit tests for Section 1.5: EHR Integration Layer, Identity Mappings, and Authoritative Verification.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,7 +17,7 @@ from app.schemas.actions import CreateAppointmentInput
 
 def test_fhir_r4_adapter_payload():
     adapter = FHIRR4Adapter(base_url="https://fhir.hospital.org/r4")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     res = adapter.create_appointment(
         ehr_patient_id="pat-100",
         ehr_practitioner_id="prac-200",
@@ -43,7 +43,7 @@ def test_authoritative_ehr_verification_flow():
     db.commit()
 
     executor = ActionExecutor(db)
-    now = datetime.utcnow() + timedelta(days=2)
+    now = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2)
 
     # Execute booking
     create_res = executor.create_appointment(CreateAppointmentInput(
