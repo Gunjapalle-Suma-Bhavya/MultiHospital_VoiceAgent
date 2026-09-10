@@ -17,6 +17,14 @@ from pydantic import BaseModel
 
 
 SYMPTOM_TO_SPECIALTY_MAP = {
+    "dermatologist": "Dermatology",
+    "dermatology": "Dermatology",
+    "orthopedic": "Orthopedics",
+    "orthopedist": "Orthopedics",
+    "cardiologist": "Cardiology",
+    "neurologist": "Neurology",
+    "ophthalmologist": "Ophthalmology",
+    "gastroenterologist": "Gastroenterology",
     "shoulder pain": "Orthopedics",
     "back pain": "Orthopedics",
     "knee pain": "Orthopedics",
@@ -42,6 +50,7 @@ SYMPTOM_TO_SPECIALTY_MAP = {
     "ear ache": "ENT",
     "sore throat": "ENT"
 }
+
 
 
 class SymptomInferenceResult(BaseModel):

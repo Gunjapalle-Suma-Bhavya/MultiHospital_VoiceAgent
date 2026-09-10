@@ -170,7 +170,36 @@ function setupDoctorForms() {
       }
     });
   }
+
+  const formDiscovery = document.getElementById("form-discovery-search");
+  const discOutput = document.getElementById("disc-output");
+
+  if (formDiscovery) {
+    formDiscovery.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        query_text: document.getElementById("disc-query").value,
+        time_window: document.getElementById("disc-window").value,
+        target_date: document.getElementById("disc-date").value || null
+      };
+
+      try {
+        const res = await fetch("/api/v1/discovery/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        discOutput.style.display = "block";
+        discOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        discOutput.style.display = "block";
+        discOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
 }
+
 
 // Portal 3: Patient Self-Service Logic
 function setupPatientForms() {

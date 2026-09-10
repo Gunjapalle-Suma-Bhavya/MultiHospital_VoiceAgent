@@ -1281,3 +1281,27 @@ def telephony_escalate(session_id: str, db: Session = Depends(get_db)):
     return svc.terminate_call(session_id=session_id, reason="ESCALATED_TO_HUMAN")
 
 
+# =========================================================================
+# SECTION 5.13: DISCOVERY ENGINE & SECTION 5.14: CAPABILITY TOOL LAYER
+# =========================================================================
+
+from app.discovery.discovery_engine import HospitalDoctorDiscoveryEngine, DiscoveryRequest
+from app.agent.capability_registry import CapabilityRegistry, CapabilityExecutionRequest
+
+@app.post("/api/v1/discovery/search")
+def execute_discovery_search(payload: DiscoveryRequest, db: Session = Depends(get_db)):
+    engine = HospitalDoctorDiscoveryEngine(db)
+    return engine.execute_discovery(payload)
+
+@app.get("/api/v1/capabilities/list")
+def list_capabilities(db: Session = Depends(get_db)):
+    registry = CapabilityRegistry(db)
+    return {"registered_capabilities": registry.get_registered_capabilities()}
+
+@app.post("/api/v1/capabilities/execute")
+def execute_capability(payload: CapabilityExecutionRequest, db: Session = Depends(get_db)):
+    registry = CapabilityRegistry(db)
+    return registry.execute(payload)
+
+
+

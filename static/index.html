@@ -107,8 +107,36 @@
           <button id="btn-query-availability" class="btn">Query Available Slots</button>
           <div id="cal-output" class="status-box" style="display:none;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Hospital & Doctor Discovery Engine (5.13)</h2>
+          <form id="form-discovery-search">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div class="form-group">
+                <label>Natural Query or Specialty</label>
+                <input type="text" id="disc-query" placeholder="e.g. Find me a dermatologist this Friday afternoon">
+              </div>
+              <div class="form-group">
+                <label>Time Window Preference</label>
+                <select id="disc-window">
+                  <option value="ANYTIME">ANYTIME</option>
+                  <option value="MORNING">MORNING (8 AM - 12 PM)</option>
+                  <option value="AFTERNOON">AFTERNOON (12 PM - 5 PM)</option>
+                  <option value="EVENING">EVENING (5 PM - 9 PM)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Target Date</label>
+                <input type="date" id="disc-date">
+              </div>
+            </div>
+            <button type="submit" class="btn">Execute 7-Step Discovery Pipeline</button>
+          </form>
+          <div id="disc-output" class="status-box" style="display:none;"></div>
+        </div>
       </div>
     </section>
+
 
     <!-- PORTAL 3: PATIENT SELF-SERVICE -->
     <section id="tab-patients" class="tab-content">
