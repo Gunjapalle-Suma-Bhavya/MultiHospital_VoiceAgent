@@ -1349,5 +1349,54 @@ def resolve_context_reference(payload: ContextResolveInput, db: Session = Depend
     return result.model_dump()
 
 
+# =========================================================================
+# SECTION 5.20: EHR / HEALTHCARE SYSTEM INTEGRATION ENDPOINTS
+# =========================================================================
+
+from app.ehr.integration_layer import EHRIntegrationService
+from app.ehr.adapters import EHRConnectorFactory
+
+class EHRSequenceInput(BaseModel):
+    appointment_id: str
+
+class EHROperationInput(BaseModel):
+    hospital_id: str
+    connector_type: str = "MOCK"  # MOCK, FHIR_R4, EPIC, CERNER
+    operation_name: str  # patient_lookup, provider_lookup, facility_lookup, etc.
+    arguments: Dict[str, Any] = {}
+
+@app.post("/api/v1/ehr/sequence/execute")
+def execute_ehr_core_sequence(payload: EHRSequenceInput, db: Session = Depends(get_db)):
+    svc = EHRIntegrationService(db)
+    res = svc.execute_core_integration_sequence(payload.appointment_id)
+    return res.model_dump()
+
+@app.get("/api/v1/ehr/mappings")
+def get_ehr_mappings(hospital_id: str, entity_type: str, internal_id: str, db: Session = Depends(get_db)):
+    svc = EHRIntegrationService(db)
+    ext_id = svc.resolve_external_id(hospital_id=hospital_id, entity_type=entity_type, internal_id=internal_id)
+    return {
+        "hospital_id": hospital_id,
+        "entity_type": entity_type,
+        "internal_id": internal_id,
+        "external_ehr_id": ext_id
+    }
+
+@app.post("/api/v1/ehr/operations/execute")
+def execute_ehr_operation(payload: EHROperationInput, db: Session = Depends(get_db)):
+    connector = EHRConnectorFactory.get_connector(payload.connector_type)
+    op = payload.operation_name.lower().strip()
+    
+    if hasattr(connector, op):
+        method = getattr(connector, op)
+        result = method(**payload.arguments)
+        if hasattr(result, "model_dump"):
+            return result.model_dump()
+        return result
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported EHR operation '{op}' on connector '{payload.connector_type}'")
+
+
+
 
 

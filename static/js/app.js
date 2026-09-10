@@ -397,6 +397,7 @@ function setupVoiceConsole() {
   }
 
   setupContextResolverForm();
+  setupEHRSequenceForm();
 }
 
 function setupContextResolverForm() {
@@ -428,5 +429,32 @@ function setupContextResolverForm() {
     });
   }
 }
+
+function setupEHRSequenceForm() {
+  const formEhr = document.getElementById("form-ehr-sequence");
+  const ehrOutput = document.getElementById("ehr-output");
+
+  if (formEhr) {
+    formEhr.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const apptId = document.getElementById("ehr-appt-id").value;
+
+      try {
+        const res = await fetch("/api/v1/ehr/sequence/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: apptId })
+        });
+        const data = await res.json();
+        ehrOutput.style.display = "block";
+        ehrOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        ehrOutput.style.display = "block";
+        ehrOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 

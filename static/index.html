@@ -134,6 +134,18 @@
           </form>
           <div id="disc-output" class="status-box" style="display:none;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>EHR Integration & 12-Step Lifecycle Console (5.20)</h2>
+          <form id="form-ehr-sequence">
+            <div class="form-group">
+              <label>Appointment ID to Sync & Verify in EHR</label>
+              <input type="text" id="ehr-appt-id" placeholder="Appointment UUID" required>
+            </div>
+            <button type="submit" class="btn">Execute 12-Step EHR Integration Sequence</button>
+          </form>
+          <div id="ehr-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
       </div>
     </section>
 
