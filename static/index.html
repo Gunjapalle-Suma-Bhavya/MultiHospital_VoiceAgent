@@ -24,6 +24,7 @@
     <button class="tab-btn" data-tab="tab-patient-workflow">Patient Workflow (Step 8)</button>
     <button class="tab-btn" data-tab="tab-hospital-workflow">Hospital Workflow (Step 9)</button>
     <button class="tab-btn" data-tab="tab-architecture">Platform Architecture (Step 10)</button>
+    <button class="tab-btn" data-tab="tab-dashboards-step11">Dashboards — 49 Pages (Step 11)</button>
   </nav>
 
   <main class="container">
@@ -1200,6 +1201,110 @@
               Click "Audit Layer Health" to evaluate real-time health across all 9 layers.
             </div>
           </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 11: PLATFORM DASHBOARD — FRONT-END FEATURE BREAKDOWN (STEP 11) -->
+    <section id="tab-dashboards-step11" class="tab-content">
+      <!-- HEADER CARD -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #f8fafc; border-left: 5px solid #818cf8;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2 style="color: #a5b4fc; margin: 0 0 0.5rem 0;">11. Platform Dashboard — Front-End Feature Breakdown</h2>
+            <p style="margin: 0; color: #e0e7ff; max-width: 950px; line-height: 1.5;">
+              Unified 4-Persona Clinical Console covering all <strong>49 dedicated pages</strong>: Platform Admin (16 pages) &bull; Hospital Dashboard (15 pages) &bull; Doctor Dashboard (9 pages) &bull; Patient Dashboard (9 pages).
+            </p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <span class="badge" style="background:#4338ca; color:#e0e7ff; font-size:0.85rem; padding:0.35rem 0.75rem;">49 Pages Catalog Active</span>
+            <button id="btn-refresh-dash-catalog" class="btn" style="background:#6366f1; color:#fff;">Reload Catalog</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERSONA / ROLE SELECTOR TABS -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; background: #f8fafc; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border-color);">
+        <button type="button" class="dash-role-btn active btn" data-role="platform_admin" style="font-size:0.88rem; padding:0.45rem 1rem;">11.1 Platform Admin (16 Pages)</button>
+        <button type="button" class="dash-role-btn btn btn-secondary" data-role="hospital_admin" style="font-size:0.88rem; padding:0.45rem 1rem;">11.2 Hospital Dashboard (15 Pages)</button>
+        <button type="button" class="dash-role-btn btn btn-secondary" data-role="doctor" style="font-size:0.88rem; padding:0.45rem 1rem;">11.3 Doctor Dashboard (9 Pages)</button>
+        <button type="button" class="dash-role-btn btn btn-secondary" data-role="patient" style="font-size:0.88rem; padding:0.45rem 1rem;">11.4 Patient Dashboard (9 Pages)</button>
+      </div>
+
+      <!-- MAIN SPLIT WORKSPACE: SIDEBAR OF PAGES + PAGE VIEWPORT -->
+      <div class="grid" style="grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start;">
+        
+        <!-- LEFT: DYNAMIC SUB-PAGES SIDEBAR -->
+        <div class="card" style="padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem;">
+            <strong id="dash-sidebar-role-title" style="font-size: 0.95rem; color: #0f172a;">Platform Admin Pages</strong>
+            <span id="dash-sidebar-count-badge" class="badge" style="background: #e0e7ff; color: #4338ca;">16 Pages</span>
+          </div>
+          <div id="dash-pages-sidebar" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 700px; overflow-y: auto; padding-right: 0.3rem;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- RIGHT: ACTIVE PAGE VIEWPORT -->
+        <div class="card" style="padding: 1.25rem;">
+          
+          <!-- TOP BREADCRUMB & CONTEXT BAR -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+            <div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.2rem;" id="dash-breadcrumb">Dashboard &gt; Platform Admin &gt; Overview</div>
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span id="dash-page-num-badge" style="background:#6366f1; color:#fff; font-size:0.75rem; font-weight:700; padding:0.15rem 0.5rem; border-radius:4px;">Page 1</span>
+                <h3 id="dash-page-title" style="margin: 0; color: #1e1b4b; font-size: 1.25rem;">Overview</h3>
+              </div>
+            </div>
+
+            <!-- CONTEXT SELECTORS & ACTIONS -->
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <div id="dash-context-controls" style="display: flex; gap: 0.5rem;">
+                <input type="text" id="dash-ctx-hospital" placeholder="Hospital ID / Code" value="STJUDE" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px; border-radius: 4px; border: 1px solid var(--border-color); display: none;">
+                <input type="text" id="dash-ctx-doctor" placeholder="Doctor ID" value="DOC-101" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 110px; border-radius: 4px; border: 1px solid var(--border-color); display: none;">
+                <input type="text" id="dash-ctx-patient" placeholder="Patient ID" value="PAT-501" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 110px; border-radius: 4px; border: 1px solid var(--border-color); display: none;">
+              </div>
+              <button id="btn-dash-refresh-page" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">Refresh</button>
+            </div>
+          </div>
+
+          <!-- DESCRIPTION CALLOUT -->
+          <div id="dash-page-desc-box" style="margin-bottom: 1.25rem; background: #f8fafc; border-left: 4px solid #6366f1; padding: 0.6rem 0.85rem; border-radius: 0 4px 4px 0; font-size: 0.85rem; color: #475569;">
+            Global platform telemetry, aggregate hospital counts, and system activity summary.
+          </div>
+
+          <!-- KPI METRIC CARDS -->
+          <div id="dash-kpi-grid" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.85rem; margin-bottom: 1.25rem;">
+            <!-- Dynamically populated KPI cards -->
+          </div>
+
+          <!-- MAIN DATA PANEL (TABLE OR STRUCTURED DETAILS) -->
+          <div style="margin-bottom: 1.25rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+              <h4 id="dash-data-panel-title" style="margin:0; font-size:0.95rem; color:#1e293b;">Records &amp; Active Items</h4>
+              <span id="dash-records-count-badge" style="font-size:0.75rem; color:#64748b;">0 items</span>
+            </div>
+            <div id="dash-data-viewport" style="background:#ffffff; border:1px solid var(--border-color); border-radius:6px; overflow-x:auto; min-height:180px; max-height:420px; overflow-y:auto;">
+              <!-- Table or details rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- CONTEXTUAL ACTION BUTTONS & OUTPUT -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;">
+            <div id="dash-action-buttons" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <!-- Dynamic buttons from available_actions -->
+            </div>
+            <div id="dash-action-status" style="font-size: 0.8rem; color: #166534; font-weight: 500;"></div>
+          </div>
+
+          <!-- RAW JSON DETAIL INSPECTOR -->
+          <details style="margin-top: 1rem; cursor: pointer;">
+            <summary style="font-size: 0.8rem; color: #6366f1; font-weight: 600;">View Raw Page Payload &amp; Metadata</summary>
+            <pre id="dash-raw-json-inspector" style="margin-top: 0.5rem; background: #0f172a; color: #e2e8f0; padding: 0.85rem; border-radius: 6px; font-size: 0.78rem; max-height: 250px; overflow-y: auto; font-family: monospace;">{}</pre>
+          </details>
+
         </div>
 
       </div>

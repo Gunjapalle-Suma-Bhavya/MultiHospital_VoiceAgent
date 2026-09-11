@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPatientWorkflowForms();
   setupHospitalWorkflowForms();
   setupArchitectureUI();
+  setupDashboardPagesUI();
 });
 
 
@@ -2442,6 +2443,283 @@ function setupArchitectureUI() {
   fetchTopology();
   auditHealth();
 }
+
+
+// ============================================================================
+// Step 11: Platform Dashboard — Front-End Feature Breakdown (49 Pages)
+// ============================================================================
+function setupDashboardPagesUI() {
+  const roleButtons = document.querySelectorAll(".dash-role-btn");
+  const sidebar = document.getElementById("dash-pages-sidebar");
+  const sidebarRoleTitle = document.getElementById("dash-sidebar-role-title");
+  const sidebarCountBadge = document.getElementById("dash-sidebar-count-badge");
+  
+  const breadcrumb = document.getElementById("dash-breadcrumb");
+  const pageNumBadge = document.getElementById("dash-page-num-badge");
+  const pageTitle = document.getElementById("dash-page-title");
+  const pageDescBox = document.getElementById("dash-page-desc-box");
+  const kpiGrid = document.getElementById("dash-kpi-grid");
+  const dataViewport = document.getElementById("dash-data-viewport");
+  const dataPanelTitle = document.getElementById("dash-data-panel-title");
+  const recordsCountBadge = document.getElementById("dash-records-count-badge");
+  const actionButtons = document.getElementById("dash-action-buttons");
+  const actionStatus = document.getElementById("dash-action-status");
+  const rawInspector = document.getElementById("dash-raw-json-inspector");
+
+  const btnRefreshPage = document.getElementById("btn-dash-refresh-page");
+  const btnReloadCatalog = document.getElementById("btn-refresh-dash-catalog");
+
+  const ctxHospital = document.getElementById("dash-ctx-hospital");
+  const ctxDoctor = document.getElementById("dash-ctx-doctor");
+  const ctxPatient = document.getElementById("dash-ctx-patient");
+
+  let currentRole = "platform_admin";
+  let currentPageId = "overview";
+  let catalogData = null;
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // 1. Fetch Page Catalog
+  async function loadCatalog() {
+    try {
+      const res = await fetch("/api/v1/dashboard-pages/catalog");
+      catalogData = await res.json();
+      renderSidebar(currentRole);
+      loadPageData(currentRole, currentPageId);
+    } catch (err) {
+      if (sidebar) sidebar.innerHTML = `<div style="color:var(--danger-color); padding:1rem;">Failed to load catalog: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // 2. Render Sidebar for Active Role
+  function renderSidebar(roleId) {
+    if (!sidebar || !catalogData) return;
+    const roleInfo = (catalogData.roles || []).find(r => r.role_id === roleId);
+    if (!roleInfo) return;
+
+    if (sidebarRoleTitle) sidebarRoleTitle.textContent = roleInfo.display_title;
+    if (sidebarCountBadge) sidebarCountBadge.textContent = `${roleInfo.total_pages} Pages`;
+
+    let html = "";
+    (roleInfo.pages || []).forEach(p => {
+      const isActive = p.page_id === currentPageId;
+      html += `
+        <button type="button" class="dash-page-item-btn" data-page-id="${escapeHtml(p.page_id)}" style="
+          display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left;
+          padding:0.5rem 0.65rem; border-radius:6px; font-size:0.83rem; cursor:pointer;
+          background:${isActive ? '#e0e7ff' : '#ffffff'};
+          border:1px solid ${isActive ? '#818cf8' : '#e2e8f0'};
+          color:${isActive ? '#312e81' : '#1e293b'};
+          font-weight:${isActive ? '600' : 'normal'};
+          transition:all 0.15s ease;
+        ">
+          <div style="display:flex; align-items:center; gap:0.45rem;">
+            <span style="font-size:0.75rem; color:#6366f1; font-weight:700; min-width:18px;">${p.page_number}.</span>
+            <span>${escapeHtml(p.title)}</span>
+          </div>
+          <span style="font-size:0.7rem; color:#94a3b8;">${escapeHtml(p.category)}</span>
+        </button>
+      `;
+    });
+
+    sidebar.innerHTML = html;
+
+    // Attach click listeners to sidebar buttons
+    sidebar.querySelectorAll(".dash-page-item-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentPageId = btn.dataset.pageId;
+        renderSidebar(currentRole);
+        loadPageData(currentRole, currentPageId);
+      });
+    });
+  }
+
+  // 3. Load & Render Page Data
+  async function loadPageData(roleId, pageId) {
+    if (!dataViewport) return;
+
+    // Context controls visibility
+    if (ctxHospital) ctxHospital.style.display = (roleId === "hospital_admin") ? "inline-block" : "none";
+    if (ctxDoctor) ctxDoctor.style.display = (roleId === "doctor") ? "inline-block" : "none";
+    if (ctxPatient) ctxPatient.style.display = (roleId === "patient") ? "inline-block" : "none";
+
+    dataViewport.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-muted);">Loading page data...</div>`;
+    if (kpiGrid) kpiGrid.innerHTML = "";
+    if (actionButtons) actionButtons.innerHTML = "";
+    if (actionStatus) actionStatus.textContent = "";
+
+    try {
+      const params = new URLSearchParams();
+      if (ctxHospital && ctxHospital.value) params.append("hospital_id", ctxHospital.value.trim());
+      if (ctxDoctor && ctxDoctor.value) params.append("doctor_id", ctxDoctor.value.trim());
+      if (ctxPatient && ctxPatient.value) params.append("patient_id", ctxPatient.value.trim());
+
+      const res = await fetch(`/api/v1/dashboard-pages/data/${roleId}/${pageId}?${params.toString()}`);
+      const data = await res.json();
+
+      // Update Header & Breadcrumb
+      if (breadcrumb) {
+        const roleLabel = roleId.replace("_", " ").toUpperCase();
+        breadcrumb.textContent = `Dashboard > ${roleLabel} > ${data.page_title}`;
+      }
+      if (pageNumBadge) pageNumBadge.textContent = `Page ${data.page_number}`;
+      if (pageTitle) pageTitle.textContent = data.page_title;
+
+      // Update Description
+      const roleMeta = (catalogData?.roles || []).find(r => r.role_id === roleId);
+      const pMeta = (roleMeta?.pages || []).find(p => p.page_id === pageId);
+      if (pageDescBox && pMeta) pageDescBox.textContent = pMeta.description;
+
+      // Render KPI Metrics
+      if (kpiGrid) {
+        if (data.kpis && data.kpis.length > 0) {
+          kpiGrid.style.display = "grid";
+          kpiGrid.innerHTML = data.kpis.map(k => `
+            <div style="background:#ffffff; border:1px solid var(--border-color); border-radius:6px; padding:0.75rem 1rem; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+              <div style="font-size:0.75rem; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(k.label)}</div>
+              <div style="font-size:1.4rem; font-weight:700; color:#0f172a; margin-bottom:0.2rem;">${escapeHtml(k.value)}</div>
+              <div style="font-size:0.72rem; color:${k.status === 'good' ? '#166534' : (k.status === 'warning' ? '#b45309' : '#475569')}; font-weight:500;">${escapeHtml(k.trend || '')}</div>
+            </div>
+          `).join("");
+        } else {
+          kpiGrid.style.display = "none";
+        }
+      }
+
+      // Render Main Data Viewport
+      if (data.records && data.records.length > 0 && data.table_headers && data.table_headers.length > 0) {
+        if (recordsCountBadge) recordsCountBadge.textContent = `${data.records.length} records`;
+        if (dataPanelTitle) dataPanelTitle.textContent = "Records Table";
+
+        let tableHtml = `<table style="width:100%; border-collapse:collapse; font-size:0.83rem;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:1px solid #e2e8f0; text-align:left;">
+              ${data.table_headers.map(h => `<th style="padding:0.6rem 0.75rem; color:#475569; font-weight:600;">${escapeHtml(h)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${data.records.map(row => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                ${data.table_headers.map(h => {
+                  const val = row[h] !== undefined ? row[h] : "";
+                  const isStatus = /status|health/i.test(h);
+                  const isGood = /active|confirmed|healthy|passed|delivered|yes/i.test(String(val));
+                  const isWarn = /pending|review|no/i.test(String(val));
+                  let badge = escapeHtml(String(val));
+                  if (isStatus) {
+                    badge = `<span class="badge ${isGood ? 'badge-success' : (isWarn ? 'badge-warning' : 'badge-danger')}" style="font-size:0.72rem;">${badge}</span>`;
+                  }
+                  return `<td style="padding:0.6rem 0.75rem; color:#1e293b;">${badge}</td>`;
+                }).join("")}
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`;
+        dataViewport.innerHTML = tableHtml;
+
+      } else if (data.details && Object.keys(data.details).length > 0) {
+        if (recordsCountBadge) recordsCountBadge.textContent = `${Object.keys(data.details).length} properties`;
+        if (dataPanelTitle) dataPanelTitle.textContent = "Structured Details & Configuration";
+
+        let detailsHtml = `<div style="padding:1rem; display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:0.75rem;">`;
+        for (const [key, val] of Object.entries(data.details)) {
+          detailsHtml += `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:0.65rem 0.85rem;">
+              <div style="font-size:0.72rem; color:#64748b; text-transform:uppercase; margin-bottom:0.25rem;">${escapeHtml(key.replace(/_/g, " "))}</div>
+              <div style="font-size:0.88rem; color:#0f172a; font-weight:600; font-family:${typeof val === 'object' ? 'monospace' : 'inherit'};">
+                ${typeof val === 'object' ? `<pre style="margin:0; font-size:0.75rem;">${escapeHtml(JSON.stringify(val, null, 2))}</pre>` : escapeHtml(String(val))}
+              </div>
+            </div>
+          `;
+        }
+        detailsHtml += `</div>`;
+        dataViewport.innerHTML = detailsHtml;
+
+      } else {
+        if (recordsCountBadge) recordsCountBadge.textContent = "0 items";
+        dataViewport.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-muted);">No records currently found for this view.</div>`;
+      }
+
+      // Render Contextual Action Buttons
+      if (actionButtons && data.available_actions) {
+        actionButtons.innerHTML = data.available_actions.map(act => `
+          <button type="button" class="btn btn-secondary dash-action-btn" data-action="${escapeHtml(act)}" style="font-size:0.78rem; padding:0.35rem 0.65rem; text-transform:capitalize;">
+            ${escapeHtml(act.replace(/_/g, " "))}
+          </button>
+        `).join("");
+
+        actionButtons.querySelectorAll(".dash-action-btn").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const actName = btn.dataset.action;
+            if (actionStatus) actionStatus.textContent = `Executing ${actName}...`;
+            try {
+              const aRes = await fetch(`/api/v1/dashboard-pages/action/${roleId}/${pageId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action_name: actName, action_payload: { timestamp: new Date().toISOString() } })
+              });
+              const aData = await aRes.json();
+              if (actionStatus) actionStatus.textContent = aData.message || "Action completed successfully.";
+              setTimeout(() => { if (actionStatus) actionStatus.textContent = ""; }, 4000);
+            } catch (err) {
+              if (actionStatus) actionStatus.textContent = "Action failed: " + err.message;
+            }
+          });
+        });
+      }
+
+      // Update Raw JSON Inspector
+      if (rawInspector) {
+        rawInspector.textContent = JSON.stringify(data, null, 2);
+      }
+
+    } catch (err) {
+      dataViewport.innerHTML = `<div style="color:var(--danger-color); padding:1.5rem;">Error loading page: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // 4. Wire Role Buttons
+  roleButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      roleButtons.forEach(b => {
+        b.classList.remove("active");
+        b.classList.remove("btn-primary");
+        b.classList.add("btn-secondary");
+      });
+      btn.classList.add("active");
+      btn.classList.add("btn-primary");
+      btn.classList.remove("btn-secondary");
+
+      currentRole = btn.dataset.role;
+      // Default to first page of selected role
+      const rInfo = (catalogData?.roles || []).find(r => r.role_id === currentRole);
+      currentPageId = rInfo?.pages[0]?.page_id || "overview";
+
+      renderSidebar(currentRole);
+      loadPageData(currentRole, currentPageId);
+    });
+  });
+
+  if (btnRefreshPage) {
+    btnRefreshPage.addEventListener("click", () => loadPageData(currentRole, currentPageId));
+  }
+
+  if (btnReloadCatalog) {
+    btnReloadCatalog.addEventListener("click", loadCatalog);
+  }
+
+  // Initial load
+  loadCatalog();
+}
+
 
 
 
