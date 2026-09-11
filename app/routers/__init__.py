@@ -28,6 +28,7 @@ from app.routers.hospital_workflow import router as hospital_workflow_router
 from app.routers.platform_architecture import router as architecture_router
 from app.routers.dashboard_pages import router as dashboard_pages_router
 from app.routers.dashboard_analytics import router as dashboard_analytics_router
+from app.routers.operational_monitoring import router as operational_monitoring_router
 
 __all__ = [
     "onboarding_router",
@@ -57,6 +58,7 @@ __all__ = [
     "architecture_router",
     "dashboard_pages_router",
     "dashboard_analytics_router",
+    "operational_monitoring_router",
 ]
 
 

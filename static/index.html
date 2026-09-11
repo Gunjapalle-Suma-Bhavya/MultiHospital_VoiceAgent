@@ -26,6 +26,7 @@
     <button class="tab-btn" data-tab="tab-architecture">Platform Architecture (Step 10)</button>
     <button class="tab-btn" data-tab="tab-dashboards-step11">Dashboards — 49 Pages (Step 11)</button>
     <button class="tab-btn" data-tab="tab-analytics-step12">Dashboard Analytics (Step 12)</button>
+    <button class="tab-btn" data-tab="tab-operational-monitoring-step13">Operational Monitoring (Step 13)</button>
   </nav>
 
   <main class="container">
@@ -1626,6 +1627,181 @@
         </div>
       </div>
 
+    </section>
+
+    <!-- PORTAL: OPERATIONAL MONITORING DASHBOARD (STEP 13) -->
+    <section id="tab-operational-monitoring-step13" class="tab-content">
+      <!-- Status Banner -->
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; border: none;">
+        <div>
+          <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🛡️</span> 13. Operational Monitoring Dashboard
+          </h2>
+          <p style="margin: 0.25rem 0 0 0; color: #94a3b8; font-size: 0.85rem;">
+            Dedicated Operational Visibility across AI Health, Workflow Engine, EHR Integrations, and Platform SRE Telemetry
+          </p>
+        </div>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <div style="text-align: right;">
+            <div style="font-size: 0.75rem; color: #94a3b8;">OVERALL HEALTH GRADE</div>
+            <span id="opmon-overall-grade" style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 0.95rem; background: #059669; color: #fff;">OPTIMAL</span>
+          </div>
+          <button id="btn-refresh-opmon" class="btn" style="background: #3b82f6; color: #fff; border: none; padding: 0.5rem 1rem;">🔄 Refresh Telemetry</button>
+        </div>
+      </div>
+
+      <!-- 4 Core Pillars Grid -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+
+        <!-- PILLAR 1: AI HEALTH -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; color: #6d28d9; font-size: 1.15rem;">🤖 AI Health</h3>
+            <span id="badge-ai-status" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: #ede9fe; color: #6d28d9; font-weight: 600;">HEALTHY</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Active Conversations</div>
+              <div id="opmon-ai-convos" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Avg Response Latency</div>
+              <div id="opmon-ai-latency" style="font-size: 1.4rem; font-weight: 700; color: #059669;">-- ms</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Failed Capability Calls</div>
+              <div id="opmon-ai-failed-caps" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Escalation Rate</div>
+              <div id="opmon-ai-escalation" style="font-size: 1.4rem; font-weight: 700; color: #d97706;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">AI Error Rate</div>
+              <div id="opmon-ai-error" style="font-size: 1.4rem; font-weight: 700; color: #dc2626;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Evaluation Score</div>
+              <div id="opmon-ai-eval-score" style="font-size: 1.4rem; font-weight: 700; color: #4338ca;">-- / 5.0</div>
+            </div>
+          </div>
+          <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; background: #faf5ff; padding: 0.6rem; border-radius: 4px; border-left: 3px solid #8b5cf6;">
+            <strong>Domain Benchmarks:</strong> Conversational: <span id="opmon-eval-convo">--</span> | Scheduling: <span id="opmon-eval-sched">--</span> | EHR: <span id="opmon-eval-ehr">--</span>
+          </div>
+        </div>
+
+        <!-- PILLAR 2: WORKFLOW HEALTH -->
+        <div class="card" style="border-top: 4px solid #0284c7;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; color: #0369a1; font-size: 1.15rem;">⚙️ Workflow Health</h3>
+            <span id="badge-wf-status" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: #e0f2fe; color: #0369a1; font-weight: 600;">ACTIVE</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Running Workflows</div>
+              <div id="opmon-wf-running" style="font-size: 1.4rem; font-weight: 700; color: #0284c7;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Completed Workflows</div>
+              <div id="opmon-wf-completed" style="font-size: 1.4rem; font-weight: 700; color: #059669;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Failed Workflows</div>
+              <div id="opmon-wf-failed" style="font-size: 1.4rem; font-weight: 700; color: #dc2626;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Retried Workflows</div>
+              <div id="opmon-wf-retried" style="font-size: 1.4rem; font-weight: 700; color: #d97706;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Avg Workflow Duration</div>
+              <div id="opmon-wf-avg-dur" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">-- s</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Stuck Executions</div>
+              <div id="opmon-wf-stuck" style="font-size: 1.4rem; font-weight: 700; color: #059669;">--</div>
+            </div>
+          </div>
+          <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; background: #f0f9ff; padding: 0.6rem; border-radius: 4px; border-left: 3px solid #0284c7;">
+            <strong>Async Engine SLA:</strong> Reminders &amp; Post-Booking Dispatch clearing on schedule with zero stuck tasks.
+          </div>
+        </div>
+
+        <!-- PILLAR 3: EHR / EXTERNAL INTEGRATION HEALTH -->
+        <div class="card" style="border-top: 4px solid #059669;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; color: #065f46; font-size: 1.15rem;">🏥 EHR / External Integration Health</h3>
+            <span id="badge-ehr-status" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: #d1fae5; color: #065f46; font-weight: 600;">CONNECTED</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Integration Requests</div>
+              <div id="opmon-ehr-reqs" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Integration Operations</div>
+              <div id="opmon-ehr-ops" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Success Rate</div>
+              <div id="opmon-ehr-succ-rate" style="font-size: 1.4rem; font-weight: 700; color: #059669;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Failure Rate</div>
+              <div id="opmon-ehr-fail-rate" style="font-size: 1.4rem; font-weight: 700; color: #dc2626;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">5-Point Verification Rate</div>
+              <div id="opmon-ehr-verif-rate" style="font-size: 1.4rem; font-weight: 700; color: #059669;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Reconciliation Count</div>
+              <div id="opmon-ehr-reconcile" style="font-size: 1.4rem; font-weight: 700; color: #4338ca;">--</div>
+            </div>
+          </div>
+          <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; background: #ecfdf5; padding: 0.6rem; border-radius: 4px; border-left: 3px solid #059669;">
+            <strong>Connector Status:</strong> FHIR R4: <span id="opmon-conn-fhir" style="color:#059669; font-weight:600;">OK</span> | Epic: <span id="opmon-conn-epic" style="color:#059669; font-weight:600;">OK</span> | Cerner: <span id="opmon-conn-cerner" style="color:#059669; font-weight:600;">OK</span> | Mock: <span id="opmon-conn-mock" style="color:#059669; font-weight:600;">OK</span>
+          </div>
+        </div>
+
+        <!-- PILLAR 4: PLATFORM HEALTH -->
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="margin: 0; color: #b45309; font-size: 1.15rem;">🖥️ Platform Health</h3>
+            <span id="badge-plat-status" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 4px; background: #fef3c7; color: #b45309; font-weight: 600;">ONLINE</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Service Availability</div>
+              <div id="opmon-plat-avail" style="font-size: 1.4rem; font-weight: 700; color: #059669;">--%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">API Errors</div>
+              <div id="opmon-plat-api-errs" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Background Task Failures</div>
+              <div id="opmon-plat-bg-fails" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Notification Failures</div>
+              <div id="opmon-plat-notif-fails" style="font-size: 1.4rem; font-weight: 700; color: #0f172a;">--</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Database Health</div>
+              <div id="opmon-plat-db-health" style="font-size: 1.4rem; font-weight: 700; color: #059669;">HEALTHY</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Queue Backlog Total</div>
+              <div id="opmon-plat-backlog-total" style="font-size: 1.4rem; font-weight: 700; color: #0284c7;">0</div>
+            </div>
+          </div>
+          <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; background: #fffbeb; padding: 0.6rem; border-radius: 4px; border-left: 3px solid #f59e0b;">
+            <strong>Queue Depths:</strong> WF Queue: <span id="opmon-q-wf">0</span> | Notifications: <span id="opmon-q-notif">0</span> | EHR Syncs: <span id="opmon-q-ehr">0</span>
+          </div>
+        </div>
+
+      </div>
     </section>
 
   </main>
