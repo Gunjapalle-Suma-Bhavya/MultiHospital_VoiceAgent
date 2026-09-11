@@ -513,16 +513,55 @@ class PatientIntakeRecord(Base):
 
 
 class AuditLog(Base):
+    """
+    Enterprise Audit Trail & System Operation Ledger (Section 5.40 & 5.41).
+    Every important system operation produces an auditable event with privacy-safe structured data.
+    Supports the 7 audit objectives:
+    DEBUGGING, RELIABILITY, OPERATIONAL_MONITORING, DISPUTE_INVESTIGATION,
+    AGENT_EVALUATION, SECURITY_REVIEW, INTEGRATION_TROUBLESHOOTING.
+    """
     __tablename__ = "audit_logs"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    session_id = Column(String(36), nullable=True)
-    hospital_id = Column(String(36), nullable=True)
+    session_id = Column(String(36), nullable=True, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
     correlation_id = Column(String(100), nullable=True, index=True)
-    event_type = Column(String(100), nullable=False)
+    event_type = Column(String(100), nullable=False, index=True)
+    
+    # Section 5.40: Audit objectives and actor tracking
+    category = Column(String(100), default="OPERATIONAL_MONITORING", index=True)
+    actor_id = Column(String(100), nullable=True)
+    actor_role = Column(String(50), default="SYSTEM", index=True)
+    resource_type = Column(String(100), nullable=True, index=True)
+    resource_id = Column(String(100), nullable=True)
+    status = Column(String(50), default="SUCCESS")  # SUCCESS, FAILURE, ATTEMPTED
+    
+    # Section 5.41: Privacy-aware structured logging
+    privacy_level = Column(String(50), default="STRUCTURED_NO_PHI")  # STRUCTURED_NO_PHI, REDACTED_PHI, ANONYMIZED
     tool_invocation_json = Column(Text, nullable=True)
     payload_json = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class PrivacyAccessAudit(Base):
+    """
+    Privacy-Aware Permission & Access Control Audit Log (Section 5.41).
+    Tracks every access check, grant, and denial for the 6 sensitive healthcare resources:
+    PATIENT_INFO, TRANSCRIPTS, QUESTIONNAIRE_RESPONSES, RECORDINGS, OPERATIONAL_DETAILS, INTEGRATION_DETAILS.
+    """
+    __tablename__ = "privacy_access_audits"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    requester_role = Column(String(50), nullable=False, index=True)
+    requester_id = Column(String(100), nullable=False, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
+    resource_type = Column(String(100), nullable=False, index=True)
+    resource_id = Column(String(100), nullable=True)
+    action = Column(String(50), default="READ")  # READ, EXPORT, DELETE
+    decision = Column(String(50), nullable=False, index=True)  # GRANTED, DENIED
+    reason = Column(String(255), nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
 
 
 class EventType(str, Enum):

@@ -18,6 +18,8 @@
     <button class="tab-btn" data-tab="tab-doctors">Doctor & Calendar Management</button>
     <button class="tab-btn" data-tab="tab-patients">Patient Self-Service</button>
     <button class="tab-btn" data-tab="tab-voice">AI Voice & Chat Access Console</button>
+    <button class="tab-btn" data-tab="tab-audit">Audit Trail & Privacy (5.40 & 5.41)</button>
+    <button class="tab-btn" data-tab="tab-rbac">Role-Based Access Control (Step 6)</button>
   </nav>
 
   <main class="container">
@@ -559,6 +561,210 @@
           </form>
           <div id="context-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- PORTAL 5: AUDIT TRAIL & PRIVACY-AWARE LOGGING (5.40 & 5.41) -->
+    <section id="tab-audit" class="tab-content">
+      <div class="grid">
+
+        <!-- CARD 1: SESSION TIMELINE VIEWER (5.40) -->
+        <div class="card" style="grid-column: span 2;">
+          <h2>Session Audit Trail & Chronological Timeline (5.40)</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+            Reconstructs end-to-end operational timelines from canonical audit events with integrity validation.
+          </p>
+          <div class="grid" style="grid-template-columns: 2fr 1fr; gap:1rem; align-items:end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Call / Session ID</label>
+              <input type="text" id="audit-timeline-session-id" placeholder="e.g. CALL-SESSION-540-001" value="CALL-DEMO-540">
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" id="btn-load-timeline" class="btn" style="flex:1;">Load Timeline</button>
+              <button type="button" id="btn-seed-sample-timeline" class="btn btn-secondary" style="flex:1;">Seed 16-Step Lifecycle</button>
+            </div>
+          </div>
+
+          <div id="audit-timeline-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: THE 7 AUDIT OBJECTIVES EXPLORER (5.40) -->
+        <div class="card">
+          <h2>Audit Objectives Explorer (5.40)</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+            Filter operational events across the 7 mandatory healthcare audit objectives.
+          </p>
+          <div class="form-group">
+            <label>Audit Objective Category</label>
+            <select id="audit-filter-category">
+              <option value="">ALL CATEGORIES</option>
+              <option value="DEBUGGING">DEBUGGING (Tool calls & trace details)</option>
+              <option value="RELIABILITY">RELIABILITY (EHR verification & workflows)</option>
+              <option value="OPERATIONAL_MONITORING">OPERATIONAL_MONITORING (Calls & intake)</option>
+              <option value="DISPUTE_INVESTIGATION">DISPUTE_INVESTIGATION (Bookings & escalations)</option>
+              <option value="AGENT_EVALUATION">AGENT_EVALUATION (Context & decision metrics)</option>
+              <option value="SECURITY_REVIEW">SECURITY_REVIEW (Access checks & blocked violations)</option>
+              <option value="INTEGRATION_TROUBLESHOOTING">INTEGRATION_TROUBLESHOOTING (EHR sync)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hospital ID (optional)</label>
+            <input type="text" id="audit-filter-hospital" placeholder="e.g. HOSP-40">
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" id="btn-query-audit-trail" class="btn">Query Audit Trail</button>
+            <button type="button" id="btn-get-audit-summary" class="btn btn-secondary">Platform Compliance Summary</button>
+          </div>
+          <div id="audit-query-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 3: PRIVACY ACCESS CONTROL SIMULATOR (5.41) -->
+        <div class="card">
+          <h2>Permission-Controlled Privacy Engine (5.41)</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+            Verifies role permissions over the 6 protected healthcare resource categories.
+          </p>
+          <form id="form-privacy-check">
+            <div class="form-group">
+              <label>Requester Role</label>
+              <select id="privacy-role">
+                <option value="DOCTOR">DOCTOR</option>
+                <option value="PATIENT">PATIENT</option>
+                <option value="HOSPITAL_ADMIN">HOSPITAL_ADMIN</option>
+                <option value="PLATFORM_ADMIN">PLATFORM_ADMIN</option>
+                <option value="CALL_OPERATOR">CALL_OPERATOR</option>
+                <option value="AUDITOR">AUDITOR</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Protected Resource</label>
+              <select id="privacy-resource">
+                <option value="PATIENT_INFO">PATIENT_INFO</option>
+                <option value="TRANSCRIPTS">TRANSCRIPTS</option>
+                <option value="QUESTIONNAIRE_RESPONSES">QUESTIONNAIRE_RESPONSES</option>
+                <option value="RECORDINGS">RECORDINGS</option>
+                <option value="OPERATIONAL_DETAILS">OPERATIONAL_DETAILS</option>
+                <option value="INTEGRATION_DETAILS">INTEGRATION_DETAILS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Requester ID</label>
+              <input type="text" id="privacy-requester-id" value="USER-001" required>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="submit" class="btn">Evaluate Access</button>
+              <button type="button" id="btn-get-privacy-logs" class="btn btn-secondary">Security Access Audits</button>
+            </div>
+          </form>
+          <div id="privacy-check-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 6: ROLE-BASED ACCESS CONTROL (STEP 6) -->
+    <section id="tab-rbac" class="tab-content">
+      <div class="grid">
+
+        <!-- CARD 1: ROLE CAPABILITY MATRIX EXPLORER -->
+        <div class="card" style="grid-column: span 2;">
+          <h2>Role-Based Access Control Matrix (Step 6)</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+            Inspect authorized capabilities and strict boundary rules across the 4 platform personas.
+          </p>
+          <div class="grid" style="grid-template-columns: 2fr 1fr; gap:1rem; align-items:end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Select Role</label>
+              <select id="rbac-matrix-role">
+                <option value="PLATFORM_ADMIN">Platform Admin (8 Operations)</option>
+                <option value="HOSPITAL_ADMIN">Hospital Admin (10 Operations + Tenant Isolation)</option>
+                <option value="DOCTOR">Doctor (5 Operations + Doctor Scope)</option>
+                <option value="PATIENT">Patient (7 Operations + Patient Scope)</option>
+              </select>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" id="btn-load-rbac-role" class="btn" style="flex:1;">Inspect Role</button>
+              <button type="button" id="btn-load-all-rbac-matrix" class="btn btn-secondary" style="flex:1;">Full 4-Role Matrix</button>
+            </div>
+          </div>
+          <div id="rbac-matrix-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: INTERACTIVE BOUNDARY ENFORCEMENT SIMULATOR -->
+        <div class="card" style="grid-column: span 2;">
+          <h2>Boundary Enforcement & Multi-Tenant Isolation Simulator</h2>
+          <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;">
+            Test allowed operations versus strict boundary violations in real-time.
+          </p>
+          
+          <div style="margin-bottom:1rem;">
+            <label style="font-weight:600; font-size:0.85rem; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Quick Simulation Presets:</label>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="HOSPITAL_ADMIN" data-perm="MANAGE_HOSPITAL_PROFILE" data-userhosp="HOSP-A" data-targethosp="HOSP-A">Hospital Admin -> Own Hospital (Allowed)</button>
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="HOSPITAL_ADMIN" data-perm="VIEW_HOSPITAL_ANALYTICS" data-userhosp="HOSP-A" data-targethosp="HOSP-B">Hospital Admin -> Hospital B (Tenant Violation)</button>
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="DOCTOR" data-perm="MANAGE_OWN_CALENDAR" data-userdoc="DOC-10" data-targetdoc="DOC-10">Doctor -> Own Calendar (Allowed)</button>
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="DOCTOR" data-perm="BLOCK_SLOTS" data-userdoc="DOC-10" data-targetdoc="DOC-20">Doctor -> Other Doctor's Slots (Doctor Violation)</button>
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="PATIENT" data-perm="VIEW_OWN_PATIENT_APPOINTMENTS" data-userpat="PAT-99" data-targetpat="PAT-99">Patient -> Own Appointments (Allowed)</button>
+              <button type="button" class="btn btn-secondary rbac-preset-btn" data-role="PATIENT" data-perm="CANCEL_APPOINTMENTS" data-userpat="PAT-99" data-targetpat="PAT-100">Patient -> Other Patient's Visit (Patient Violation)</button>
+            </div>
+          </div>
+
+          <form id="form-rbac-simulate">
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Caller Role</label>
+                <select id="rbac-sim-role">
+                  <option value="PLATFORM_ADMIN">PLATFORM_ADMIN</option>
+                  <option value="HOSPITAL_ADMIN">HOSPITAL_ADMIN</option>
+                  <option value="DOCTOR">DOCTOR</option>
+                  <option value="PATIENT">PATIENT</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Requested Permission / Action</label>
+                <input type="text" id="rbac-sim-permission" value="MANAGE_HOSPITAL_PROFILE" required>
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Caller Hospital ID</label>
+                <input type="text" id="rbac-sim-user-hosp" placeholder="e.g. HOSP-A">
+              </div>
+              <div class="form-group">
+                <label>Caller Doctor ID</label>
+                <input type="text" id="rbac-sim-user-doc" placeholder="e.g. DOC-1">
+              </div>
+              <div class="form-group">
+                <label>Caller Patient ID</label>
+                <input type="text" id="rbac-sim-user-pat" placeholder="e.g. PAT-10">
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Target Hospital ID</label>
+                <input type="text" id="rbac-sim-target-hosp" placeholder="e.g. HOSP-A or HOSP-B">
+              </div>
+              <div class="form-group">
+                <label>Target Doctor ID</label>
+                <input type="text" id="rbac-sim-target-doc" placeholder="e.g. DOC-1 or DOC-2">
+              </div>
+              <div class="form-group">
+                <label>Target Patient ID</label>
+                <input type="text" id="rbac-sim-target-pat" placeholder="e.g. PAT-10 or PAT-20">
+              </div>
+            </div>
+
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" id="btn-rbac-evaluate" class="btn">Evaluate Access (Soft Check)</button>
+              <button type="submit" class="btn btn-secondary">Enforce Access (Strict 403 Test)</button>
+            </div>
+          </form>
+
+          <div id="rbac-sim-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
       </div>
     </section>
 

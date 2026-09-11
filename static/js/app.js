@@ -17,6 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAIAnalyticsForm();
   setupFeedbackLoopForm();
   setupEscalationConsole();
+  setupAuditTrailForms();
+  setupRBACForms();
 });
 
 
@@ -1265,6 +1267,346 @@ async function listEscalationRecords() {
     out.textContent = "Error: " + err.message;
   }
 }
+
+// ============================================================================
+// Sections 5.40 & 5.41 — Audit Trail & Privacy-Aware Logging
+// ============================================================================
+
+function setupAuditTrailForms() {
+  const btnLoadTimeline = document.getElementById("btn-load-timeline");
+  const btnSeedTimeline = document.getElementById("btn-seed-sample-timeline");
+  const btnQueryAudit = document.getElementById("btn-query-audit-trail");
+  const btnAuditSummary = document.getElementById("btn-get-audit-summary");
+  const formPrivacy = document.getElementById("form-privacy-check");
+  const btnPrivacyLogs = document.getElementById("btn-get-privacy-logs");
+
+  // 1. Load Session Timeline (5.40)
+  if (btnLoadTimeline) {
+    btnLoadTimeline.addEventListener("click", async () => {
+      const sessionId = document.getElementById("audit-timeline-session-id").value.trim();
+      const out = document.getElementById("audit-timeline-output");
+      if (!sessionId) { alert("Enter a Session ID"); return; }
+
+      out.style.display = "block";
+      out.textContent = "Reconstructing chronological timeline...";
+
+      try {
+        const res = await fetch(`/api/v1/audit/timeline/${sessionId}`);
+        const data = await res.json();
+
+        if (data.event_count === 0) {
+          out.textContent = `No audit events found for session '${sessionId}'. Click 'Seed 16-Step Lifecycle' to generate sample data.`;
+          return;
+        }
+
+        let output = `========================================================\n`;
+        output += `CHRONOLOGICAL AUDIT TRAIL — SESSION: ${data.session_id}\n`;
+        output += `Total Events: ${data.event_count} | Integrity: ${data.integrity?.is_valid ? "VALID (STRICT CHRONOLOGICAL)" : "COMPROMISED"}\n`;
+        output += `========================================================\n\n`;
+        output += data.formatted_summary + `\n\n`;
+        output += `========================================================\n`;
+        output += `DETAILED PRIVACY-SANITIZED EVENTS (SECTION 5.41)\n`;
+        output += `========================================================\n`;
+        output += JSON.stringify(data.timeline, null, 2);
+
+        out.textContent = output;
+      } catch (err) {
+        out.textContent = "Error loading timeline: " + err.message;
+      }
+    });
+  }
+
+  // 2. Seed Sample 16-Step Lifecycle (5.40 Specification)
+  if (btnSeedTimeline) {
+    btnSeedTimeline.addEventListener("click", async () => {
+      const sessionId = document.getElementById("audit-timeline-session-id").value.trim() || "CALL-DEMO-540";
+      const out = document.getElementById("audit-timeline-output");
+      out.style.display = "block";
+      out.textContent = "Seeding canonical 16-event lifecycle into audit trail...";
+
+      const events = [
+        { event_type: "CALL_STARTED", category: "OPERATIONAL_MONITORING" },
+        { event_type: "PATIENT_IDENTIFIED", category: "OPERATIONAL_MONITORING", payload: { patient_id: "PAT-8812" } },
+        { event_type: "AI_CONTEXT_RETRIEVED", category: "AGENT_EVALUATION", payload: { intent: "APPOINTMENT_BOOKING" } },
+        { event_type: "TOOL_CALL", category: "DEBUGGING", tool_name: "lookup_patient", tool_arguments: { patient_id: "PAT-8812" } },
+        { event_type: "TOOL_CALL", category: "DEBUGGING", tool_name: "search_doctors", tool_arguments: { specialty: "Cardiology" } },
+        { event_type: "TOOL_CALL", category: "DEBUGGING", tool_name: "check_availability", tool_arguments: { doctor_id: "DOC-CAR-01" } },
+        { event_type: "PATIENT_SELECTED_SLOT", category: "OPERATIONAL_MONITORING", payload: { slot: "2026-09-12 10:30 AM" } },
+        { event_type: "BOOKING_STARTED", category: "OPERATIONAL_MONITORING", payload: { appointment_type: "IN_PERSON" } },
+        { event_type: "EHR_INTEGRATION_STARTED", category: "INTEGRATION_TROUBLESHOOTING", payload: { ehr_adapter: "EPIC" } },
+        { event_type: "EXTERNAL_APPOINTMENT_CREATED", category: "INTEGRATION_TROUBLESHOOTING", payload: { external_ref: "EPIC-APT-9921" } },
+        { event_type: "EHR_SYNC_VERIFIED", category: "RELIABILITY", payload: { sync_state: "CONFIRMED_MATCH" } },
+        { event_type: "BOOKING_VERIFIED", category: "RELIABILITY", payload: { status: "CONFIRMED" } },
+        { event_type: "QUESTIONNAIRE_STARTED", category: "OPERATIONAL_MONITORING", payload: { questionnaire_id: "Q-CARDIAC-01" } },
+        { event_type: "QUESTIONNAIRE_COMPLETED", category: "OPERATIONAL_MONITORING", payload: { total_answers: 4 } },
+        { event_type: "WORKFLOW_STARTED", category: "RELIABILITY", payload: { workflow_name: "POST_BOOKING_NOTIFICATION" } },
+        { event_type: "CALL_COMPLETED", category: "OPERATIONAL_MONITORING", payload: { duration_seconds: 124 } }
+      ];
+
+      try {
+        for (const ev of events) {
+          await fetch("/api/v1/audit/events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session_id: sessionId,
+              hospital_id: "HOSP-40",
+              event_type: ev.event_type,
+              category: ev.category,
+              tool_name: ev.tool_name || null,
+              tool_arguments: ev.tool_arguments || null,
+              payload: ev.payload || null
+            })
+          });
+        }
+        btnLoadTimeline.click();
+      } catch (err) {
+        out.textContent = "Error seeding timeline: " + err.message;
+      }
+    });
+  }
+
+  // 3. Query Audit Trail across 7 Objectives (5.40)
+  if (btnQueryAudit) {
+    btnQueryAudit.addEventListener("click", async () => {
+      const category = document.getElementById("audit-filter-category").value;
+      const hospitalId = document.getElementById("audit-filter-hospital").value.trim();
+      const out = document.getElementById("audit-query-output");
+
+      out.style.display = "block";
+      out.textContent = "Querying structured audit logs...";
+
+      try {
+        const params = new URLSearchParams();
+        if (category) params.append("category", category);
+        if (hospitalId) params.append("hospital_id", hospitalId);
+
+        const res = await fetch(`/api/v1/audit/trail?${params.toString()}`);
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error querying audit logs: " + err.message;
+      }
+    });
+  }
+
+  // 4. Platform Compliance Summary (5.40 & 5.41)
+  if (btnAuditSummary) {
+    btnAuditSummary.addEventListener("click", async () => {
+      const hospitalId = document.getElementById("audit-filter-hospital").value.trim();
+      const out = document.getElementById("audit-query-output");
+
+      out.style.display = "block";
+      out.textContent = "Generating platform compliance summary...";
+
+      try {
+        const url = "/api/v1/audit/summary" + (hospitalId ? `?hospital_id=${hospitalId}` : "");
+        const res = await fetch(url);
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error loading audit summary: " + err.message;
+      }
+    });
+  }
+
+  // 5. Privacy Access Check Simulator (5.41)
+  if (formPrivacy) {
+    formPrivacy.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const role = document.getElementById("privacy-role").value;
+      const resource = document.getElementById("privacy-resource").value;
+      const reqId = document.getElementById("privacy-requester-id").value.trim();
+      const out = document.getElementById("privacy-check-output");
+
+      out.style.display = "block";
+      out.textContent = "Evaluating access permissions...";
+
+      try {
+        const res = await fetch("/api/v1/audit/privacy/access-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requester_role: role,
+            requester_id: reqId,
+            resource_type: resource,
+            action: "READ",
+            reason: `Frontend privacy evaluation for role ${role}`
+          })
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error during privacy evaluation: " + err.message;
+      }
+    });
+  }
+
+  // 6. Security Access Audits Log
+  if (btnPrivacyLogs) {
+    btnPrivacyLogs.addEventListener("click", async () => {
+      const out = document.getElementById("privacy-check-output");
+      out.style.display = "block";
+      out.textContent = "Loading security access audit logs...";
+
+      try {
+        const res = await fetch("/api/v1/audit/privacy/access-logs");
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error loading access logs: " + err.message;
+      }
+    });
+  }
+}
+
+// ============================================================================
+// Step 6 — Role-Based Access Control (RBAC) Console
+// ============================================================================
+
+function setupRBACForms() {
+  const btnLoadRole = document.getElementById("btn-load-rbac-role");
+  const btnLoadAll = document.getElementById("btn-load-all-rbac-matrix");
+  const formSimulate = document.getElementById("form-rbac-simulate");
+  const btnEvaluate = document.getElementById("btn-rbac-evaluate");
+  const presetBtns = document.querySelectorAll(".rbac-preset-btn");
+
+  // 1. Inspect Single Role Capabilities & Boundaries
+  if (btnLoadRole) {
+    btnLoadRole.addEventListener("click", async () => {
+      const role = document.getElementById("rbac-matrix-role").value;
+      const out = document.getElementById("rbac-matrix-output");
+      out.style.display = "block";
+      out.textContent = `Loading capabilities for ${role}...`;
+
+      try {
+        const res = await fetch(`/api/v1/rbac/permissions/${role}`);
+        const data = await res.json();
+        let output = `========================================================\n`;
+        output += `ROLE: ${data.title} (${data.role})\n`;
+        output += `Allowed Operations: ${data.allowed_count}\n`;
+        output += `STRICT BOUNDARY RULE: ${data.boundary_rule}\n`;
+        output += `========================================================\n\n`;
+        output += `PERMITTED CAPABILITIES:\n`;
+        data.permissions.forEach((p, idx) => {
+          output += `  ${idx + 1}. ${p}\n`;
+        });
+        out.textContent = output;
+      } catch (err) {
+        out.textContent = "Error loading role permissions: " + err.message;
+      }
+    });
+  }
+
+  // 2. Full 4-Role RBAC Matrix
+  if (btnLoadAll) {
+    btnLoadAll.addEventListener("click", async () => {
+      const out = document.getElementById("rbac-matrix-output");
+      out.style.display = "block";
+      out.textContent = "Loading complete 4-Role platform matrix...";
+
+      try {
+        const res = await fetch("/api/v1/rbac/matrix");
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error loading matrix: " + err.message;
+      }
+    });
+  }
+
+  // 3. Preset Simulation Buttons
+  presetBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const role = btn.getAttribute("data-role");
+      const perm = btn.getAttribute("data-perm");
+      const userHosp = btn.getAttribute("data-userhosp") || "";
+      const targetHosp = btn.getAttribute("data-targethosp") || "";
+      const userDoc = btn.getAttribute("data-userdoc") || "";
+      const targetDoc = btn.getAttribute("data-targetdoc") || "";
+      const userPat = btn.getAttribute("data-userpat") || "";
+      const targetPat = btn.getAttribute("data-targetpat") || "";
+
+      document.getElementById("rbac-sim-role").value = role;
+      document.getElementById("rbac-sim-permission").value = perm;
+      document.getElementById("rbac-sim-user-hosp").value = userHosp;
+      document.getElementById("rbac-sim-target-hosp").value = targetHosp;
+      document.getElementById("rbac-sim-user-doc").value = userDoc;
+      document.getElementById("rbac-sim-target-doc").value = targetDoc;
+      document.getElementById("rbac-sim-user-pat").value = userPat;
+      document.getElementById("rbac-sim-target-pat").value = targetPat;
+
+      if (btnEvaluate) btnEvaluate.click();
+    });
+  });
+
+  // 4. Helper function to extract simulation payload
+  function getSimulatePayload() {
+    return {
+      role: document.getElementById("rbac-sim-role").value,
+      permission: document.getElementById("rbac-sim-permission").value.trim(),
+      user_id: "user-sim-001",
+      user_hospital_id: document.getElementById("rbac-sim-user-hosp").value.trim() || null,
+      user_doctor_id: document.getElementById("rbac-sim-user-doc").value.trim() || null,
+      user_patient_id: document.getElementById("rbac-sim-user-pat").value.trim() || null,
+      target_hospital_id: document.getElementById("rbac-sim-target-hosp").value.trim() || null,
+      target_doctor_id: document.getElementById("rbac-sim-target-doc").value.trim() || null,
+      target_patient_id: document.getElementById("rbac-sim-target-pat").value.trim() || null,
+    };
+  }
+
+  // 5. Evaluate Access (Soft Check)
+  if (btnEvaluate) {
+    btnEvaluate.addEventListener("click", async () => {
+      const out = document.getElementById("rbac-sim-output");
+      out.style.display = "block";
+      out.textContent = "Evaluating role boundary rules...";
+
+      try {
+        const payload = getSimulatePayload();
+        const res = await fetch("/api/v1/rbac/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = "Error evaluating access: " + err.message;
+      }
+    });
+  }
+
+  // 6. Enforce Access (Strict 403 Test)
+  if (formSimulate) {
+    formSimulate.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const out = document.getElementById("rbac-sim-output");
+      out.style.display = "block";
+      out.textContent = "Testing strict 403 enforcement...";
+
+      try {
+        const payload = getSimulatePayload();
+        const res = await fetch("/api/v1/rbac/enforce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          out.textContent = `[HTTP 200 OK — AUTHORIZED]\n` + JSON.stringify(data, null, 2);
+        } else {
+          out.textContent = `[HTTP ${res.status} FORBIDDEN — BOUNDARY VIOLATION]\n` + JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        out.textContent = "Error testing enforcement: " + err.message;
+      }
+    });
+  }
+}
+
+
 
 
 

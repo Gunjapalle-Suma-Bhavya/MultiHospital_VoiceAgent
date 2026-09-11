@@ -14,6 +14,7 @@ Executes authorized actions with:
 
 import time
 import uuid
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 from sqlalchemy.orm import Session
@@ -55,12 +56,18 @@ class ActionExecutor:
         self.appointment_service = AppointmentService(db_session)
 
     def _create_audit_entry(self, session_id: str, hospital_id: str, event_type: str, payload: dict) -> str:
-        sanitized_payload = ContextBoundaryGuard.sanitize_for_telemetry(payload)
+        from app.audit import EVENT_CATEGORY_MAP, AuditCategory
+        from app.audit.privacy_sanitizer import PrivacySanitizer
+        sanitized_payload, priv_level = PrivacySanitizer.sanitize_payload(payload)
+        matched_cat = EVENT_CATEGORY_MAP.get(event_type)
+        category = matched_cat.value if matched_cat else AuditCategory.OPERATIONAL_MONITORING.value
         audit = AuditLog(
             session_id=session_id,
             hospital_id=hospital_id,
             event_type=event_type,
-            payload_json=str(sanitized_payload)
+            category=category,
+            privacy_level=priv_level,
+            payload_json=json.dumps(sanitized_payload, default=str)
         )
         self.db.add(audit)
         self.db.commit()
