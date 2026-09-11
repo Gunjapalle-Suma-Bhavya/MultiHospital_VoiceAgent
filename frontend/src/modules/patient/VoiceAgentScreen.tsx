@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Send, Volume2, VolumeX, Hand, Sparkles, Radio, Zap } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, Hand, Sparkles, Radio, Zap, AlertCircle } from 'lucide-react';
 import { useVoiceAgent } from '../../hooks/useVoiceAgent';
 import { useAuth } from '../../hooks/useAuth';
 import { AudioVisualizerCanvas } from '../../components/AudioVisualizerCanvas';
@@ -21,12 +21,15 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     bargeInAlert,
     streamActive,
     transcriptLive,
+    voiceNotice,
+    hasSpeechSupport,
     startVoiceRecording,
     stopVoiceRecording,
     streamAIResponse,
     sendUtterance,
     triggerBargeIn,
     speak,
+    testSpeaker,
   } = useVoiceAgent();
 
   const [inputVal, setInputVal] = useState('');
@@ -94,7 +97,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-md h-full">
       <div className="space-y-3">
         {/* Header */}
-        <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div className="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800 gap-2">
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
@@ -102,7 +105,18 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               <span>AI Voice &amp; Chat Intake</span>
             </h3>
           </div>
+
           <div className="flex items-center space-x-2">
+            {/* Direct Speaker Test Button */}
+            <button
+              onClick={testSpeaker}
+              className="text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition shadow-sm"
+              title="Click to verify computer speaker audio playback"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Test Audio</span>
+            </button>
+
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`p-1.5 rounded-lg border transition ${
@@ -110,10 +124,11 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                   ? 'bg-rose-950/60 border-rose-800/80 text-rose-400'
                   : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
               }`}
-              title={isMuted ? 'Unmute AI Voice Synthesizer' : 'Mute AI Voice Output'}
+              title={isMuted ? 'Unmute AI Voice Output' : 'Mute AI Voice Output'}
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
+
             <button
               onClick={() => streamAIResponse(inputVal || "I've had knee pain for 3 days")}
               disabled={streamActive}
@@ -121,15 +136,26 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               title="Test Real-Time Server-Sent Events (SSE) stream"
             >
               <Zap className="w-3 h-3 text-indigo-400" />
-              <span>Test SSE Stream</span>
+              <span>SSE Stream</span>
             </button>
+
             <span className="text-[10px] font-semibold bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">
-              {latencyMs ? `${latencyMs}ms Telephony` : '<2.0s Telephony'}
+              {latencyMs ? `${latencyMs}ms` : '<2.0s'}
             </span>
           </div>
         </div>
 
-        {/* Real Dynamic FFT Audio Visualizer Canvas */}
+        {/* Notice Banner if mic blocked or browser lacks recognition */}
+        {voiceNotice && (
+          <div className="p-3 bg-amber-950/40 border border-amber-600/40 rounded-xl text-xs flex items-start space-x-2 text-amber-300 animate-in fade-in duration-150">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-semibold">{voiceNotice}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Real Dynamic Audio Visualizer Canvas */}
         <AudioVisualizerCanvas
           isActive={isRecording || isSpeaking || isProcessing || streamActive}
           isSpeaking={isSpeaking}
@@ -149,12 +175,12 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           <div className="flex items-center space-x-3">
             <button
               onClick={handleMicToggle}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition shadow-md ${
+              className={`w-11 h-11 rounded-xl flex items-center justify-center transition shadow-md ${
                 isRecording
                   ? 'bg-rose-600 text-white animate-pulse'
-                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
               }`}
-              title={isRecording ? 'Click to stop and send voice' : 'Click to speak through microphone'}
+              title={isRecording ? 'Click to stop & send voice' : 'Click to start speaking into microphone'}
             >
               {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
@@ -163,7 +189,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 {isRecording ? (
                   <span className="text-rose-400 flex items-center gap-1">
                     <Radio className="w-3 h-3 animate-ping" />
-                    Listening to your voice... (click mic or pause to send)
+                    Listening to your voice... (Pause or click mic to submit)
                   </span>
                 ) : isSpeaking ? (
                   <span className="text-sky-400 flex items-center gap-1">
@@ -175,13 +201,13 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 ) : streamActive ? (
                   <span className="text-indigo-400">Streaming AI Audio &amp; Tokens...</span>
                 ) : isProcessing ? (
-                  'Processing Speech &amp; Clinical NLP...'
+                  'Processing Clinical Intake NLP...'
                 ) : (
-                  'Microphone Ready &bull; Click mic or choose prompt below'
+                  'Microphone Ready &bull; Click mic icon or select scenario'
                 )}
               </div>
               <div className="text-[10px] text-slate-500">
-                Bidirectional Audio Synthesizer &bull; Sub-180ms Barge-In Active
+                Natural Web Speech Synthesizer &bull; Sub-180ms Interruption Active
               </div>
             </div>
           </div>
@@ -198,7 +224,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
         </div>
 
-        {/* Live Transcript Bubble when talking */}
+        {/* Live Transcript Bubble */}
         {transcriptLive && (
           <div className="p-2.5 bg-slate-950 border border-rose-500/40 rounded-xl text-xs flex items-center space-x-2 animate-in fade-in duration-100">
             <Radio className="w-3.5 h-3.5 text-rose-400 animate-pulse shrink-0" />
@@ -207,23 +233,23 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
         )}
 
-        {/* Test Scenarios */}
+        {/* Test Clinical Scenarios */}
         <div className="space-y-1">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            Quick Clinical Scenarios:
+            Quick Clinical Scenarios (Click to test voice dialogue):
           </div>
           <div className="flex flex-wrap gap-1.5">
             {presetPrompts.map((p, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSend(p.text)}
-                className={`text-xs px-2.5 py-1 rounded-lg border transition ${
+                className={`text-xs px-2.5 py-1.5 rounded-lg border transition flex items-center space-x-1.5 ${
                   p.isEmergency
                     ? 'bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border-rose-800/60'
                     : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                 }`}
               >
-                {p.label}
+                <span>{p.label}</span>
               </button>
             ))}
           </div>
@@ -274,7 +300,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                       title="Speak Response Aloud via TTS"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
-                      <span className="text-[10px]">Replay Audio</span>
+                      <span className="text-[10px]">Replay Voice</span>
                     </button>
                   )}
                 </div>
@@ -293,7 +319,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend(inputVal)}
             placeholder={
-              isRecording ? 'Listening to your voice...' : 'Speak through mic or enter symptoms...'
+              isRecording ? 'Listening to your voice...' : 'Speak into microphone or enter symptoms...'
             }
             className="flex-1 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />

@@ -11,8 +11,9 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
-// Global active utterance reference to prevent Chrome garbage collection bug
+// Global reference to prevent Chrome garbage-collection of active utterance
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+let resumeTimer: any = null;
 
 export function useVoiceAgent() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -24,6 +25,9 @@ export function useVoiceAgent() {
   const [bargeInAlert, setBargeInAlert] = useState<boolean>(false);
   const [streamActive, setStreamActive] = useState<boolean>(false);
   const [transcriptLive, setTranscriptLive] = useState<string>('');
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(true);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init',
@@ -45,6 +49,10 @@ export function useVoiceAgent() {
         window.speechSynthesis.cancel();
       } catch {}
       activeUtterance = null;
+      if (resumeTimer) {
+        clearInterval(resumeTimer);
+        resumeTimer = null;
+      }
       setIsSpeaking(false);
     }
   }, []);
@@ -73,28 +81,31 @@ export function useVoiceAgent() {
         window.speechSynthesis.resume();
       } catch {}
 
-      // Short delay after cancel to allow Chrome audio queue to reset cleanly
       setTimeout(() => {
         try {
           const utterance = new SpeechSynthesisUtterance(text);
           activeUtterance = utterance;
+          utterance.lang = 'en-US';
 
           const voices = window.speechSynthesis.getVoices();
-          const preferredVoice =
-            voices.find(
-              (v) =>
-                v.lang.startsWith('en') &&
-                (v.name.includes('Natural') ||
-                  v.name.includes('Google') ||
-                  v.name.includes('Samantha') ||
-                  v.name.includes('Zira') ||
-                  v.name.includes('David') ||
-                  v.name.includes('Jenny'))
-            ) || voices.find((v) => v.lang.startsWith('en')) || voices[0];
+          if (voices && voices.length > 0) {
+            const preferredVoice =
+              voices.find(
+                (v) =>
+                  v.lang.startsWith('en') &&
+                  (v.name.includes('Natural') ||
+                    v.name.includes('Google') ||
+                    v.name.includes('Samantha') ||
+                    v.name.includes('Zira') ||
+                    v.name.includes('David') ||
+                    v.name.includes('Jenny'))
+              ) || voices.find((v) => v.lang.startsWith('en')) || voices[0];
 
-          if (preferredVoice) {
-            utterance.voice = preferredVoice;
+            if (preferredVoice) {
+              utterance.voice = preferredVoice;
+            }
           }
+
           utterance.rate = 1.0;
           utterance.pitch = 1.0;
 
@@ -104,21 +115,42 @@ export function useVoiceAgent() {
 
           utterance.onend = () => {
             activeUtterance = null;
+            if (resumeTimer) {
+              clearInterval(resumeTimer);
+              resumeTimer = null;
+            }
             setIsSpeaking(false);
           };
 
           utterance.onerror = (e) => {
-            console.warn('Speech synthesis utterance error:', e);
+            console.warn('Speech synthesis utterance notice:', e);
             activeUtterance = null;
+            if (resumeTimer) {
+              clearInterval(resumeTimer);
+              resumeTimer = null;
+            }
             setIsSpeaking(false);
           };
 
           window.speechSynthesis.speak(utterance);
+
+          // Keep-alive timer for Chromium Windows bug
+          if (resumeTimer) clearInterval(resumeTimer);
+          resumeTimer = setInterval(() => {
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+              if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.resume();
+              } else {
+                clearInterval(resumeTimer);
+                resumeTimer = null;
+              }
+            }
+          }, 3000);
         } catch (err) {
           console.warn('speak exception:', err);
           setIsSpeaking(false);
         }
-      }, 50);
+      }, 30);
     },
     [isMuted, stopSpeaking]
   );
@@ -128,55 +160,72 @@ export function useVoiceAgent() {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
+    if (!SpeechRecognition) {
+      setHasSpeechSupport(false);
+      setVoiceNotice('Browser Notice: Speech recognition is optimized for Chrome, Edge, and Chromium browsers.');
+      return;
+    }
 
-        recognition.onspeechstart = () => {
-          triggerBargeIn();
-        };
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
 
-        recognition.onstart = () => {
-          setIsRecording(true);
-        };
+      recognition.onspeechstart = () => {
+        triggerBargeIn();
+      };
 
-        recognition.onresult = (event: any) => {
-          let current = '';
-          for (let i = 0; i < event.results.length; i++) {
-            current += event.results[i][0].transcript;
-          }
-          lastTranscriptRef.current = current;
-          setTranscriptLive(current);
-        };
+      recognition.onstart = () => {
+        setIsRecording(true);
+        setVoiceNotice(null);
+      };
 
-        recognition.onend = () => {
-          setIsRecording(false);
-          const finalVal = lastTranscriptRef.current.trim();
-          if (finalVal && onAutoSendRef.current) {
-            onAutoSendRef.current(finalVal);
-            lastTranscriptRef.current = '';
-            setTranscriptLive('');
-          }
-        };
+      recognition.onresult = (event: any) => {
+        let current = '';
+        for (let i = 0; i < event.results.length; i++) {
+          current += event.results[i][0].transcript;
+        }
+        lastTranscriptRef.current = current;
+        setTranscriptLive(current);
+      };
 
-        recognition.onerror = (e: any) => {
-          console.warn('Speech recognition status:', e.error);
-          setIsRecording(false);
-        };
+      recognition.onend = () => {
+        setIsRecording(false);
+        const finalVal = lastTranscriptRef.current.trim();
+        if (finalVal && onAutoSendRef.current) {
+          onAutoSendRef.current(finalVal);
+          lastTranscriptRef.current = '';
+          setTranscriptLive('');
+        }
+      };
 
-        recognitionRef.current = recognition;
-      } catch (err) {
-        console.warn('Speech recognition init failed:', err);
-      }
+      recognition.onerror = (e: any) => {
+        console.warn('Speech recognition notice:', e.error);
+        setIsRecording(false);
+        if (e.error === 'not-allowed') {
+          setVoiceNotice('Microphone permission blocked. Please click the lock or camera/mic icon in your browser URL address bar to allow microphone access.');
+        } else if (e.error === 'no-speech') {
+          setVoiceNotice('No speech detected. Please speak closer to your mic or click any quick scenario below.');
+        } else if (e.error === 'network') {
+          setVoiceNotice('Speech recognition network service paused. You can click any quick scenario or type below to interact with the AI.');
+        } else {
+          setVoiceNotice(`Microphone status: ${e.error}. You can also type or use quick prompts.`);
+        }
+      };
+
+      recognitionRef.current = recognition;
+    } catch (err) {
+      console.warn('Speech recognition init failed:', err);
+      setHasSpeechSupport(false);
     }
 
     // Chrome voices changed listener
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
+        try {
+          window.speechSynthesis.getVoices();
+        } catch {}
       };
     }
 
@@ -198,9 +247,10 @@ export function useVoiceAgent() {
     onFinalSubmit?: (text: string) => void
   ) => {
     triggerBargeIn();
+    setVoiceNotice(null);
 
     if (!recognitionRef.current) {
-      alert('Speech Recognition is not supported by this browser. You can type your request or click preset prompts.');
+      setVoiceNotice('Microphone speech recognition is not available in this browser. Please use Chrome/Edge or click a quick scenario.');
       return;
     }
 
@@ -212,14 +262,16 @@ export function useVoiceAgent() {
       lastTranscriptRef.current = '';
       setTranscriptLive('');
       recognitionRef.current.start();
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Recognition start caught error:', err);
       try {
         recognitionRef.current.stop();
         setTimeout(() => {
           recognitionRef.current.start();
-        }, 100);
-      } catch {}
+        }, 150);
+      } catch (retryErr) {
+        setVoiceNotice('Microphone starting... Click again if your browser is prompting for permission.');
+      }
     }
   };
 
@@ -230,6 +282,11 @@ export function useVoiceAgent() {
       } catch {}
       setIsRecording(false);
     }
+  };
+
+  // Test speaker function that the user can trigger anytime
+  const testSpeaker = () => {
+    speak('NexusHealth AI voice system is active. Your audio output is working properly.');
   };
 
   // Real-Time SSE Token Streaming
@@ -384,6 +441,8 @@ export function useVoiceAgent() {
     bargeInAlert,
     streamActive,
     transcriptLive,
+    voiceNotice,
+    hasSpeechSupport,
     startVoiceRecording,
     stopVoiceRecording,
     streamAIResponse,
@@ -391,5 +450,6 @@ export function useVoiceAgent() {
     triggerBargeIn,
     speak,
     stopSpeaking,
+    testSpeaker,
   };
 }
