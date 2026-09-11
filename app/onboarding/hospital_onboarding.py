@@ -145,3 +145,25 @@ class HospitalSelfServiceOnboardingService:
         hosp.is_active = False  # DEACTIVATED
         self.db.commit()
         return hosp
+
+
+from pydantic import BaseModel
+
+class DraftHospitalInput(BaseModel):
+    name: str
+    code: str
+    contact_email: str
+    admin_name: str
+    admin_email: str
+
+class InitialAdminCredentials(BaseModel):
+    admin_name: str
+    admin_email: str
+    admin_phone: Optional[str] = None
+
+class EHRIntegrationConfigInput(BaseModel):
+    adapter_type: str = "MOCK_EHR"
+    endpoint_url: Optional[str] = None
+    api_base_url: Optional[str] = None
+    auth_credentials: Optional[Dict[str, Any]] = None
+

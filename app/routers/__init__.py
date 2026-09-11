@@ -16,6 +16,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.doctor_dashboard import router as doctor_dashboard_router
 from app.routers.hospital_dashboard import router as hospital_dashboard_router
 from app.routers.platform_admin_dashboard import router as platform_admin_dashboard_router
+from app.routers.observability import router as observability_router
 
 __all__ = [
     "onboarding_router",
@@ -32,7 +33,8 @@ __all__ = [
     "notifications_router",
     "doctor_dashboard_router",
     "hospital_dashboard_router",
-    "platform_admin_dashboard_router"
+    "platform_admin_dashboard_router",
+    "observability_router"
 ]
 
 

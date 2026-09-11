@@ -233,3 +233,7 @@ class AIPatientAccessAgent:
             "escalation_triggered": escalation_triggered,
             "capabilities_invoked": capabilities_invoked
         }
+
+
+PatientAccessAgentService = AIPatientAccessAgent
+

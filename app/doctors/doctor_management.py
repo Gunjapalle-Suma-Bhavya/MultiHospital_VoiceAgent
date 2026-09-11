@@ -191,3 +191,33 @@ class DoctorManagementService:
 
         doctors = query.all()
         return [self.get_doctor_profile(d.id) for d in doctors]
+
+
+from pydantic import BaseModel
+
+class DoctorInviteInput(BaseModel):
+    name: str
+    specialty: str
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+    experience_years: Optional[int] = 0
+    languages: Optional[List[str]] = None
+    consultation_type: Optional[str] = "IN_PERSON"
+    default_appointment_duration: Optional[int] = 30
+    external_provider_id: Optional[str] = None
+
+class DoctorProfileUpdateInput(BaseModel):
+    name: Optional[str] = None
+    photo_url: Optional[str] = None
+    specialty: Optional[str] = None
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+    experience_years: Optional[int] = None
+    languages: Optional[List[str]] = None
+    consultation_type: Optional[str] = None
+    default_appointment_duration: Optional[int] = None
+    external_provider_id: Optional[str] = None
+    bio: Optional[str] = None
+    professional_info: Optional[str] = None
+    special_instructions: Optional[str] = None
+

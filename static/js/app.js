@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDoctorDashboardForm();
   setupHospitalDashboardForm();
   setupPlatformAdminDashboardForm();
+  setupObservabilityForm();
 });
 
 
@@ -887,6 +888,59 @@ function setupPlatformAdminDashboardForm() {
       } catch (err) {
         platformAdminOutput.style.display = "block";
         platformAdminOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
+function setupObservabilityForm() {
+  const obsOutput = document.getElementById("observability-output");
+
+  const btnTrace = document.getElementById("btn-obs-get-trace");
+  if (btnTrace) {
+    btnTrace.addEventListener("click", async () => {
+      const identifier = document.getElementById("obs-identifier").value;
+      if (!identifier) return alert("Please enter a Trace ID");
+      try {
+        const res = await fetch(`/api/v1/observability/traces/${identifier}`);
+        const data = await res.json();
+        obsOutput.style.display = "block";
+        obsOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        obsOutput.style.display = "block";
+        obsOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnCorr = document.getElementById("btn-obs-get-correlation");
+  if (btnCorr) {
+    btnCorr.addEventListener("click", async () => {
+      const identifier = document.getElementById("obs-identifier").value;
+      if (!identifier) return alert("Please enter a Correlation ID");
+      try {
+        const res = await fetch(`/api/v1/observability/correlation/${identifier}`);
+        const data = await res.json();
+        obsOutput.style.display = "block";
+        obsOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        obsOutput.style.display = "block";
+        obsOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnAnalytics = document.getElementById("btn-obs-get-analytics");
+  if (btnAnalytics) {
+    btnAnalytics.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/observability/analytics");
+        const data = await res.json();
+        obsOutput.style.display = "block";
+        obsOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        obsOutput.style.display = "block";
+        obsOutput.textContent = "Error: " + err.message;
       }
     });
   }

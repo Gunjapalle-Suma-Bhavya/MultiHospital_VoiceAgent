@@ -153,3 +153,19 @@ class DoctorCalendarService:
             "blocked_periods": blocked_periods,
             "booked_appointments": booked_appts
         }
+
+
+from pydantic import BaseModel
+
+class WorkingHourInput(BaseModel):
+    day_of_week: int
+    start_time: str
+    end_time: str
+    break_start: Optional[str] = None
+    break_end: Optional[str] = None
+
+class BlockedSlotInput(BaseModel):
+    start_datetime: datetime
+    end_datetime: datetime
+    reason: Optional[str] = None
+

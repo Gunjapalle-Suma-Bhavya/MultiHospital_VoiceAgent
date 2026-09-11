@@ -325,3 +325,19 @@ class HospitalAdminService:
                 "ehr_sync_logs_count": ehr_syncs
             }
         }
+
+
+from pydantic import BaseModel
+
+class QuestionnaireCreateInput(BaseModel):
+    title: str
+    specialty: str
+    questions: List[Dict[str, Any]]
+    is_approved_by_clinician: bool = True
+
+class QuestionnaireUpdateInput(BaseModel):
+    title: Optional[str] = None
+    specialty: Optional[str] = None
+    questions: Optional[List[Dict[str, Any]]] = None
+    is_approved_by_clinician: Optional[bool] = None
+

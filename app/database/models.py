@@ -602,3 +602,59 @@ class NotificationRecord(Base):
     sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class OperationTrace(Base):
+    """
+    Operational Observability & Lifecycle Tracing (Section 5.34 & 5.35).
+    Tracks end-to-end user operations across all 16 canonical steps and 10 platform component layers.
+    """
+    __tablename__ = "operation_traces"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    trace_id = Column(String(100), unique=True, index=True, nullable=False)
+    correlation_id = Column(String(100), nullable=False, index=True)
+    session_id = Column(String(100), nullable=True, index=True)
+    hospital_id = Column(String(36), nullable=True)
+    patient_id = Column(String(36), nullable=True)
+    appointment_id = Column(String(36), nullable=True)
+    operation_name = Column(String(100), default="PATIENT_ACCESS_BOOKING_LIFECYCLE")
+    status = Column(String(50), default="IN_PROGRESS")  # STARTED, IN_PROGRESS, COMPLETED, FAILED, ESCALATED
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    completed_at = Column(DateTime, nullable=True)
+    total_latency_ms = Column(Float, default=0.0)
+    
+    # Detailed Diagnostics
+    failure_location = Column(String(255), nullable=True)
+    failed_action = Column(String(100), nullable=True)
+    failed_external_system = Column(String(100), nullable=True)
+    retries_triggered = Column(Integer, default=0)
+    recovery_succeeded = Column(Boolean, default=False)
+    reconciliation_occurred = Column(Boolean, default=False)
+    escalated_to_human = Column(Boolean, default=False)
+    metadata_json = Column(Text, nullable=True)
+
+    steps = relationship("OperationTraceStep", back_populates="trace", cascade="all, delete-orphan", order_by="OperationTraceStep.step_number")
+
+
+class OperationTraceStep(Base):
+    """
+    Granular Step Record in the 16-Step Canonical Operation Lifecycle (Section 5.34).
+    """
+    __tablename__ = "operation_trace_steps"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    trace_id = Column(String(36), ForeignKey("operation_traces.id"), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    step_name = Column(String(100), nullable=False)
+    component_type = Column(String(50), nullable=False)  # CONVERSATION, AI_DECISION, CAPABILITY_CALL, SCHEDULING, EHR_INTEGRATION, VERIFICATION, SYNCHRONIZATION, WORKFLOW, NOTIFICATION, AUDIT_EVENT
+    status = Column(String(50), default="SUCCESS")  # SUCCESS, FAILED, RETRYING, SKIPPED
+    latency_ms = Column(Float, default=0.0)
+    error_message = Column(Text, nullable=True)
+    external_system_name = Column(String(100), nullable=True)
+    retry_count = Column(Integer, default=0)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    details_json = Column(Text, nullable=True)
+
+    trace = relationship("OperationTrace", back_populates="steps")
+
+
+

@@ -110,6 +110,27 @@
           </form>
           <div id="platform-admin-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Operational Observability & Correlation Console (5.34 & 5.35)</h2>
+          <form id="form-observability">
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="form-group">
+                <label>Trace ID or Correlation ID</label>
+                <input type="text" id="obs-identifier" placeholder="e.g. TRC-331826FB7810 or CORR-778899">
+              </div>
+              <div class="form-group">
+                <label>Observability Telemetry Actions</label>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem;">
+                  <button type="button" id="btn-obs-get-trace" class="btn">Inspect 16-Step Trace</button>
+                  <button type="button" id="btn-obs-get-correlation" class="btn btn-secondary">10-Layer Correlation Timeline</button>
+                  <button type="button" id="btn-obs-get-analytics" class="btn btn-success">Platform Telemetry Metrics</button>
+                </div>
+              </div>
+            </div>
+          </form>
+          <div id="observability-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
       </div>
     </section>
 

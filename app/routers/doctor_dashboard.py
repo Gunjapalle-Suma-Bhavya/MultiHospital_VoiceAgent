@@ -37,7 +37,7 @@ def get_doctor_home_summary(doctor_id: str, db: Session = Depends(get_db)):
 @router.get("/{doctor_id}/calendar")
 def get_doctor_calendar_view(
     doctor_id: str,
-    view_type: str = Query("DAY", regex="^(DAY|WEEK|MONTH)$"),
+    view_type: str = Query("DAY", pattern="^(DAY|WEEK|MONTH)$"),
     target_date: Optional[str] = Query(None),
     calendar_ids: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db)

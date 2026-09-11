@@ -247,8 +247,7 @@ class PatientSelfServiceService:
                 "response_id": r.id,
                 "questionnaire_id": r.questionnaire_id,
                 "appointment_id": r.appointment_id,
-                "responses": json.loads(r.answers_json) if r.answers_json else {},
-                "submitted_at": r.submitted_at.isoformat()
+                "responses": json.loads(r.answers_json) if r.answers_json else {}
             })
         return results
 
@@ -260,4 +259,24 @@ class PatientSelfServiceService:
         patient.communication_preference = preference_channel
         self.db.commit()
         return patient
+
+
+from pydantic import BaseModel
+
+class PatientRegistrationInput(BaseModel):
+    name: str
+    phone_number: str
+    email: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    preferred_language: str = "en"
+    emergency_contact: Optional[Dict[str, Any]] = None
+    external_patient_id: Optional[str] = None
+    saved_preferences: Optional[Dict[str, Any]] = None
+
+class QuestionnaireSubmissionInput(BaseModel):
+    questionnaire_id: str
+    answers: Optional[Dict[str, Any]] = None
+    responses: Optional[Dict[str, Any]] = None
+    appointment_id: Optional[str] = None
+
 
