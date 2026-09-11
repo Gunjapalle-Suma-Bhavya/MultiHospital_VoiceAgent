@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAIEvaluationFrameworkUI();
   setupProductMetricsUI();
   setupEndToEndScenarioUI();
+  setupProductPrinciplesUI();
 });
 
 
@@ -3772,6 +3773,49 @@ function setupEndToEndScenarioUI() {
       } catch (err) {
         outputBox.className = "status-box status-error";
         outputBox.innerHTML = `<strong>Execution Error:</strong> ${err.message}`;
+      }
+    });
+  }
+}
+
+
+// Setup Section 25 Product Principles UI
+function setupProductPrinciplesUI() {
+  const btnAudit = document.getElementById("btn-run-principles-audit");
+  const outputBox = document.getElementById("principles-audit-output");
+  const scoreBadge = document.getElementById("principles-score-badge");
+
+  if (btnAudit) {
+    btnAudit.addEventListener("click", async () => {
+      if (!outputBox) return;
+      outputBox.style.display = "block";
+      outputBox.className = "status-box status-loading";
+      outputBox.innerHTML = `<strong>Running Comprehensive Product Principles Audit...</strong> Validating 16 principles against active database states, guardrails, and audit ledgers...`;
+
+      try {
+        const res = await fetch("/api/v1/principles/audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        const result = await res.json();
+
+        if (res.ok && result.all_principles_compliant) {
+          if (scoreBadge) scoreBadge.textContent = `${result.overall_compliance_score_percent}%`;
+          outputBox.className = "status-box status-success";
+          outputBox.innerHTML = `
+            <strong>All 16 Canonical Product Principles Verified Compliant!</strong>
+            <p>Overall Compliance Score: <strong>${result.overall_compliance_score_percent}%</strong> | Verified Principles: <strong>${result.principles_count} / 16</strong></p>
+            <div style="font-family: monospace; font-size: 0.85rem; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 0.5rem; max-height: 250px; overflow-y: auto;">
+              ${JSON.stringify(result.principles, null, 2).replace(/\\n/g, '<br/>').replace(/ /g, '&nbsp;')}
+            </div>
+          `;
+        } else {
+          outputBox.className = "status-box status-error";
+          outputBox.innerHTML = `<strong>Audit Failed:</strong> ${JSON.stringify(result)}`;
+        }
+      } catch (err) {
+        outputBox.className = "status-box status-error";
+        outputBox.innerHTML = `<strong>Audit Execution Error:</strong> ${err.message}`;
       }
     });
   }
