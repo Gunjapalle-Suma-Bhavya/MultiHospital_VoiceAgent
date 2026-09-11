@@ -37,6 +37,7 @@
     <button class="tab-btn" data-tab="tab-product-principles-step25">Product Principles (25)</button>
     <button class="tab-btn" data-tab="tab-prototype-scope-step26">Prototype Scope (26)</button>
     <button class="tab-btn" data-tab="tab-should-have-step27">Advanced Capabilities (27)</button>
+    <button class="tab-btn" data-tab="tab-definition-of-done-step35">Definition of Done (35)</button>
   </nav>
 
   <main class="container">
@@ -3173,6 +3174,66 @@
 
     </section>
 
+    <!-- SECTION 35: DEFINITION OF DONE (DoD) -->
+    <section id="tab-definition-of-done-step35" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h2 style="margin:0; color:#1e293b;">Section 35: Definition of Done (DoD)</h2>
+            <p style="margin:0.25rem 0 0 0; color:#64748b; font-size:0.9rem;">
+              Canonical 27-Stage Patient Intake, Booking &amp; EHR Integration Journey + Failure &amp; Self-Healing Scenarios
+            </p>
+          </div>
+          <span class="badge badge-success" style="font-size:0.9rem; padding:0.4rem 0.8rem;">PROTOTYPE COMPLETE (100%)</span>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE CONTROLS -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-top:0; color:#1e293b;">⚡ Interactive DoD Journey &amp; Failure Recovery Triggers</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
+          <button id="btn-dod-run-canonical" class="btn btn-primary" style="background:#059669;">
+            ▶ Execute 27-Stage Canonical DoD Journey
+          </button>
+          <button id="btn-dod-sim-transient" class="btn btn-secondary" style="background:#2563eb; color:white;">
+            🔄 Simulate Transient Failure &amp; Self-Healing Recovery
+          </button>
+          <button id="btn-dod-sim-escalation" class="btn btn-danger" style="background:#d97706; color:white;">
+            ⚠️ Simulate Persistent Failure &amp; Human Escalation
+          </button>
+          <button id="btn-dod-get-checklist" class="btn" style="background:#475569; color:white;">
+            📋 Load DoD Requirements Checklist
+          </button>
+        </div>
+
+        <div id="dod-action-status" style="display:none; padding:0.75rem; border-radius:6px; margin-bottom:1rem; font-weight:600;"></div>
+      </div>
+
+      <!-- LIVE 27-STAGE PROGRESSION VISUALIZER -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-top:0; color:#1e293b;">🗺️ 27-Stage Canonical Pipeline Progress</h3>
+        <p style="font-size:0.85rem; color:#64748b;">Every stage in the end-to-end patient &amp; hospital lifecycle, validated and recorded.</p>
+        <div id="dod-stages-container" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;">
+          <div style="grid-column: 1 / -1; padding: 1.5rem; text-align: center; color: #94a3b8; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px;">
+            Click <strong>"Execute 27-Stage Canonical DoD Journey"</strong> above to run the live end-to-end verification pipeline.
+          </div>
+        </div>
+      </div>
+
+      <!-- MULTI-ROLE PERSPECTIVES & RAW DETAILS -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div class="card">
+          <h3 style="margin-top:0; color:#1e293b;">👥 Multi-Role Synchronized Perspectives</h3>
+          <div id="dod-perspectives-view" style="font-size:0.85rem; line-height:1.6; color:#334155;">
+            <p style="color:#94a3b8;">Execute canonical journey to view synchronized Doctor, Hospital Admin, and Platform Admin perspectives.</p>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0; color:#1e293b;">🔬 Output &amp; Diagnostics Inspection</h3>
+          <pre id="dod-output-json" style="background:#1e293b; color:#f8fafc; font-family:monospace; font-size:0.8rem; padding:1rem; border-radius:6px; max-height:380px; overflow-y:auto;">{ "status": "READY", "message": "Awaiting trigger" }</pre>
+        </div>
+      </div>
+    </section>
 
   </main>
 

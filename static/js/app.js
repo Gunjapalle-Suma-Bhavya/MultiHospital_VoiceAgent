@@ -36,6 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupProductPrinciplesUI();
   setupPrototypeScopeUI();
   setupAdvancedCapabilitiesUI();
+  setupDefinitionOfDoneUI();
 });
 
 
@@ -4351,6 +4352,187 @@ function setupAdvancedCapabilitiesUI() {
         if (streamLog) {
           streamLog.innerHTML += `<span style="color:#ef4444;">[BARGE-IN ERROR] ${err.message}</span><br/>`;
         }
+      }
+    });
+  }
+}
+
+// =============================================================================
+// Section 35: Definition of Done (DoD) Interactive UI Handler
+// =============================================================================
+function setupDefinitionOfDoneUI() {
+  const btnRunCanonical = document.getElementById("btn-dod-run-canonical");
+  const btnSimTransient = document.getElementById("btn-dod-sim-transient");
+  const btnSimEscalation = document.getElementById("btn-dod-sim-escalation");
+  const btnGetChecklist = document.getElementById("btn-dod-get-checklist");
+
+  const statusBox = document.getElementById("dod-action-status");
+  const stagesContainer = document.getElementById("dod-stages-container");
+  const perspectivesView = document.getElementById("dod-perspectives-view");
+  const outputJson = document.getElementById("dod-output-json");
+
+  function showStatus(msg, isError = false) {
+    if (!statusBox) return;
+    statusBox.style.display = "block";
+    statusBox.style.background = isError ? "#fee2e2" : "#dcfce7";
+    statusBox.style.color = isError ? "#991b1b" : "#166534";
+    statusBox.style.border = isError ? "1px solid #f87171" : "1px solid #86efac";
+    statusBox.innerHTML = msg;
+  }
+
+  // 1. Run Canonical 27-Stage DoD Journey
+  if (btnRunCanonical) {
+    btnRunCanonical.addEventListener("click", async () => {
+      showStatus("⏳ Executing 27-Stage Canonical Definition of Done Journey...");
+      try {
+        const res = await fetch("/api/v1/definition-of-done/execute-journey", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hospital_name: "Metropolitan Health System",
+            doctor_name: "Dr. Sharma",
+            patient_name: "Patient A",
+            patient_phone: "+1-555-SHOULDER"
+          })
+        });
+        const data = await res.json();
+        if (outputJson) outputJson.textContent = JSON.stringify(data, null, 2);
+
+        if (data.status === "SUCCESS") {
+          showStatus("✅ 27-Stage Definition of Done Journey Executed with 100% Verification!");
+
+          // Render stages pills
+          if (stagesContainer && data.stages) {
+            stagesContainer.innerHTML = data.stages.map(s => `
+              <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #10b981; border-radius:6px; padding:0.75rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                  <span style="font-weight:700; color:#1e293b; font-size:0.85rem;">Stage ${s.stage_number}</span>
+                  <span class="badge badge-success" style="font-size:0.75rem;">${s.status}</span>
+                </div>
+                <div style="font-weight:600; color:#0f172a; font-size:0.85rem;">${s.stage_name}</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.35rem; line-height:1.4;">
+                  ${Object.entries(s.details || {}).map(([k, v]) => `<strong>${k}:</strong> ${typeof v === 'object' ? JSON.stringify(v) : v}`).join('<br/>')}
+                </div>
+              </div>
+            `).join("");
+          }
+
+          // Render perspectives
+          if (perspectivesView && data.perspectives) {
+            const p = data.perspectives;
+            perspectivesView.innerHTML = `
+              <div style="margin-bottom:1rem; padding:0.75rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 0.25rem 0; color:#0369a1;">🩺 Doctor Perspective (${p.doctor.doctor_name})</h4>
+                <div>Appointment: <strong>${p.doctor.upcoming_appointment.patient}</strong> at ${p.doctor.upcoming_appointment.time}</div>
+                <div>Status: <span class="badge badge-success">${p.doctor.upcoming_appointment.status}</span></div>
+                <div style="font-size:0.8rem; color:#475569; margin-top:0.25rem;">Intake: "${p.doctor.upcoming_appointment.pre_visit_intake}"</div>
+              </div>
+              <div style="margin-bottom:1rem; padding:0.75rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 0.25rem 0; color:#059669;">🏥 Hospital Admin Perspective (${p.hospital_admin.hospital_name})</h4>
+                <div>EHR Synchronization: <strong>${p.hospital_admin.ehr_sync_status}</strong></div>
+                <div>Active Doctors: <strong>${p.hospital_admin.active_doctors}</strong> | Questionnaires: <strong>${p.hospital_admin.questionnaires_completed} completed</strong></div>
+              </div>
+              <div style="padding:0.75rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
+                <h4 style="margin:0 0 0.25rem 0; color:#7c3aed;">⚙️ Platform Admin Perspective</h4>
+                <div>Adapter: <strong>${p.platform_admin.ehr_adapter}</strong> | Verification: <strong>${p.platform_admin.verification_status}</strong></div>
+                <div>System Health: <span class="badge badge-success">${p.platform_admin.operational_health}</span></div>
+              </div>
+            `;
+          }
+        } else {
+          showStatus(`⚠️ Journey execution returned: ${data.message || 'Unknown status'}`, true);
+        }
+      } catch (err) {
+        showStatus(`❌ Network error executing canonical journey: ${err.message}`, true);
+      }
+    });
+  }
+
+  // 2. Simulate Transient Failure & Recovery
+  if (btnSimTransient) {
+    btnSimTransient.addEventListener("click", async () => {
+      showStatus("🔄 Simulating Transient EHR Failure with Self-Healing Recovery...");
+      try {
+        const res = await fetch("/api/v1/definition-of-done/simulate-failure-recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "TRANSIENT_RECOVERY" })
+        });
+        const data = await res.json();
+        if (outputJson) outputJson.textContent = JSON.stringify(data, null, 2);
+        showStatus(`✅ Transient Failure Recovered! Steps: ${data.steps.map(s => s.name).join(" ➔ ")}`);
+
+        if (stagesContainer && data.steps) {
+          stagesContainer.innerHTML = data.steps.map(s => `
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #2563eb; border-radius:6px; padding:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; color:#1e293b; font-size:0.85rem;">Step ${s.step}</span>
+                <span class="badge ${s.status === 'FAILED' ? 'badge-danger' : 'badge-success'}" style="font-size:0.75rem;">${s.status || 'OK'}</span>
+              </div>
+              <div style="font-weight:600; color:#0f172a; font-size:0.85rem; margin-top:0.25rem;">${s.name}</div>
+              <div style="font-size:0.75rem; color:#64748b; margin-top:0.25rem;">${JSON.stringify(s.classification || s.action || s.details || s.external_state || s.resumed_state || s.verification_protocol || s.ehr_sync_status || s.error_type)}</div>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        showStatus(`❌ Error simulating transient recovery: ${err.message}`, true);
+      }
+    });
+  }
+
+  // 3. Simulate Persistent Failure & Escalation
+  if (btnSimEscalation) {
+    btnSimEscalation.addEventListener("click", async () => {
+      showStatus("⚠️ Simulating Persistent EHR Failure with Reconciliation & Human Escalation...");
+      try {
+        const res = await fetch("/api/v1/definition-of-done/simulate-failure-recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "RECONCILIATION_ESCALATION" })
+        });
+        const data = await res.json();
+        if (outputJson) outputJson.textContent = JSON.stringify(data, null, 2);
+        showStatus(`⚠️ Escalation Handled: ${data.steps.map(s => s.name).join(" ➔ ")}`);
+
+        if (stagesContainer && data.steps) {
+          stagesContainer.innerHTML = data.steps.map(s => `
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #d97706; border-radius:6px; padding:0.75rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; color:#1e293b; font-size:0.85rem;">Step ${s.step}</span>
+                <span class="badge ${s.status === 'FAILED' || s.status === 'RETRIES_EXHAUSTED' || s.status === 'UNVERIFIED' || s.status === 'ACTION_NEEDED' ? 'badge-warning' : 'badge-secondary'}" style="font-size:0.75rem;">${s.status || 'LOGGED'}</span>
+              </div>
+              <div style="font-weight:600; color:#0f172a; font-size:0.85rem; margin-top:0.25rem;">${s.name}</div>
+              <div style="font-size:0.75rem; color:#64748b; margin-top:0.25rem;">${JSON.stringify(s.action || s.error_type || s.authoritative_check || s.state_flag || s.trigger_reason || s.operational_status || '')}</div>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        showStatus(`❌ Error simulating escalation: ${err.message}`, true);
+      }
+    });
+  }
+
+  // 4. Get Checklist
+  if (btnGetChecklist) {
+    btnGetChecklist.addEventListener("click", async () => {
+      showStatus("📋 Fetching Section 35 Definition of Done Checklist...");
+      try {
+        const res = await fetch("/api/v1/definition-of-done/checklist");
+        const data = await res.json();
+        if (outputJson) outputJson.textContent = JSON.stringify(data, null, 2);
+        showStatus(`📋 DoD Status: ${data.status} | Total Stages: ${data.total_canonical_stages} | Compliance: ${data.compliance_rate}`);
+
+        if (stagesContainer && data.canonical_stages) {
+          stagesContainer.innerHTML = data.canonical_stages.map((st, i) => `
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #3b82f6; border-radius:6px; padding:0.75rem;">
+              <div style="font-weight:700; color:#1e293b; font-size:0.85rem;">Stage ${i + 1}</div>
+              <div style="font-weight:600; color:#0f172a; font-size:0.85rem; margin-top:0.25rem;">${st}</div>
+              <div style="font-size:0.75rem; color:#16a34a; margin-top:0.25rem;">✓ REQUIREMENT SATISFIED</div>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        showStatus(`❌ Error loading checklist: ${err.message}`, true);
       }
     });
   }

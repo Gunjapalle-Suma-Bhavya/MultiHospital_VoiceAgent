@@ -37,6 +37,7 @@ from app.routers.product_metrics_and_scenario import router as product_metrics_a
 from app.routers.product_principles import router as product_principles_router
 from app.routers.prototype_scope import router as prototype_scope_router
 from app.routers.should_have import router as should_have_router
+from app.routers.definition_of_done import router as definition_of_done_router
 
 __all__ = [
     "onboarding_router",
@@ -75,6 +76,7 @@ __all__ = [
     "product_principles_router",
     "prototype_scope_router",
     "should_have_router",
+    "definition_of_done_router",
 ]
 
 
