@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupReliabilityUI();
   setupSecurityConcurrencyUI();
   setupSafetyKnowledgeUI();
+  setupWorkflowExamplesUI();
 });
 
 
@@ -3559,6 +3560,58 @@ function setupSafetyKnowledgeUI() {
       }
     });
   }
+}
+
+/**
+ * Section 20: Canonical Workflow Examples UI
+ */
+function setupWorkflowExamplesUI() {
+  const outputBox = document.getElementById("wf-examples-output");
+
+  const runWorkflow = async (code, extraPayload = {}) => {
+    try {
+      const payload = { workflow_code: code, ...extraPayload };
+      const res = await fetch("/api/v1/workflow-examples/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      outputBox.style.display = "block";
+      outputBox.textContent = `[Section ${code} Workflow Execution Result]\n\n` + JSON.stringify(data, null, 2);
+    } catch (err) {
+      outputBox.style.display = "block";
+      outputBox.textContent = "Error executing workflow: " + err.message;
+    }
+  };
+
+  // 20.1
+  const btn201 = document.getElementById("btn-wf-20-1");
+  if (btn201) btn201.addEventListener("click", () => runWorkflow("20.1"));
+
+  // 20.2
+  const btn202 = document.getElementById("btn-wf-20-2");
+  if (btn202) btn202.addEventListener("click", () => runWorkflow("20.2"));
+
+  // 20.3 YES
+  const btn203Yes = document.getElementById("btn-wf-20-3-yes");
+  if (btn203Yes) btn203Yes.addEventListener("click", () => runWorkflow("20.3", { simulated_retry_success: true }));
+
+  // 20.3 NO
+  const btn203No = document.getElementById("btn-wf-20-3-no");
+  if (btn203No) btn203No.addEventListener("click", () => runWorkflow("20.3", { simulated_retry_success: false }));
+
+  // 20.4
+  const btn204 = document.getElementById("btn-wf-20-4");
+  if (btn204) btn204.addEventListener("click", () => runWorkflow("20.4", { session_id: "SESSION-DEMO-UI-204" }));
+
+  // 20.5
+  const btn205 = document.getElementById("btn-wf-20-5");
+  if (btn205) btn205.addEventListener("click", () => runWorkflow("20.5"));
+
+  // 20.6
+  const btn206 = document.getElementById("btn-wf-20-6");
+  if (btn206) btn206.addEventListener("click", () => runWorkflow("20.6"));
 }
 
 

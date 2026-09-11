@@ -30,6 +30,7 @@
     <button class="tab-btn" data-tab="tab-reliability-step15">Reliability & Failure Handling (15)</button>
     <button class="tab-btn" data-tab="tab-sec-concurrency-step16-17">Security & Concurrency (16 & 17)</button>
     <button class="tab-btn" data-tab="tab-safety-knowledge-step18-19">AI Safety & Knowledge (18 & 19)</button>
+    <button class="tab-btn" data-tab="tab-workflow-examples-step20">Workflow Examples (20)</button>
   </nav>
 
   <main class="container">
@@ -2071,6 +2072,67 @@
           <div id="knowledge-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- PORTAL: WORKFLOW EXAMPLES (SECTION 20) -->
+    <section id="tab-workflow-examples-step20" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚡</span> Section 20: Canonical Workflow Examples Console
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #c7d2fe; font-size: 0.9rem;">
+          End-to-End Orchestration &amp; Tracing across all 6 core workflows: 20.1 Appointment Reminder, 20.2 Questionnaire Reminder, 20.3 Failed Booking Recovery, 20.4 Human Escalation, 20.5 Cancellation, and 20.6 Rescheduling.
+        </p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+
+        <!-- CARD 1: 20.1 & 20.2 REMINDERS -->
+        <div class="card" style="border-top: 4px solid #0284c7;">
+          <h3 style="margin-top: 0; color: #0369a1;">⏰ 20.1 &amp; 20.2: Reminder Workflows</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Orchestrates timed appointment notifications and intake questionnaire reminder loops until patient completion.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <button type="button" id="btn-wf-20-1" class="btn" style="background: #0284c7;">Execute 20.1: Appointment Reminder Workflow</button>
+            <button type="button" id="btn-wf-20-2" class="btn btn-secondary">Execute 20.2: Questionnaire Reminder Workflow</button>
+          </div>
+        </div>
+
+        <!-- CARD 2: 20.3 & 20.4 RECOVERY & HUMAN ESCALATION -->
+        <div class="card" style="border-top: 4px solid #d97706;">
+          <h3 style="margin-top: 0; color: #b45309;">🛡️ 20.3 &amp; 20.4: Recovery &amp; Human Escalation</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            EHR failure classification with safe retry &amp; state verification (YES / NO branches), plus contextual human operator handoff.
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btn-wf-20-3-yes" class="btn" style="background: #059669; flex: 1;">20.3 Retry Succeeded (YES)</button>
+              <button type="button" id="btn-wf-20-3-no" class="btn btn-danger" style="flex: 1;">20.3 Retry Failed (NO/Escalate)</button>
+            </div>
+            <button type="button" id="btn-wf-20-4" class="btn" style="background: #d97706;">Execute 20.4: Human Escalation Workflow</button>
+          </div>
+        </div>
+
+        <!-- CARD 3: 20.5 & 20.6 CANCELLATION & RESCHEDULING -->
+        <div class="card" style="grid-column: span 2; border-top: 4px solid #8b5cf6;">
+          <h3 style="margin-top: 0; color: #6d28d9;">🔄 20.5 &amp; 20.6: Lifecycle Modification Workflows</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Multi-step cancellation and rescheduling: identifies target, updates external EHR, verifies state, releases former calendar slots, and notifies patients.
+          </p>
+          <div style="display: flex; gap: 1rem;">
+            <button type="button" id="btn-wf-20-5" class="btn" style="background: #dc2626; flex: 1;">Execute 20.5: Appointment Cancellation Workflow</button>
+            <button type="button" id="btn-wf-20-6" class="btn" style="background: #8b5cf6; flex: 1;">Execute 20.6: Appointment Rescheduling Workflow</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- WORKFLOW TRACE OUTPUT BOX -->
+      <div class="card" style="margin-top: 1.5rem;">
+        <h3 style="margin-top: 0; color: #1e293b;">📋 Canonical Workflow Execution Trace</h3>
+        <div id="wf-examples-output" class="status-box" style="display:none;"></div>
       </div>
     </section>
 
