@@ -95,10 +95,12 @@ class HospitalDoctorDiscoveryEngine:
         if request.hospital_name:
             hosp_query = hosp_query.filter(Hospital.name.ilike(f"%{request.hospital_name}%"))
         hospitals = hosp_query.all()
+        allowed_hosp_ids = {h.id for h in hospitals}
 
         doc_query = self.db.query(Doctor).filter(
             Doctor.doctor_status == DoctorStatus.ACTIVE,
-            Doctor.is_active == True
+            Doctor.is_active == True,
+            Doctor.hospital_id.in_(allowed_hosp_ids)
         )
         if specialty:
             doc_query = doc_query.filter(Doctor.specialty.ilike(f"%{specialty}%"))

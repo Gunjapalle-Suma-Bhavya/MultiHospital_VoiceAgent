@@ -51,13 +51,14 @@ def setup_hospital_dashboard_data(db_session):
     db_session.commit()
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today_noon = now.replace(hour=12, minute=0, second=0, microsecond=0)
     
     # Appointments
-    appt_today = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, calendar_id=cal1.id, patient_name="Pat 1", patient_phone="+15550001111", start_datetime=now + timedelta(hours=1), end_datetime=now + timedelta(hours=2), status=AppointmentStatus.CONFIRMED, is_ehr_verified=True)
+    appt_today = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, calendar_id=cal1.id, patient_name="Pat 1", patient_phone="+15550001111", start_datetime=today_noon, end_datetime=today_noon + timedelta(hours=1), status=AppointmentStatus.CONFIRMED, is_ehr_verified=True)
     appt_upcoming = Appointment(hospital_id=hosp.id, doctor_id=doc2.id, patient_name="Pat 2", patient_phone="+15550002222", start_datetime=now + timedelta(days=2), end_datetime=now + timedelta(days=2, hours=1), status=AppointmentStatus.SCHEDULED, is_ehr_verified=True)
-    appt_cancelled = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, patient_name="Pat 3", patient_phone="+15550003333", start_datetime=now + timedelta(hours=3), end_datetime=now + timedelta(hours=4), status=AppointmentStatus.CANCELLED)
+    appt_cancelled = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, patient_name="Pat 3", patient_phone="+15550003333", start_datetime=today_noon + timedelta(hours=1), end_datetime=today_noon + timedelta(hours=2), status=AppointmentStatus.CANCELLED)
     appt_rescheduled = Appointment(hospital_id=hosp.id, doctor_id=doc2.id, patient_name="Pat 4", patient_phone="+15550004444", start_datetime=now + timedelta(days=3), end_datetime=now + timedelta(days=3, hours=1), status=AppointmentStatus.RESCHEDULED)
-    appt_rec = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, patient_name="Pat 5", patient_phone="+15550005555", start_datetime=now + timedelta(hours=5), end_datetime=now + timedelta(hours=5, minutes=30), status=AppointmentStatus.RECONCILIATION_REQUIRED)
+    appt_rec = Appointment(hospital_id=hosp.id, doctor_id=doc1.id, patient_name="Pat 5", patient_phone="+15550005555", start_datetime=today_noon + timedelta(hours=3), end_datetime=today_noon + timedelta(hours=3, minutes=30), status=AppointmentStatus.RECONCILIATION_REQUIRED)
 
 
 

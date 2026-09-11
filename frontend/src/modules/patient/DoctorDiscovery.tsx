@@ -10,6 +10,7 @@ import {
   CreditCard,
   Tag,
   FileCheck,
+  Building2,
 } from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -33,12 +34,13 @@ interface DoctorDiscoveryProps {
 }
 
 export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
-  initialSpecialty = 'Orthopedics',
+  initialSpecialty = 'Cardiology',
   onBookingSuccess,
 }) => {
   const { user } = useAuth();
   const { createBooking } = usePlatformEvents();
 
+  const [selectedHospital, setSelectedHospital] = useState('ALL');
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [consultationMode, setConsultationMode] = useState('IN_PERSON');
   const [timeWindow, setTimeWindow] = useState('ANYTIME');
@@ -49,64 +51,155 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   const [passData, setPassData] = useState<any>(null);
 
   const symptomChips = [
-    { label: 'Acute Shoulder Pain', spec: 'Orthopedics' },
-    { label: 'Knee Joint Stiffness', spec: 'Orthopedics' },
-    { label: 'Palpitations & Arrhythmia', spec: 'Cardiology' },
-    { label: 'Eczema & Skin Rash', spec: 'Dermatology' },
-    { label: 'Migraine & Vertigo', spec: 'Neurology' },
+    { label: 'Chest Tightness & Palpitations', spec: 'Cardiology' },
+    { label: 'Acute Shoulder & Knee Pain', spec: 'Orthopedics' },
+    { label: 'Skin Rash, Eczema & Hives', spec: 'Dermatology' },
+    { label: 'Migraine, Vertigo & Dizziness', spec: 'Neurology' },
+    { label: 'Acid Reflux & Stomach Pain', spec: 'Gastroenterology' },
+    { label: 'Annual Physical & Checkup', spec: 'General Medicine' },
+  ];
+
+  const hospitalOptions = [
+    { id: 'ALL', name: '🏥 All Partner Hospitals' },
+    { id: 'City Memorial Hospital', name: 'City Memorial Hospital' },
+    { id: 'Care Regional Hospital', name: 'Care Regional Hospital' },
+    { id: 'Metro Health Medical Center', name: 'Metro Health Medical Center' },
+    { id: 'St. Jude Health System', name: 'St. Jude Health System' },
   ];
 
   useEffect(() => {
     if (initialSpecialty) {
       setSpecialty(initialSpecialty);
-      searchSlots(initialSpecialty, consultationMode, timeWindow);
+      searchSlots(initialSpecialty, consultationMode, timeWindow, selectedHospital);
     }
   }, [initialSpecialty]);
 
-  const searchSlots = async (targetSpecialty: string, mode: string, windowVal: string) => {
+  const searchSlots = async (
+    targetSpecialty: string,
+    mode: string,
+    windowVal: string,
+    hospName: string = selectedHospital
+  ) => {
     setIsLoading(true);
     try {
+      const payload: any = {
+        specialty: targetSpecialty || undefined,
+        query_text: targetSpecialty || undefined,
+        appointment_category: mode,
+        time_window: windowVal,
+      };
+      if (hospName && hospName !== 'ALL') {
+        payload.hospital_name = hospName;
+      }
+
       const res = await apiCall('/api/v1/discovery/search', {
         method: 'POST',
-        body: JSON.stringify({
-          specialty: targetSpecialty,
-          query_text: targetSpecialty,
-          appointment_category: mode,
-          time_window: windowVal,
-        }),
+        body: JSON.stringify(payload),
       });
 
       let discovered: SlotItem[] = [];
       if (res.ok && res.data?.available_slots) {
-        discovered = res.data.available_slots;
+        discovered = res.data.available_slots.map((s: any) => {
+          const rawDate = s.start_datetime ? new Date(s.start_datetime) : new Date(Date.now() + 86400000);
+          const timeStr = !isNaN(rawDate.getTime())
+            ? rawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '10:00 AM';
+          return {
+            slot_id: s.slot_id,
+            doctor_id: s.doctor_id,
+            doctor_name: s.doctor_name,
+            specialty: s.specialty,
+            hospital_id: s.hospital_id,
+            hospital_name: s.hospital_name,
+            start_time: mode === 'VIDEO_TELEHEALTH' ? `Tomorrow ${timeStr} (Telehealth)` : `Tomorrow ${timeStr} (In-Person)`,
+            raw_start: s.start_datetime || rawDate.toISOString(),
+          };
+        });
       }
 
       if (discovered.length === 0) {
-        discovered = [
+        const mockFallback: SlotItem[] = [
+          {
+            slot_id: 'SLOT-JENKINS-01',
+            doctor_id: 'DOC-JENKINS-04',
+            doctor_name: 'Dr. Sarah Jenkins',
+            specialty: 'Cardiology',
+            hospital_id: 'HOSP-CITY-01',
+            hospital_name: 'City Memorial Hospital',
+            start_time: 'Tomorrow 09:30 AM (In-Person)',
+            raw_start: new Date(Date.now() + 86400000).toISOString(),
+          },
+          {
+            slot_id: 'SLOT-CHEN-02',
+            doctor_id: 'DOC-CHEN-05',
+            doctor_name: 'Dr. David Chen',
+            specialty: 'Cardiology',
+            hospital_id: 'HOSP-CARE-02',
+            hospital_name: 'Care Regional Hospital',
+            start_time: 'Tomorrow 11:00 AM (In-Person)',
+            raw_start: new Date(Date.now() + 90000000).toISOString(),
+          },
           {
             slot_id: 'SLOT-SHARMA-01',
             doctor_id: 'DOC-SHARMA-01',
             doctor_name: 'Dr. Sharma',
-            specialty: targetSpecialty || 'Orthopedics',
+            specialty: 'Orthopedics',
             hospital_id: 'HOSP-CITY-01',
             hospital_name: 'City Memorial Hospital',
-            start_time:
-              mode === 'VIDEO_TELEHEALTH'
-                ? 'Tomorrow 03:00 PM (Telehealth)'
-                : 'Tomorrow 04:00 PM (In-Person)',
+            start_time: 'Tomorrow 02:00 PM (In-Person)',
             raw_start: new Date(Date.now() + 86400000).toISOString(),
           },
           {
             slot_id: 'SLOT-RAO-02',
             doctor_id: 'DOC-RAO-02',
             doctor_name: 'Dr. Rao',
-            specialty: targetSpecialty || 'Cardiology',
-            hospital_id: 'HOSP-CITY-01',
-            hospital_name: 'City Memorial Hospital',
-            start_time: 'Tomorrow 05:30 PM',
+            specialty: 'Orthopedics',
+            hospital_id: 'HOSP-CARE-02',
+            hospital_name: 'Care Regional Hospital',
+            start_time: 'Tomorrow 03:30 PM (In-Person)',
             raw_start: new Date(Date.now() + 91800000).toISOString(),
           },
+          {
+            slot_id: 'SLOT-MARCUS-01',
+            doctor_id: 'DOC-MARCUS-07',
+            doctor_name: 'Dr. Lisa Marcus',
+            specialty: 'Dermatology',
+            hospital_id: 'HOSP-CITY-01',
+            hospital_name: 'City Memorial Hospital',
+            start_time: 'Tomorrow 10:30 AM (In-Person)',
+            raw_start: new Date(Date.now() + 86400000).toISOString(),
+          },
+          {
+            slot_id: 'SLOT-VANCE-01',
+            doctor_id: 'DOC-VANCE-09',
+            doctor_name: 'Dr. Amanda Vance',
+            specialty: 'Neurology',
+            hospital_id: 'HOSP-CITY-01',
+            hospital_name: 'City Memorial Hospital',
+            start_time: 'Tomorrow 04:00 PM (In-Person)',
+            raw_start: new Date(Date.now() + 95000000).toISOString(),
+          },
+          {
+            slot_id: 'SLOT-GREEN-01',
+            doctor_id: 'DOC-GREEN-11',
+            doctor_name: 'Dr. Rachel Green',
+            specialty: 'Gastroenterology',
+            hospital_id: 'HOSP-METRO-03',
+            hospital_name: 'Metro Health Medical Center',
+            start_time: 'Tomorrow 01:30 PM (In-Person)',
+            raw_start: new Date(Date.now() + 88000000).toISOString(),
+          },
         ];
+
+        discovered = mockFallback.filter((item) => {
+          const matchSpec = !targetSpecialty || item.specialty.toLowerCase().includes(targetSpecialty.toLowerCase());
+          const matchHosp = !hospName || hospName === 'ALL' || item.hospital_name.toLowerCase().includes(hospName.toLowerCase());
+          return matchSpec && matchHosp;
+        });
+
+        if (discovered.length === 0) {
+          discovered = mockFallback;
+        }
       }
 
       setSlots(discovered);
@@ -183,7 +276,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </div>
 
           <button
-            onClick={() => searchSlots(specialty, consultationMode, timeWindow)}
+            onClick={() => searchSlots(specialty, consultationMode, timeWindow, selectedHospital)}
             className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow-md flex items-center gap-1"
           >
             <Search className="w-3.5 h-3.5" />
@@ -203,7 +296,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
                 key={idx}
                 onClick={() => {
                   setSpecialty(chip.spec);
-                  searchSlots(chip.spec, consultationMode, timeWindow);
+                  searchSlots(chip.spec, consultationMode, timeWindow, selectedHospital);
                 }}
                 className={`text-xs px-2.5 py-1 rounded-lg border transition ${
                   specialty === chip.spec
@@ -217,36 +310,61 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </div>
         </div>
 
-        {/* 3 Filters Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        {/* 4 Filters Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
-              Specialty:
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5 flex items-center gap-1">
+              <Building2 className="w-3 h-3 text-emerald-400" />
+              <span>Hospital:</span>
+            </label>
+            <select
+              value={selectedHospital}
+              onChange={(e) => {
+                setSelectedHospital(e.target.value);
+                searchSlots(specialty, consultationMode, timeWindow, e.target.value);
+              }}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
+            >
+              {hospitalOptions.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5 flex items-center gap-1">
+              <Stethoscope className="w-3 h-3 text-emerald-400" />
+              <span>Specialty:</span>
             </label>
             <select
               value={specialty}
               onChange={(e) => {
                 setSpecialty(e.target.value);
-                searchSlots(e.target.value, consultationMode, timeWindow);
+                searchSlots(e.target.value, consultationMode, timeWindow, selectedHospital);
               }}
               className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
             >
-              <option value="Orthopedics">Orthopedic Surgery</option>
               <option value="Cardiology">Cardiology</option>
-              <option value="Dermatology">Dermatology</option>
+              <option value="Orthopedics">Orthopedic Surgery</option>
               <option value="Neurology">Neurology</option>
+              <option value="Dermatology">Dermatology</option>
+              <option value="Gastroenterology">Gastroenterology</option>
+              <option value="General Medicine">General / Family Medicine</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
-              Consultation Mode:
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5 flex items-center gap-1">
+              <Video className="w-3 h-3 text-emerald-400" />
+              <span>Consultation Mode:</span>
             </label>
             <select
               value={consultationMode}
               onChange={(e) => {
                 setConsultationMode(e.target.value);
-                searchSlots(specialty, e.target.value, timeWindow);
+                searchSlots(specialty, e.target.value, timeWindow, selectedHospital);
               }}
               className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
             >
@@ -257,19 +375,20 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
-              Time Window:
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              <span>Time Window:</span>
             </label>
             <select
               value={timeWindow}
               onChange={(e) => {
                 setTimeWindow(e.target.value);
-                searchSlots(specialty, consultationMode, e.target.value);
+                searchSlots(specialty, consultationMode, e.target.value, selectedHospital);
               }}
               className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
             >
               <option value="ANYTIME">Anytime (Full Day)</option>
-              <option value="MORNING">Morning (09:00 - 12:00)</option>
+              <option value="MORNING">Morning (08:00 - 12:00)</option>
               <option value="AFTERNOON">Afternoon (12:00 - 17:00)</option>
               <option value="EVENING">Evening (17:00 - 20:00)</option>
             </select>
