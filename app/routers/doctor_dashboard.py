@@ -83,6 +83,21 @@ def create_doctor_leave(doctor_id: str, payload: CreateLeaveInput, db: Session =
             leave_type=payload.leave_type,
             reason=payload.reason
         )
+        leave_data = {
+            "leave_id": leave.id,
+            "doctor_id": leave.doctor_id,
+            "start_date": leave.start_date.isoformat(),
+            "end_date": leave.end_date.isoformat(),
+            "leave_type": leave.leave_type,
+            "reason": leave.reason,
+            "status": leave.status
+        }
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            persist_to_mongodb("leaves", leave_data, key_field="leave_id")
+        except Exception:
+            pass
+
         return {
             "success": True,
             "leave_id": leave.id,

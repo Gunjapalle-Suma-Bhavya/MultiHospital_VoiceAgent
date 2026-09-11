@@ -48,6 +48,20 @@ def send_notification(payload: SendNotificationInput, db: Session = Depends(get_
         channel=payload.channel.upper(),
         metadata=payload.metadata
     )
+    try:
+        from app.database.mongodb import persist_to_mongodb
+        persist_to_mongodb("notifications", {
+            "notification_id": record.id,
+            "recipient_role": record.recipient_role,
+            "recipient_id": record.recipient_id,
+            "notification_type": record.notification_type,
+            "channel": record.channel,
+            "body": record.body,
+            "status": record.status,
+            "sent_at": record.sent_at.isoformat() if record.sent_at else None
+        }, key_field="notification_id")
+    except Exception:
+        pass
     return {
         "success": True,
         "notification_id": record.id,

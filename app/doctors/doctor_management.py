@@ -36,7 +36,8 @@ class DoctorManagementService:
         languages: Optional[List[str]] = None,
         consultation_type: ConsultationType = ConsultationType.IN_PERSON,
         default_appointment_duration: int = 30,
-        external_provider_id: Optional[str] = None
+        external_provider_id: Optional[str] = None,
+        bio: Optional[str] = None
     ) -> Doctor:
         """
         Creates doctor profile in INVITED state. is_active = False.
@@ -56,6 +57,7 @@ class DoctorManagementService:
             consultation_type=consultation_type,
             default_appointment_duration=default_appointment_duration,
             external_provider_id=external_provider_id,
+            bio=bio,
             doctor_status=DoctorStatus.INVITED,
             is_active=False
         )
@@ -205,6 +207,7 @@ class DoctorInviteInput(BaseModel):
     consultation_type: Optional[str] = "IN_PERSON"
     default_appointment_duration: Optional[int] = 30
     external_provider_id: Optional[str] = None
+    bio: Optional[str] = None
 
 class DoctorProfileUpdateInput(BaseModel):
     name: Optional[str] = None

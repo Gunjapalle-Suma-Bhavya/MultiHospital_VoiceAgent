@@ -80,3 +80,48 @@ def evaluate_intake_safety(payload: SafetyCheckInput, db: Session = Depends(get_
     engine = QuestionnaireEngine(db)
     safety_res = engine.evaluate_safety_and_urgency(payload.user_utterance)
     return safety_res.model_dump()
+
+
+class QuestionnaireSubmitPayload(BaseModel):
+    specialty: Optional[str] = "General"
+    patient_name: Optional[str] = "Anonymous Patient"
+    patient_phone: Optional[str] = "+1-555-0199"
+    answers: Dict[str, Any] = {}
+
+
+@router.post("/submit")
+def submit_questionnaire_intake(payload: QuestionnaireSubmitPayload, db: Session = Depends(get_db)):
+    import uuid
+    from datetime import datetime, timezone
+    from app.database.mongodb import persist_to_mongodb
+    from app.events.event_bus import event_bus, SystemEvent
+
+    submission_id = f"SUB-{uuid.uuid4().hex[:8].upper()}"
+    doc = {
+        "submission_id": submission_id,
+        "specialty": payload.specialty,
+        "patient_name": payload.patient_name,
+        "patient_phone": payload.patient_phone,
+        "answers": payload.answers,
+        "status": "COMPLETED",
+        "submitted_at": datetime.now(timezone.utc).isoformat()
+    }
+    # 1. Persist directly to MongoDB Atlas
+    persist_to_mongodb("questionnaires", doc, key_field="submission_id")
+
+    # 2. Publish cross-portal event
+    event = SystemEvent(
+        event_type="PATIENT_INTAKE_COMPLETED",
+        aggregate_id=submission_id,
+        source="QUESTIONNAIRE_UI",
+        payload=doc
+    )
+    event_bus.publish(db, event)
+
+    return {
+        "success": True,
+        "submission_id": submission_id,
+        "status": "COMPLETED",
+        "persisted_to_mongodb": True
+    }
+

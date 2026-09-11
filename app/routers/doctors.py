@@ -33,6 +33,20 @@ def invite_doctor(hospital_id: str, payload: DoctorInviteInput, db: Session = De
             default_appointment_duration=payload.default_appointment_duration,
             bio=payload.bio
         )
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            persist_to_mongodb("doctors", {
+                "doctor_id": doc.id,
+                "name": doc.name,
+                "specialty": payload.specialty,
+                "department": payload.department,
+                "hospital_id": hospital_id,
+                "status": doc.doctor_status.value,
+                "bio": payload.bio,
+                "experience_years": payload.experience_years
+            }, key_field="doctor_id")
+        except Exception:
+            pass
         return {"doctor_id": doc.id, "name": doc.name, "status": doc.doctor_status.value}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -42,6 +56,15 @@ def activate_doctor(doctor_id: str, db: Session = Depends(get_db)):
     doc_service = DoctorManagementService(db)
     try:
         doc = doc_service.activate_doctor(doctor_id)
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            persist_to_mongodb("doctors", {
+                "doctor_id": doc.id,
+                "status": doc.doctor_status.value,
+                "is_active": doc.is_active
+            }, key_field="doctor_id")
+        except Exception:
+            pass
         return {"doctor_id": doc.id, "status": doc.doctor_status.value, "is_active": doc.is_active}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -37,50 +37,50 @@ export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'telemetry' 
   return (
     <div className="space-y-6">
       {/* SRE Admin Header Strip */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xs">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg">
         <div className="flex items-center space-x-3.5">
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-bold text-lg">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center font-black text-lg">
             <ShieldAlert className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
-              Platform SRE &amp; Governance Suite
+            <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+              Platform SRE &amp; Platform Governance Suite
             </div>
-            <h2 className="text-xl font-bold text-slate-900">Statewide Autonomous Cluster Telemetry</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-xl font-extrabold text-white">Statewide Autonomous Cluster Telemetry</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
               Production Environment &bull; 4 Golden Signals &bull; MongoDB Atlas Cloud Mirror Active
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold px-3 py-1.5 rounded-xl flex items-center space-x-1.5 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>All Clusters Operational</span>
           </span>
         </div>
       </div>
 
       {/* Clean Sub-Page Navigation Tabs */}
-      <div className="flex border-b border-slate-200 bg-white p-1 rounded-2xl gap-1.5 text-xs overflow-x-auto shadow-xs">
+      <div className="flex border-b border-slate-800 bg-slate-900/60 p-1 rounded-2xl gap-1.5 text-xs overflow-x-auto">
         <button
           onClick={() => handleTabChange('telemetry')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold transition whitespace-nowrap ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
             activeTab === 'telemetry'
-              ? 'bg-teal-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Activity className="w-4 h-4" />
-          <span>SRE Golden Signals &amp; Trace</span>
+          <span>SRE Golden Signals &amp; Trace Waterfall</span>
         </button>
 
         <button
           onClick={() => handleTabChange('mongodb')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold transition whitespace-nowrap ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
             activeTab === 'mongodb'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Database className="w-4 h-4" />
@@ -89,38 +89,38 @@ export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'telemetry' 
 
         <button
           onClick={() => handleTabChange('dod')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold transition whitespace-nowrap ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
             activeTab === 'dod'
-              ? 'bg-teal-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <CheckCircle2 className="w-4 h-4" />
-          <span>27-Stage DoD Readiness</span>
+          <span>27-Stage DoD Readiness Runner</span>
         </button>
 
         <button
           onClick={() => handleTabChange('audit')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold transition whitespace-nowrap ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
             activeTab === 'audit'
-              ? 'bg-teal-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Lock className="w-4 h-4" />
-          <span>Cryptographic Audit Trail</span>
+          <span>Zero-PHI Cryptographic Audit Trail</span>
         </button>
 
         <button
           onClick={() => handleTabChange('ai-eval')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-semibold transition whitespace-nowrap ${
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
             activeTab === 'ai-eval'
-              ? 'bg-teal-600 text-white shadow-xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <DollarSign className="w-4 h-4" />
-          <span>AI Evaluation &amp; ROI</span>
+          <span>AI Evaluation &amp; ROI Scorecard</span>
         </button>
       </div>
 

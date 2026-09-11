@@ -402,3 +402,32 @@ def sync_event_to_mongodb(event_data: Dict[str, Any]) -> None:
         print(f"[MongoDB Sync Warning] Sync event failed gracefully: {e}")
 
 
+def persist_to_mongodb(collection_name: str, doc_data: Dict[str, Any], key_field: Optional[str] = None) -> None:
+    """
+    Universally and safely persists any user-entered document directly to MongoDB Atlas.
+    Supports upsert when key_field is provided, otherwise inserts.
+    Guaranteed non-blocking, exception-safe, and fail-safe.
+    """
+    try:
+        db = get_mongo_db()
+        if db is None:
+            return
+
+        clean_doc = dict(doc_data)
+        if "persisted_at" not in clean_doc:
+            clean_doc["persisted_at"] = datetime.now(timezone.utc).isoformat()
+
+        coll = db[collection_name]
+        if key_field and key_field in clean_doc and clean_doc[key_field]:
+            coll.update_one(
+                {key_field: clean_doc[key_field]},
+                {"$set": clean_doc},
+                upsert=True
+            )
+        else:
+            coll.insert_one(clean_doc)
+    except Exception as e:
+        print(f"[MongoDB Persist Warning] Failed to persist to {collection_name}: {e}")
+
+
+

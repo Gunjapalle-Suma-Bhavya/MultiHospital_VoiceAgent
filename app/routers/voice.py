@@ -39,6 +39,18 @@ def voice_agent_chat_endpoint(payload: VoiceTurnInput, db: Session = Depends(get
         hospital_id=payload.hospital_id,
         session_id=payload.session_id
     )
+    try:
+        from app.database.mongodb import persist_to_mongodb
+        persist_to_mongodb("voice_sessions", {
+            "session_id": res.get("session_id") or payload.session_id,
+            "patient_phone": payload.patient_phone,
+            "user_utterance": payload.user_utterance,
+            "agent_response": res.get("agent_response"),
+            "intent": res.get("intent"),
+            "hospital_id": payload.hospital_id
+        })
+    except Exception:
+        pass
     return res
 
 @router.post("/api/v1/telephony/inbound-call")
