@@ -24,6 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupHospitalWorkflowForms();
   setupArchitectureUI();
   setupDashboardPagesUI();
+  setupDashboardAnalyticsUI();
 });
 
 
@@ -2718,6 +2719,191 @@ function setupDashboardPagesUI() {
 
   // Initial load
   loadCatalog();
+}
+
+// 12. Dashboard Analytics UI Handler (42 Canonical Metrics)
+function setupDashboardAnalyticsUI() {
+  const scopeBtns = document.querySelectorAll(".analytics-scope-btn");
+  const platView = document.getElementById("analytics-platform-view");
+  const hospView = document.getElementById("analytics-hospital-view");
+  const docView = document.getElementById("analytics-doctor-view");
+  const hospCtrl = document.getElementById("analytics-hosp-ctrl");
+  const docCtrl = document.getElementById("analytics-doc-ctrl");
+  const hospInput = document.getElementById("analytics-hosp-input");
+  const docInput = document.getElementById("analytics-doc-input");
+  const btnLoadScope = document.getElementById("btn-analytics-load-scope");
+  const btnRefreshAll = document.getElementById("btn-analytics-refresh");
+
+  let currentScope = "platform";
+
+  function setScope(scope) {
+    currentScope = scope;
+    scopeBtns.forEach(b => {
+      if (b.dataset.scope === scope) {
+        b.classList.remove("btn-secondary");
+        b.classList.add("btn-primary", "active");
+      } else {
+        b.classList.remove("btn-primary", "active");
+        b.classList.add("btn-secondary");
+      }
+    });
+
+    if (scope === "platform") {
+      if (platView) platView.style.display = "flex";
+      if (hospView) hospView.style.display = "none";
+      if (docView) docView.style.display = "none";
+      if (hospCtrl) hospCtrl.style.display = "none";
+      if (docCtrl) docCtrl.style.display = "none";
+      loadPlatformAnalytics();
+    } else if (scope === "hospital") {
+      if (platView) platView.style.display = "none";
+      if (hospView) hospView.style.display = "flex";
+      if (docView) docView.style.display = "none";
+      if (hospCtrl) hospCtrl.style.display = "flex";
+      if (docCtrl) docCtrl.style.display = "none";
+      loadHospitalAnalytics(hospInput ? hospInput.value.trim() : "STJUDE");
+    } else if (scope === "doctor") {
+      if (platView) platView.style.display = "none";
+      if (hospView) hospView.style.display = "none";
+      if (docView) docView.style.display = "flex";
+      if (hospCtrl) hospCtrl.style.display = "none";
+      if (docCtrl) docCtrl.style.display = "flex";
+      loadDoctorAnalytics(docInput ? docInput.value.trim() : "DOC-101");
+    }
+  }
+
+  async function loadPlatformAnalytics() {
+    try {
+      const res = await fetch("/api/v1/analytics/dashboard/platform");
+      if (!res.ok) return;
+      const d = await res.json();
+
+      const el = id => document.getElementById(id);
+      if (el("m-plat-total-hosp")) el("m-plat-total-hosp").textContent = d.total_hospitals ?? 0;
+      if (el("m-plat-active-hosp")) el("m-plat-active-hosp").textContent = d.active_hospitals ?? 0;
+      if (el("m-plat-pending-hosp")) el("m-plat-pending-hosp").textContent = d.pending_hospitals ?? 0;
+      if (el("m-plat-total-docs")) el("m-plat-total-docs").textContent = d.total_doctors ?? 0;
+      if (el("m-plat-total-pats")) el("m-plat-total-pats").textContent = d.total_patients ?? 0;
+      if (el("m-plat-total-appts")) el("m-plat-total-appts").textContent = d.total_appointments ?? 0;
+
+      if (el("m-plat-appt-success")) el("m-plat-appt-success").textContent = `${d.appointment_success_rate ?? 0}%`;
+      if (el("bar-plat-appt-success")) el("bar-plat-appt-success").style.width = `${Math.min(100, d.appointment_success_rate ?? 0)}%`;
+
+      if (el("m-plat-ai-calls")) el("m-plat-ai-calls").textContent = d.ai_call_volume ?? 0;
+      if (el("m-plat-ai-booking")) el("m-plat-ai-booking").textContent = `${d.ai_booking_rate ?? 0}%`;
+      if (el("m-plat-escalation")) el("m-plat-escalation").textContent = `${d.human_escalation_rate ?? 0}%`;
+      if (el("m-plat-ai-latency")) el("m-plat-ai-latency").textContent = `${d.average_ai_latency ?? 0}s`;
+      if (el("m-plat-ai-eval")) el("m-plat-ai-eval").textContent = `${d.ai_evaluation_score ?? 0} / 5.0`;
+
+      if (el("m-plat-ehr-success")) el("m-plat-ehr-success").textContent = `${d.ehr_integration_success_rate ?? 0}%`;
+      if (el("m-plat-ehr-failure")) el("m-plat-ehr-failure").textContent = `${d.ehr_integration_failure_rate ?? 0}%`;
+      if (el("m-plat-ehr-verify")) el("m-plat-ehr-verify").textContent = `${d.ehr_verification_success ?? 0}%`;
+      if (el("m-plat-reconcile")) el("m-plat-reconcile").textContent = `${d.reconciliation_rate ?? 0}%`;
+
+      if (el("m-plat-quest-comp")) el("m-plat-quest-comp").textContent = `${d.questionnaire_completion ?? 0}%`;
+      if (el("m-plat-wf-success")) el("m-plat-wf-success").textContent = `${d.workflow_success_rate ?? 0}%`;
+      if (el("m-plat-wf-failure")) el("m-plat-wf-failure").textContent = `${d.workflow_failure_rate ?? 0}%`;
+      if (el("m-plat-notif-delivery")) el("m-plat-notif-delivery").textContent = `${d.notification_delivery_rate ?? 0}%`;
+
+      const apptsByHospEl = el("m-plat-appts-by-hosp");
+      if (apptsByHospEl && d.appointments_by_hospital) {
+        let html = "";
+        const entries = Object.entries(d.appointments_by_hospital);
+        const maxVal = Math.max(...entries.map(([_, v]) => v), 1);
+        entries.forEach(([k, v]) => {
+          const pct = Math.round((v / maxVal) * 100);
+          html += `
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:0.25rem;">
+                <span style="font-weight:600; color:#334155;">${k}</span>
+                <span style="font-weight:700; color:#0f172a;">${v} appts</span>
+              </div>
+              <div style="background:#f1f5f9; height:6px; border-radius:3px; overflow:hidden;">
+                <div style="width:${pct}%; height:100%; background:#059669; border-radius:3px;"></div>
+              </div>
+            </div>
+          `;
+        });
+        apptsByHospEl.innerHTML = html;
+      }
+    } catch (err) {
+      console.error("Failed to load platform analytics:", err);
+    }
+  }
+
+  async function loadHospitalAnalytics(hospId) {
+    if (!hospId) hospId = "STJUDE";
+    try {
+      const res = await fetch(`/api/v1/analytics/dashboard/hospital/${encodeURIComponent(hospId)}`);
+      if (!res.ok) return;
+      const d = await res.json();
+
+      const el = id => document.getElementById(id);
+      if (el("hosp-analytics-title")) el("hosp-analytics-title").textContent = `Hospital Analytics — ${d.hospital_name || hospId}`;
+      if (el("m-hosp-appts")) el("m-hosp-appts").textContent = d.appointments ?? 0;
+      if (el("m-hosp-util")) el("m-hosp-util").textContent = `${d.doctor_utilization ?? 0}%`;
+      if (el("m-hosp-slots")) el("m-hosp-slots").textContent = d.available_vs_booked_slots || "--";
+      if (el("m-hosp-canc")) el("m-hosp-canc").textContent = `${d.cancellation_rate ?? 0}%`;
+      if (el("m-hosp-resched")) el("m-hosp-resched").textContent = `${d.rescheduling_rate ?? 0}%`;
+      if (el("m-hosp-ai-pct")) el("m-hosp-ai-pct").textContent = `${d.ai_booking_percentage ?? 0}%`;
+      if (el("m-hosp-quest")) el("m-hosp-quest").textContent = `${d.questionnaire_completion ?? 0}%`;
+      if (el("m-hosp-pat-vol")) el("m-hosp-pat-vol").textContent = d.patient_volume ?? 0;
+      if (el("m-hosp-wf")) el("m-hosp-wf").textContent = d.workflow_activity ?? 0;
+      if (el("m-hosp-notif")) el("m-hosp-notif").textContent = d.notification_activity ?? 0;
+      if (el("m-hosp-ehr-act")) el("m-hosp-ehr-act").textContent = d.ehr_integration_activity ?? 0;
+      if (el("m-hosp-ehr-succ")) el("m-hosp-ehr-succ").textContent = `${d.integration_success_rate ?? 0}%`;
+      if (el("m-hosp-ehr-fail")) el("m-hosp-ehr-fail").textContent = `${d.integration_failure_rate ?? 0}%`;
+      if (el("m-hosp-reconcile")) el("m-hosp-reconcile").textContent = d.reconciliation_activity ?? 0;
+    } catch (err) {
+      console.error("Failed to load hospital analytics:", err);
+    }
+  }
+
+  async function loadDoctorAnalytics(docId) {
+    if (!docId) docId = "DOC-101";
+    try {
+      const res = await fetch(`/api/v1/analytics/dashboard/doctor/${encodeURIComponent(docId)}`);
+      if (!res.ok) return;
+      const d = await res.json();
+
+      const el = id => document.getElementById(id);
+      if (el("doc-analytics-title")) el("doc-analytics-title").textContent = `Doctor Analytics — ${d.doctor_name || docId} (${d.specialty || "Specialist"})`;
+      if (el("m-doc-appts")) el("m-doc-appts").textContent = d.appointments ?? 0;
+      if (el("m-doc-avail")) el("m-doc-avail").textContent = d.available_slots ?? 0;
+      if (el("m-doc-util")) el("m-doc-util").textContent = `${d.utilization ?? 0}%`;
+      if (el("m-doc-canc")) el("m-doc-canc").textContent = d.cancellations ?? 0;
+      if (el("m-doc-resched")) el("m-doc-resched").textContent = d.rescheduling ?? 0;
+      if (el("m-doc-quest")) el("m-doc-quest").textContent = `${d.questionnaire_completion ?? 0}%`;
+      if (el("m-doc-workload")) el("m-doc-workload").textContent = d.upcoming_workload ?? 0;
+    } catch (err) {
+      console.error("Failed to load doctor analytics:", err);
+    }
+  }
+
+  scopeBtns.forEach(b => {
+    b.addEventListener("click", () => {
+      setScope(b.dataset.scope);
+    });
+  });
+
+  if (btnLoadScope) {
+    btnLoadScope.addEventListener("click", () => {
+      if (currentScope === "platform") loadPlatformAnalytics();
+      else if (currentScope === "hospital") loadHospitalAnalytics(hospInput ? hospInput.value.trim() : "STJUDE");
+      else if (currentScope === "doctor") loadDoctorAnalytics(docInput ? docInput.value.trim() : "DOC-101");
+    });
+  }
+
+  if (btnRefreshAll) {
+    btnRefreshAll.addEventListener("click", () => {
+      loadPlatformAnalytics();
+      if (hospInput) loadHospitalAnalytics(hospInput.value.trim());
+      if (docInput) loadDoctorAnalytics(docInput.value.trim());
+    });
+  }
+
+  // Initial load
+  loadPlatformAnalytics();
 }
 
 
