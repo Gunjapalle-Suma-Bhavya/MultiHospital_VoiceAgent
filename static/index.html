@@ -29,6 +29,7 @@
     <button class="tab-btn" data-tab="tab-operational-monitoring-step13">Operational Monitoring (Step 13)</button>
     <button class="tab-btn" data-tab="tab-reliability-step15">Reliability & Failure Handling (15)</button>
     <button class="tab-btn" data-tab="tab-sec-concurrency-step16-17">Security & Concurrency (16 & 17)</button>
+    <button class="tab-btn" data-tab="tab-safety-knowledge-step18-19">AI Safety & Knowledge (18 & 19)</button>
   </nav>
 
   <main class="container">
@@ -1990,6 +1991,84 @@
           </p>
           <button type="button" id="btn-audit-secrets-vault" class="btn" style="background: #059669;">Run Environment Secrets &amp; Configuration Audit</button>
           <div id="sec-vault-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL: AI SAFETY & APPROVED KNOWLEDGE (SECTIONS 18 & 19) -->
+    <section id="tab-safety-knowledge-step18-19" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🩺</span> Sections 18 &amp; 19: AI Safety Principles &amp; Approved Knowledge Retrieval
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #a7f3d0; font-size: 0.9rem;">
+          Administrative and Conversational Assistant boundaries (Non-Autonomous Clinician rules, "You reported..." patient-reported framing) plus grounded organizational knowledge retrieval with citations.
+        </p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+
+        <!-- CARD 1: SECTION 18 AI CAPABILITY SAFETY & QUERY INSPECTOR -->
+        <div class="card" style="border-top: 4px solid #10b981;">
+          <h3 style="margin-top: 0; color: #065f46;">🛡️ Section 18: Allowed vs. Prohibited Capabilities</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Test administrative assistant capabilities vs strictly prohibited clinical decision autonomy.
+          </p>
+          <div class="form-group">
+            <label>Capability Name</label>
+            <select id="safety-cap-select">
+              <option value="scheduling">scheduling (Allowed)</option>
+              <option value="appointment_discovery">appointment_discovery (Allowed)</option>
+              <option value="administrative_faqs">administrative_faqs (Allowed)</option>
+              <option value="approved_pre_visit_questions">approved_pre_visit_questions (Allowed)</option>
+              <option value="diagnosis">diagnosis (PROHIBITED CLINICAL)</option>
+              <option value="treatment_decisions">treatment_decisions (PROHIBITED CLINICAL)</option>
+              <option value="medication_changes">medication_changes (PROHIBITED CLINICAL)</option>
+              <option value="medical_prescriptions">medical_prescriptions (PROHIBITED CLINICAL)</option>
+            </select>
+          </div>
+          <button type="button" id="btn-eval-capability" class="btn" style="background: #065f46; width: 100%;">Evaluate Capability Boundary</button>
+
+          <div style="margin-top: 1rem;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Patient Utterance Clinical Inspector</label>
+            <input type="text" id="safety-utterance-input" value="Can you diagnose me? What disease do I have?" style="margin-top: 0.25rem;">
+            <button type="button" id="btn-inspect-utterance" class="btn btn-secondary" style="margin-top: 0.5rem; width: 100%;">Scan Utterance for Clinical Traps</button>
+          </div>
+          <div id="safety-eval-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: SECTION 18.1 "YOU REPORTED..." PATIENT FRAMING RULE -->
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+          <h3 style="margin-top: 0; color: #b45309;">🗣️ Section 18: "You Reported..." Framing Enforcer</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Strict Rule: The AI must never state <em>"You have [disease]"</em> (diagnostic implication). It must frame all symptoms as <em>"You reported [symptom]"</em>.
+          </p>
+          <div class="form-group">
+            <label>Candidate Speech Output</label>
+            <textarea id="framing-input-text" rows="3" style="width: 100%;">Based on our discussion, you have asthma and need immediate treatment.</textarea>
+          </div>
+          <button type="button" id="btn-check-framing" class="btn" style="background: #b45309; width: 100%;">Inspect &amp; Reframe Patient Speech</button>
+          <div id="framing-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 3: SECTION 19 APPROVED ORGANIZATIONAL KNOWLEDGE & RAG -->
+        <div class="card" style="grid-column: span 2; border-top: 4px solid #3b82f6;">
+          <h3 style="margin-top: 0; color: #1d4ed8;">📚 Section 19: Approved Knowledge &amp; Grounded Citations</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Retrieves approved administrative information (Visiting hours, parking, department locations, preparation) with verified citations while strictly rejecting medical advice.
+          </p>
+          <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 1rem; align-items: end;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Knowledge Query</label>
+              <input type="text" id="knowledge-query-input" value="What are the hospital visiting hours?">
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btn-query-approved-kb" class="btn" style="background: #1d4ed8; flex: 1;">Query Approved KB</button>
+              <button type="button" id="btn-test-med-advice-block" class="btn btn-danger" style="flex: 1;">Test Medical Advice Block</button>
+            </div>
+          </div>
+          <div id="knowledge-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
 
       </div>

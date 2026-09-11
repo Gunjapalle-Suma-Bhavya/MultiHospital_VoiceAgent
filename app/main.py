@@ -27,7 +27,7 @@ from app.routers import (
     audit_router, rbac_router, data_model_router, patient_workflow_router,
     hospital_workflow_router, architecture_router, dashboard_pages_router,
     dashboard_analytics_router, operational_monitoring_router, reliability_router,
-    security_concurrency_router
+    security_concurrency_router, safety_knowledge_router
 )
 
 app = FastAPI(
@@ -79,6 +79,7 @@ app.include_router(dashboard_analytics_router, prefix="/api/v1")
 app.include_router(operational_monitoring_router)
 app.include_router(reliability_router)
 app.include_router(security_concurrency_router)
+app.include_router(safety_knowledge_router)
 
 
 

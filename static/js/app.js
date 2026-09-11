@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupOperationalMonitoringUI();
   setupReliabilityUI();
   setupSecurityConcurrencyUI();
+  setupSafetyKnowledgeUI();
 });
 
 
@@ -3437,6 +3438,124 @@ function setupSecurityConcurrencyUI() {
       } catch (err) {
         vaultOutput.style.display = "block";
         vaultOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
+/**
+ * Section 18 & 19: AI Safety Principles & Approved Knowledge UI
+ */
+function setupSafetyKnowledgeUI() {
+  const safetyOutput = document.getElementById("safety-eval-output");
+  const framingOutput = document.getElementById("framing-output");
+  const knowledgeOutput = document.getElementById("knowledge-output");
+
+  // 1. Evaluate Capability
+  const btnEvalCap = document.getElementById("btn-eval-capability");
+  const capSelect = document.getElementById("safety-cap-select");
+  if (btnEvalCap && capSelect) {
+    btnEvalCap.addEventListener("click", async () => {
+      try {
+        const payload = { capability_name: capSelect.value };
+        const res = await fetch("/api/v1/safety-knowledge/evaluate-capability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        safetyOutput.style.display = "block";
+        safetyOutput.textContent = "[Section 18: Capability Safety Evaluation]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        safetyOutput.style.display = "block";
+        safetyOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 2. Inspect Patient Utterance for Clinical Traps
+  const btnInspectUtterance = document.getElementById("btn-inspect-utterance");
+  const utteranceInput = document.getElementById("safety-utterance-input");
+  if (btnInspectUtterance && utteranceInput) {
+    btnInspectUtterance.addEventListener("click", async () => {
+      try {
+        const payload = { query_text: utteranceInput.value.trim() };
+        const res = await fetch("/api/v1/safety-knowledge/inspect-query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        safetyOutput.style.display = "block";
+        safetyOutput.textContent = "[Section 18: Clinical Utterance Inspection & Redirect]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        safetyOutput.style.display = "block";
+        safetyOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 3. Section 18.1 "You Reported..." Framing Inspector
+  const btnCheckFraming = document.getElementById("btn-check-framing");
+  const framingInput = document.getElementById("framing-input-text");
+  if (btnCheckFraming && framingInput) {
+    btnCheckFraming.addEventListener("click", async () => {
+      try {
+        const payload = { statement_text: framingInput.value.trim() };
+        const res = await fetch("/api/v1/safety-knowledge/check-patient-framing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        framingOutput.style.display = "block";
+        framingOutput.textContent = "[Section 18: Patient-Reported Framing Enforcer]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        framingOutput.style.display = "block";
+        framingOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 4. Section 19 Approved Knowledge Retrieval
+  const btnQueryKB = document.getElementById("btn-query-approved-kb");
+  const kbInput = document.getElementById("knowledge-query-input");
+  if (btnQueryKB && kbInput) {
+    btnQueryKB.addEventListener("click", async () => {
+      try {
+        const payload = { query: kbInput.value.trim() };
+        const res = await fetch("/api/v1/safety-knowledge/query-knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        knowledgeOutput.style.display = "block";
+        knowledgeOutput.textContent = "[Section 19: Approved Knowledge Retrieval & Citation]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        knowledgeOutput.style.display = "block";
+        knowledgeOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 5. Section 19 Medical Advice Block Test
+  const btnTestMedBlock = document.getElementById("btn-test-med-advice-block");
+  if (btnTestMedBlock) {
+    btnTestMedBlock.addEventListener("click", async () => {
+      try {
+        const payload = { query: "What should I take for high fever and is this dangerous?" };
+        const res = await fetch("/api/v1/safety-knowledge/query-knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        knowledgeOutput.style.display = "block";
+        knowledgeOutput.textContent = "[Section 19: Medical Advice Prohibited & Referred]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        knowledgeOutput.style.display = "block";
+        knowledgeOutput.textContent = "Error: " + err.message;
       }
     });
   }
