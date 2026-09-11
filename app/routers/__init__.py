@@ -30,6 +30,7 @@ from app.routers.dashboard_pages import router as dashboard_pages_router
 from app.routers.dashboard_analytics import router as dashboard_analytics_router
 from app.routers.operational_monitoring import router as operational_monitoring_router
 from app.routers.reliability import router as reliability_router
+from app.routers.security_concurrency import router as security_concurrency_router
 
 __all__ = [
     "onboarding_router",
@@ -61,6 +62,7 @@ __all__ = [
     "dashboard_analytics_router",
     "operational_monitoring_router",
     "reliability_router",
+    "security_concurrency_router",
 ]
 
 

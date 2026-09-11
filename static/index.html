@@ -28,6 +28,7 @@
     <button class="tab-btn" data-tab="tab-analytics-step12">Dashboard Analytics (Step 12)</button>
     <button class="tab-btn" data-tab="tab-operational-monitoring-step13">Operational Monitoring (Step 13)</button>
     <button class="tab-btn" data-tab="tab-reliability-step15">Reliability & Failure Handling (15)</button>
+    <button class="tab-btn" data-tab="tab-sec-concurrency-step16-17">Security & Concurrency (16 & 17)</button>
   </nav>
 
   <main class="container">
@@ -1904,6 +1905,91 @@
             </div>
           </div>
           <div id="verif-rule-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL: CONCURRENCY & SECURITY (SECTIONS 16 & 17) -->
+    <section id="tab-sec-concurrency-step16-17" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🛡️</span> Sections 16 &amp; 17: Concurrency Protection, Tenant Isolation &amp; Security
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #94a3b8; font-size: 0.9rem;">
+          Double-Booking Prevention (Section 16) with atomic slot locking &amp; pre-confirmation external checks, plus Hospital-Tenant Isolation, Context Security (17.1), and Zero-Hardcoded Secrets Vault (17.2).
+        </p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+
+        <!-- CARD 1: SECTION 16 CONCURRENCY & DOUBLE-BOOKING SIMULATOR -->
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+          <h3 style="margin-top: 0; color: #d97706;">⚡ Section 16: Concurrency &amp; Double-Booking Prevention</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Simulate Patient A &amp; Patient B competing simultaneously for the same 3:00 PM slot. Only one acquires the reservation lock.
+          </p>
+          <div class="form-group">
+            <label>Doctor ID / Candidate Slot</label>
+            <input type="text" id="sec-slot-doc-id" value="DOC-SMITH-CARDIO-01">
+          </div>
+          <div class="form-group">
+            <label>Slot Timestamp</label>
+            <input type="text" id="sec-slot-time" value="2026-10-01T15:00:00">
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <button type="button" id="btn-patient-a-reserve" class="btn" style="background: #0284c7; flex: 1;">Patient A: Reserve 3 PM</button>
+            <button type="button" id="btn-patient-b-reserve" class="btn" style="background: #d97706; flex: 1;">Patient B: Race for 3 PM</button>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" id="btn-test-ehr-conflict" class="btn btn-danger" style="flex: 1;">Simulate External EHR Conflict</button>
+            <button type="button" id="btn-list-reservations" class="btn btn-secondary" style="flex: 1;">List Active TTL Holds</button>
+          </div>
+          <div id="sec-concurrency-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: SECTION 17 TENANT & CONTEXT ISOLATION -->
+        <div class="card" style="border-top: 4px solid #dc2626;">
+          <h3 style="margin-top: 0; color: #b91c1c;">🏢 Section 17 &amp; 17.1: Multi-Tenant &amp; Context Isolation</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Enforces strict boundaries: Hospital A users cannot access Hospital B data; AI retrieves only minimal necessary context.
+          </p>
+          <form id="form-tenant-test">
+            <div class="form-group">
+              <label>Actor Role</label>
+              <select id="sec-actor-role">
+                <option value="HOSPITAL_ADMIN">HOSPITAL_ADMIN</option>
+                <option value="DOCTOR">DOCTOR</option>
+                <option value="PATIENT">PATIENT</option>
+                <option value="PLATFORM_ADMIN">PLATFORM_ADMIN</option>
+              </select>
+            </div>
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+              <div class="form-group">
+                <label>Actor Hospital ID</label>
+                <input type="text" id="sec-actor-hosp" value="HOSPITAL_ALPHA">
+              </div>
+              <div class="form-group">
+                <label>Target Hospital ID</label>
+                <input type="text" id="sec-target-hosp" value="HOSPITAL_BETA">
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btn-eval-tenant-boundary" class="btn" style="background: #dc2626; flex: 1;">Test Hospital Isolation Boundary</button>
+              <button type="button" id="btn-eval-context-security" class="btn btn-secondary" style="flex: 1;">17.1 Minimal Context Test</button>
+            </div>
+          </form>
+          <div id="sec-tenant-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 3: SECTION 17.2 SECRETS & CONFIGURATION VAULT -->
+        <div class="card" style="grid-column: span 2; border-top: 4px solid #10b981;">
+          <h3 style="margin-top: 0; color: #047857;">🔐 Section 17.2: Secrets &amp; Configuration Vault (Zero Hardcoded Credentials)</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Verifies credentials across Telephony, AI Providers, EHR Integrations, Database, and Cryptographic keys are environment-aware and masked against unauthorized exposure.
+          </p>
+          <button type="button" id="btn-audit-secrets-vault" class="btn" style="background: #059669;">Run Environment Secrets &amp; Configuration Audit</button>
+          <div id="sec-vault-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
 
       </div>

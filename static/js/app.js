@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDashboardAnalyticsUI();
   setupOperationalMonitoringUI();
   setupReliabilityUI();
+  setupSecurityConcurrencyUI();
 });
 
 
@@ -3246,6 +3247,196 @@ function setupReliabilityUI() {
       } catch (err) {
         verifOutput.style.display = "block";
         verifOutput.textContent = "Error executing retry flow: " + err.message;
+      }
+    });
+  }
+}
+
+/**
+ * Section 16 & 17: Concurrency Protection, Tenant Isolation & Secrets Vault UI
+ */
+function setupSecurityConcurrencyUI() {
+  const concOutput = document.getElementById("sec-concurrency-output");
+  const tenantOutput = document.getElementById("sec-tenant-output");
+  const vaultOutput = document.getElementById("sec-vault-output");
+
+  const docIdInput = document.getElementById("sec-slot-doc-id");
+  const slotTimeInput = document.getElementById("sec-slot-time");
+
+  let latestResId = null;
+
+  // 1. Patient A Reserve 3 PM
+  const btnPatientA = document.getElementById("btn-patient-a-reserve");
+  if (btnPatientA) {
+    btnPatientA.addEventListener("click", async () => {
+      try {
+        const payload = {
+          doctor_id: docIdInput.value.trim(),
+          slot_start: slotTimeInput.value.trim(),
+          slot_end: "2026-10-01T15:30:00",
+          patient_identifier: "PATIENT_A_101",
+          patient_name: "Alice Johnson",
+          patient_phone: "+15551110001",
+          ttl_seconds: 300
+        };
+        const res = await fetch("/api/v1/security-concurrency/reserve-slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.reservation_id) latestResId = data.reservation_id;
+        concOutput.style.display = "block";
+        concOutput.textContent = "[Patient A: Slot Reservation Attempt]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        concOutput.style.display = "block";
+        concOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 2. Patient B Race for 3 PM (Double-Booking conflict attempt)
+  const btnPatientB = document.getElementById("btn-patient-b-reserve");
+  if (btnPatientB) {
+    btnPatientB.addEventListener("click", async () => {
+      try {
+        const payload = {
+          doctor_id: docIdInput.value.trim(),
+          slot_start: slotTimeInput.value.trim(),
+          slot_end: "2026-10-01T15:30:00",
+          patient_identifier: "PATIENT_B_202",
+          patient_name: "Bob Miller",
+          patient_phone: "+15552220002",
+          ttl_seconds: 300
+        };
+        const res = await fetch("/api/v1/security-concurrency/reserve-slot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        concOutput.style.display = "block";
+        concOutput.textContent = "[Patient B: Competing Reservation Attempt (Race Condition)]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        concOutput.style.display = "block";
+        concOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 3. Simulate External EHR Pre-Confirmation Conflict
+  const btnEHRConflict = document.getElementById("btn-test-ehr-conflict");
+  if (btnEHRConflict) {
+    btnEHRConflict.addEventListener("click", async () => {
+      if (!latestResId) {
+        return alert("Please click 'Patient A: Reserve 3 PM' first to establish a reservation lock.");
+      }
+      try {
+        const payload = {
+          reservation_id: latestResId,
+          hospital_id: "HOSPITAL_ALPHA",
+          simulate_external_claimed: true
+        };
+        const res = await fetch("/api/v1/security-concurrency/confirm-reservation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        concOutput.style.display = "block";
+        concOutput.textContent = "[Pre-Confirmation External EHR Verification & Reconciliation]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        concOutput.style.display = "block";
+        concOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 4. List Active Reservations
+  const btnListRes = document.getElementById("btn-list-reservations");
+  if (btnListRes) {
+    btnListRes.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/security-concurrency/reservations");
+        const data = await res.json();
+        concOutput.style.display = "block";
+        concOutput.textContent = "[Active TTL Reservations In-Memory]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        concOutput.style.display = "block";
+        concOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 5. Tenant Boundary Isolation Check
+  const btnEvalTenant = document.getElementById("btn-eval-tenant-boundary");
+  if (btnEvalTenant) {
+    btnEvalTenant.addEventListener("click", async () => {
+      const role = document.getElementById("sec-actor-role").value;
+      const actorHosp = document.getElementById("sec-actor-hosp").value.trim();
+      const targetHosp = document.getElementById("sec-target-hosp").value.trim();
+
+      try {
+        const payload = {
+          actor_role: role,
+          actor_id: "USER_DEMO_01",
+          actor_hospital_id: actorHosp,
+          target_hospital_id: targetHosp,
+          resource_type: "PATIENT_PRIVATE_DATA"
+        };
+        const res = await fetch("/api/v1/security-concurrency/tenant-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        tenantOutput.style.display = "block";
+        tenantOutput.textContent = "[Section 17: Tenant Isolation Boundary Evaluation]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        tenantOutput.style.display = "block";
+        tenantOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 6. Section 17.1 Minimal Context Check
+  const btnEvalContext = document.getElementById("btn-eval-context-security");
+  if (btnEvalContext) {
+    btnEvalContext.addEventListener("click", async () => {
+      try {
+        const payload = {
+          caller_role: "PATIENT",
+          caller_patient_id: "PAT_ALICE_101",
+          target_patient_id: "PAT_ALICE_101",
+          operation_type: "SCHEDULE_APPOINTMENT"
+        };
+        const res = await fetch("/api/v1/security-concurrency/context-security-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        tenantOutput.style.display = "block";
+        tenantOutput.textContent = "[Section 17.1: Context Security & Minimal Necessary Filter]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        tenantOutput.style.display = "block";
+        tenantOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // 7. Section 17.2 Secrets Vault Audit
+  const btnAuditVault = document.getElementById("btn-audit-secrets-vault");
+  if (btnAuditVault) {
+    btnAuditVault.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/security-concurrency/secrets-vault-audit");
+        const data = await res.json();
+        vaultOutput.style.display = "block";
+        vaultOutput.textContent = "[Section 17.2: Secrets & Configuration Vault (Masked Audit)]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        vaultOutput.style.display = "block";
+        vaultOutput.textContent = "Error: " + err.message;
       }
     });
   }
