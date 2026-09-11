@@ -72,6 +72,13 @@ class EventBus:
                 # Isolate consumer errors so publishing never fails
                 print(f"[EventBus Error] Consumer failed for event {event.event_type}: {str(e)}")
 
+        # 3. Non-blocking Dual-Write Sync to MongoDB Atlas Cloud Store
+        try:
+            from app.database.mongodb import sync_event_to_mongodb
+            sync_event_to_mongodb(event.to_dict())
+        except Exception:
+            pass
+
         return record
 
     def get_subscribers(self) -> Dict[str, int]:

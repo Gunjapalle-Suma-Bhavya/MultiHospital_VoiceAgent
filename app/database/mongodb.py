@@ -334,11 +334,71 @@ def get_mongodb_collections_stats() -> Dict[str, Any]:
     if db is None:
         return {"database": DB_NAME, "collections": {}}
     try:
-        colls = ["hospitals", "doctors", "patients", "questionnaires", "appointments"]
+        colls = ["hospitals", "doctors", "patients", "questionnaires", "appointments", "events"]
         stats = {}
         for c in colls:
             stats[c] = db[c].count_documents({})
         return {"database": DB_NAME, "collections": stats}
     except Exception as e:
         return {"database": DB_NAME, "collections": {}, "error": str(e)}
+
+
+def sync_event_to_mongodb(event_data: Dict[str, Any]) -> None:
+    """
+    Safely project published system events and domain updates into MongoDB Atlas.
+    Guaranteed non-blocking and safe against network drops.
+    """
+    try:
+        db = get_mongo_db()
+        if db is None:
+            return
+
+        # 1. Store event record
+        db["events"].insert_one({
+            "event_type": event_data.get("event_type"),
+            "aggregate_id": event_data.get("aggregate_id"),
+            "source": event_data.get("source"),
+            "payload": event_data.get("payload", {}),
+            "timestamp": event_data.get("timestamp") or datetime.now(timezone.utc).isoformat()
+        })
+
+        event_type = event_data.get("event_type")
+        payload = event_data.get("payload", {})
+        aggregate_id = event_data.get("aggregate_id")
+
+        # 2. Domain Projection for Appointments
+        if "APPOINTMENT" in str(event_type):
+            db["appointments"].update_one(
+                {"appointment_id": aggregate_id},
+                {
+                    "$set": {
+                        "appointment_id": aggregate_id,
+                        "status": payload.get("status", "CONFIRMED"),
+                        "doctor_id": payload.get("doctor_id"),
+                        "patient_name": payload.get("patient_name") or payload.get("patient_id"),
+                        "slot_time": payload.get("slot_time"),
+                        "hospital_id": payload.get("hospital_id", "HOSP-CITY-01"),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                },
+                upsert=True
+            )
+
+        # 3. Domain Projection for Questionnaires / Intake
+        if "INTAKE" in str(event_type) or "QUESTIONNAIRE" in str(event_type):
+            db["questionnaires"].update_one(
+                {"intake_id": aggregate_id},
+                {
+                    "$set": {
+                        "intake_id": aggregate_id,
+                        "responses": payload,
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }
+                },
+                upsert=True
+            )
+    except Exception as e:
+        # Never crash callers
+        print(f"[MongoDB Sync Warning] Sync event failed gracefully: {e}")
+
 
