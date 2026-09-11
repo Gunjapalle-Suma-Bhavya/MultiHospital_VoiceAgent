@@ -27,6 +27,7 @@ SENSITIVE_CLINICAL_FIELDS = {
     "transcript",
     "conversation_transcript",
     "utterance",
+    "user_utterance",
     "speech_text",
     "audio",
     "audio_bytes",
