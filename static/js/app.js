@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEscalationConsole();
   setupAuditTrailForms();
   setupRBACForms();
+  setupCoreDataModelForms();
 });
 
 
@@ -1602,6 +1603,195 @@ function setupRBACForms() {
       } catch (err) {
         out.textContent = "Error testing enforcement: " + err.message;
       }
+    });
+  }
+}
+
+// Portal 7: Core Data Model (Step 7) Logic
+function setupCoreDataModelForms() {
+  const btnSeed = document.getElementById("btn-seed-data-model");
+  const btnValidate = document.getElementById("btn-validate-data-model");
+  const btnRefresh = document.getElementById("btn-refresh-data-model");
+  const statusBox = document.getElementById("data-model-status");
+  const statsContainer = document.getElementById("data-model-stats-badges");
+  const treeContainer = document.getElementById("data-model-tree-container");
+  const catalogSelect = document.getElementById("select-entity-catalog");
+  const catalogOutput = document.getElementById("data-model-catalog-output");
+  const integrityOutput = document.getElementById("data-model-integrity-output");
+
+  let cachedEntities = [];
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function renderTreeAscii(node, depth = 0, isLast = true, prefix = "") {
+    let result = "";
+    const branch = depth === 0 ? "" : (isLast ? "└── " : "├── ");
+    const countBadge = node.count !== undefined ? ` [${node.count} records]` : "";
+    const desc = node.description ? ` - ${node.description}` : "";
+    
+    result += `${prefix}${branch}<strong>${escapeHtml(node.name)}</strong><span style="color:var(--primary-color); font-weight:600;">${countBadge}</span><span style="color:var(--text-muted); font-size:0.85rem;">${desc}</span>\n`;
+
+    if (node.children && node.children.length > 0) {
+      const nextPrefix = prefix + (depth === 0 ? "" : (isLast ? "    " : "│   "));
+      node.children.forEach((child, idx) => {
+        const last = idx === node.children.length - 1;
+        result += renderTreeAscii(child, depth + 1, last, nextPrefix);
+      });
+    }
+    return result;
+  }
+
+  async function loadTree() {
+    if (!treeContainer) return;
+    try {
+      const res = await fetch("/api/v1/core-data-model/tree");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      treeContainer.innerHTML = `<pre style="margin:0; white-space:pre-wrap; font-family:monospace;">${renderTreeAscii(data)}</pre>`;
+    } catch (err) {
+      treeContainer.textContent = "Error loading data model tree: " + err.message;
+    }
+  }
+
+  async function loadStats() {
+    if (!statsContainer) return;
+    try {
+      const res = await fetch("/api/v1/core-data-model/stats");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const stats = await res.json();
+      
+      let html = "";
+      for (const [key, count] of Object.entries(stats)) {
+        html += `<div style="background:#f8fafc; border:1px solid var(--border-color); border-radius:4px; padding:0.4rem 0.75rem; font-size:0.85rem;">
+          <span style="color:var(--text-muted);">${escapeHtml(key)}:</span>
+          <strong style="color:var(--primary-color); margin-left:0.25rem;">${count}</strong>
+        </div>`;
+      }
+      statsContainer.innerHTML = html;
+    } catch (err) {
+      statsContainer.textContent = "Error loading statistics: " + err.message;
+    }
+  }
+
+  async function loadCatalog() {
+    if (!catalogOutput) return;
+    try {
+      const res = await fetch("/api/v1/core-data-model/entities");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      cachedEntities = data.entities || [];
+
+      if (catalogSelect && catalogSelect.options.length <= 1) {
+        cachedEntities.forEach(ent => {
+          const opt = document.createElement("option");
+          opt.value = ent.name;
+          opt.textContent = `${ent.name} (${ent.table_name || "nested"})`;
+          catalogSelect.appendChild(opt);
+        });
+      }
+
+      renderCatalogView();
+    } catch (err) {
+      catalogOutput.textContent = "Error loading entity catalog: " + err.message;
+    }
+  }
+
+  function renderCatalogView() {
+    if (!catalogOutput) return;
+    const selected = catalogSelect ? catalogSelect.value : "ALL";
+
+    const toShow = selected === "ALL" 
+      ? cachedEntities 
+      : cachedEntities.filter(e => e.name === selected);
+
+    if (toShow.length === 0) {
+      catalogOutput.innerHTML = "<p style='color:var(--text-muted);'>No entities found.</p>";
+      return;
+    }
+
+    let html = `<div style="display:flex; flex-direction:column; gap:1rem;">`;
+    toShow.forEach(ent => {
+      html += `<div style="border:1px solid var(--border-color); border-radius:6px; padding:1rem; background:#ffffff;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap;">
+          <h4 style="color:var(--text-color); margin:0;">${escapeHtml(ent.name)}</h4>
+          <div>
+            <span style="background:#e0f2fe; color:#0369a1; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; font-weight:600;">table: ${escapeHtml(ent.table_name || "N/A")}</span>
+            <span style="background:#f1f5f9; color:#475569; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; margin-left:0.25rem;">PK: ${escapeHtml(ent.primary_key || "none")}</span>
+            <span style="background:#f0fdf4; color:#15803d; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem; margin-left:0.25rem; font-weight:600;">${ent.row_count !== undefined ? ent.row_count + " rows" : ""}</span>
+          </div>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">${escapeHtml(ent.description || "")}</p>
+        <div style="font-size:0.8rem;">
+          <strong>Columns / Fields:</strong>
+          <span style="color:#334155;">${(ent.columns || []).map(c => escapeHtml(c)).join(", ") || "Dynamic / Sub-entity"}</span>
+        </div>
+        ${ent.foreign_keys && ent.foreign_keys.length > 0 ? `
+        <div style="font-size:0.8rem; margin-top:0.35rem;">
+          <strong>Foreign Keys:</strong>
+          <span style="color:#0284c7;">${(ent.foreign_keys || []).map(f => escapeHtml(f)).join(", ")}</span>
+        </div>` : ""}
+      </div>`;
+    });
+    html += `</div>`;
+    catalogOutput.innerHTML = html;
+  }
+
+  async function validateIntegrity() {
+    if (!integrityOutput) return;
+    integrityOutput.style.display = "block";
+    integrityOutput.textContent = "Running relational integrity diagnostics...";
+
+    try {
+      const res = await fetch("/api/v1/core-data-model/validate", { method: "POST" });
+      const data = await res.json();
+      integrityOutput.textContent = JSON.stringify(data, null, 2);
+    } catch (err) {
+      integrityOutput.textContent = "Error validating relational integrity: " + err.message;
+    }
+  }
+
+  async function seedDemoData() {
+    if (!statusBox) return;
+    statusBox.style.display = "block";
+    statusBox.textContent = "Seeding baseline demonstration dataset for all 22 entities...";
+
+    try {
+      const res = await fetch("/api/v1/core-data-model/seed-demo", { method: "POST" });
+      const data = await res.json();
+      statusBox.textContent = "Successfully seeded demo hierarchy:\n" + JSON.stringify(data, null, 2);
+
+      await Promise.all([loadTree(), loadStats(), loadCatalog()]);
+    } catch (err) {
+      statusBox.textContent = "Error seeding demo dataset: " + err.message;
+    }
+  }
+
+  if (btnSeed) btnSeed.addEventListener("click", seedDemoData);
+  if (btnValidate) btnValidate.addEventListener("click", validateIntegrity);
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", async () => {
+      if (statusBox) {
+        statusBox.style.display = "block";
+        statusBox.textContent = "Refreshing data model...";
+      }
+      await Promise.all([loadTree(), loadStats(), loadCatalog()]);
+      if (statusBox) statusBox.textContent = "Refreshed at " + new Date().toLocaleTimeString();
+    });
+  }
+
+  if (catalogSelect) {
+    catalogSelect.addEventListener("change", renderCatalogView);
+  }
+
+  const coreDataTabBtn = document.querySelector('button[data-tab="tab-core-data-model"]');
+  if (coreDataTabBtn) {
+    coreDataTabBtn.addEventListener("click", () => {
+      loadTree();
+      loadStats();
+      loadCatalog();
     });
   }
 }

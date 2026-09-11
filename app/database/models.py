@@ -805,3 +805,157 @@ class HumanEscalationRecord(Base):
     escalated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     resolved_at = Column(DateTime, nullable=True)
 
+
+# =============================================================================
+# Step 7 — Core Data Model Entities
+# =============================================================================
+
+class PlatformRecord(Base):
+    """
+    Platform Root Entity (Step 7 Core Data Model).
+    Represents platform-level operational configuration, status, and environment.
+    """
+    __tablename__ = "platform_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    platform_name = Column(String(255), default="Multi-Hospital Autonomous Voice Agent Platform")
+    environment = Column(String(50), default="PRODUCTION")
+    version = Column(String(50), default="1.0.0")
+    status = Column(String(50), default="OPERATIONAL")
+    global_config_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class HospitalDepartment(Base):
+    """
+    Hospital Department Entity (Step 7 Core Data Model).
+    """
+    __tablename__ = "hospital_departments"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    code = Column(String(50), nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class HospitalSpecialty(Base):
+    """
+    Hospital Specialty Entity (Step 7 Core Data Model).
+    """
+    __tablename__ = "hospital_specialties"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class AIConversationRecord(Base):
+    """
+    AI Conversation Entity (Step 7 Core Data Model).
+    Represents an end-to-end voice or chat patient intake session.
+    """
+    __tablename__ = "ai_conversations"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(100), unique=True, index=True, nullable=False)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=True, index=True)
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True, index=True)
+    channel = Column(String(50), default="VOICE")  # VOICE, WEB_CHAT, SMS
+    status = Column(String(50), default="COMPLETED")  # ACTIVE, COMPLETED, ESCALATED, ABANDONED
+    turn_count = Column(Integer, default=0)
+    duration_seconds = Column(Float, default=0.0)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    ended_at = Column(DateTime, nullable=True)
+
+
+class AIContextRecord(Base):
+    """
+    AI Context Entity (Step 7 Core Data Model).
+    Stores conversational state snapshots, extracted slots, and memory frames.
+    """
+    __tablename__ = "ai_context_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(100), index=True, nullable=False)
+    patient_id = Column(String(36), nullable=True, index=True)
+    intent = Column(String(100), nullable=True)
+    slots_json = Column(Text, nullable=True)
+    memory_state_json = Column(Text, nullable=True)
+    last_user_utterance = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class CapabilityRecord(Base):
+    """
+    Capability Tool Entity (Step 7 Core Data Model).
+    Catalog of platform capabilities (Section 5.12).
+    """
+    __tablename__ = "capabilities"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), unique=True, index=True, nullable=False)
+    category = Column(String(100), default="SCHEDULING")
+    description = Column(Text, nullable=True)
+    required_roles_json = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class CapabilityExecutionRecord(Base):
+    """
+    Capability Execution Entity (Step 7 Core Data Model).
+    Logs execution history, parameters, latency, and status for tool invocations.
+    """
+    __tablename__ = "capability_executions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    capability_name = Column(String(100), index=True, nullable=False)
+    session_id = Column(String(100), index=True, nullable=True)
+    caller_role = Column(String(50), default="SYSTEM")
+    status = Column(String(50), default="SUCCESS")
+    arguments_json = Column(Text, nullable=True)
+    result_json = Column(Text, nullable=True)
+    latency_ms = Column(Float, default=0.0)
+    executed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class IntegrationVerificationRecord(Base):
+    """
+    Integration Verification Entity (Step 7 Core Data Model).
+    Field-level authoritative external state verification records (Section 5.21).
+    """
+    __tablename__ = "integration_verification_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=False, index=True)
+    external_system = Column(String(100), nullable=False)
+    external_appointment_id = Column(String(255), nullable=True)
+    is_verified = Column(Boolean, default=True)
+    verification_details_json = Column(Text, nullable=True)
+    verified_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class ReconciliationRecord(Base):
+    """
+    Reconciliation Record Entity (Step 7 Core Data Model).
+    Anti-double-booking and mismatch reconciliation ledger (Section 5.21).
+    """
+    __tablename__ = "reconciliation_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    appointment_id = Column(String(36), ForeignKey("appointments.id"), nullable=False, index=True)
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True, index=True)
+    discrepancy_type = Column(String(100), default="SLOT_MISMATCH")
+    resolution_strategy = Column(String(100), default="SAFE_RETRY_CREATED")
+    resolution_status = Column(String(50), default="RECONCILED")
+    details_json = Column(Text, nullable=True)
+    reconciled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+

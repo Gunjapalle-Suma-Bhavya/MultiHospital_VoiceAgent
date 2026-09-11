@@ -22,6 +22,7 @@ from app.routers.feedback import router as feedback_router
 from app.routers.escalation import router as escalation_router
 from app.routers.audit import router as audit_router
 from app.routers.rbac import router as rbac_router
+from app.routers.data_model import router as data_model_router
 
 __all__ = [
     "onboarding_router",
@@ -45,6 +46,7 @@ __all__ = [
     "escalation_router",
     "audit_router",
     "rbac_router",
+    "data_model_router",
 ]
 
 

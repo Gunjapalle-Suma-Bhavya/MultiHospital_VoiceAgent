@@ -20,6 +20,7 @@
     <button class="tab-btn" data-tab="tab-voice">AI Voice & Chat Access Console</button>
     <button class="tab-btn" data-tab="tab-audit">Audit Trail & Privacy (5.40 & 5.41)</button>
     <button class="tab-btn" data-tab="tab-rbac">Role-Based Access Control (Step 6)</button>
+    <button class="tab-btn" data-tab="tab-core-data-model">Core Data Model (Step 7)</button>
   </nav>
 
   <main class="container">
@@ -763,6 +764,77 @@
           </form>
 
           <div id="rbac-sim-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 7: CORE DATA MODEL (STEP 7) -->
+    <section id="tab-core-data-model" class="tab-content">
+      <div class="grid">
+
+        <!-- CARD 1: OVERVIEW & ACTIONS -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h2>Core Platform Data Model (Step 7)</h2>
+              <p style="color:var(--text-muted); font-size:0.9rem;">
+                Official 22-entity hierarchical domain tree, relational schema catalog, and foreign key integrity verification.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" id="btn-seed-data-model" class="btn" style="background:#16a34a; border-color:#16a34a;">Seed Full 22-Entity Demo</button>
+              <button type="button" id="btn-validate-data-model" class="btn btn-secondary">Validate Relational Integrity</button>
+              <button type="button" id="btn-refresh-data-model" class="btn btn-secondary">Refresh Tree &amp; Stats</button>
+            </div>
+          </div>
+          <div id="data-model-status" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: LIVE STATS SUMMARY COUNTERS -->
+        <div class="card" style="grid-column: span 2;">
+          <h3>Platform Entity Counts &amp; Storage Statistics</h3>
+          <div id="data-model-stats-badges" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:0.75rem;">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- CARD 3: HIERARCHICAL ENTITY TREE -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3>Official 22-Entity Hierarchical Tree</h3>
+            <span style="font-size:0.85rem; color:var(--text-muted);">Annotated with live database row counts</span>
+          </div>
+          <div id="data-model-tree-container" style="background:#f1f5f9; padding:1.25rem; border-radius:6px; font-family:monospace; font-size:0.92rem; overflow-x:auto; line-height:1.7;">
+            Loading hierarchical model tree...
+          </div>
+        </div>
+
+        <!-- CARD 4: ENTITY CATALOG & SCHEMA INSPECTOR -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <h3>Entity Schema &amp; Relational Inspector</h3>
+              <p style="color:var(--text-muted); font-size:0.85rem;">Inspect table schema, primary keys, and foreign-key mappings across all 22 entities.</p>
+            </div>
+            <div style="min-width:260px;">
+              <select id="select-entity-catalog" style="width:100%; padding:0.4rem;">
+                <option value="ALL">All Entities (Catalog Overview)</option>
+              </select>
+            </div>
+          </div>
+          <div id="data-model-catalog-output" style="overflow-x:auto;">
+            <!-- Rendered table or schema details -->
+          </div>
+        </div>
+
+        <!-- CARD 5: RELATIONAL INTEGRITY REPORT -->
+        <div class="card" style="grid-column: span 2;">
+          <h3>Relational Integrity Diagnostics</h3>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.75rem;">
+            Verifies non-orphan foreign keys, cross-tenant isolation boundaries, and relational consistency.
+          </p>
+          <div id="data-model-integrity-output" class="status-box" style="display:none;"></div>
         </div>
 
       </div>
