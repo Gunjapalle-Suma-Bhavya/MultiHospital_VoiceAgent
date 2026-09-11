@@ -111,10 +111,18 @@ export const App: React.FC = () => {
         </div>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {(route.portal === 'patient' || activePortal === 'patient') && <PatientPortal />}
-          {(route.portal === 'doctor' || activePortal === 'doctor') && <DoctorPortal />}
-          {(route.portal === 'hospital' || activePortal === 'hospital') && <HospitalPortal />}
-          {(route.portal === 'admin' || activePortal === 'admin') && <PlatformAdminPortal />}
+          {(route.portal === 'patient' || activePortal === 'patient') && (
+            <PatientPortal initialTab={route.view} />
+          )}
+          {(route.portal === 'doctor' || activePortal === 'doctor') && (
+            <DoctorPortal initialTab={route.view} />
+          )}
+          {(route.portal === 'hospital' || activePortal === 'hospital') && (
+            <HospitalPortal initialTab={route.view} />
+          )}
+          {(route.portal === 'admin' || activePortal === 'admin') && (
+            <PlatformAdminPortal initialTab={route.view} />
+          )}
         </main>
       )}
     </div>
