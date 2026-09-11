@@ -64,6 +64,52 @@
           <button id="btn-admin-reject" class="btn btn-danger">Reject Hospital</button>
           <div id="admin-action-output" class="status-box" style="display:none;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Hospital Administrator Dashboard & Management (5.32)</h2>
+          <form id="form-hosp-dash">
+            <div class="form-group">
+              <label>Hospital ID</label>
+              <input type="text" id="hosp-dash-id" placeholder="Hospital UUID" required>
+            </div>
+            <div style="display:flex; gap:1rem;">
+              <button type="button" id="btn-get-hosp-kpis" class="btn">View 13 Hospital KPIs</button>
+              <button type="button" id="btn-get-hosp-mgmt" class="btn btn-secondary">Query 10 Management Domains</button>
+            </div>
+          </form>
+          <div id="hosp-dash-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Global Platform Admin Dashboard & 12-Domain Explorer (5.33)</h2>
+          <form id="form-platform-admin">
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="form-group">
+                <label>Global Platform Telemetry</label>
+                <button type="button" id="btn-get-global-kpis" class="btn btn-success" style="width:100%;">Query Global Telemetry KPIs</button>
+              </div>
+              <div class="form-group">
+                <label>Explorer Category</label>
+                <select id="platform-explorer-cat">
+                  <option value="hospitals">HOSPITALS</option>
+                  <option value="doctors">DOCTORS</option>
+                  <option value="patients">PATIENTS</option>
+                  <option value="appointments">APPOINTMENTS</option>
+                  <option value="ai_interactions">AI INTERACTIONS & LATENCY</option>
+                  <option value="workflows">WORKFLOWS</option>
+                  <option value="system_failures">SYSTEM FAILURES & ESCALATIONS</option>
+                  <option value="ehr_operations">EHR OPERATIONS</option>
+                  <option value="external_events">EXTERNAL SYSTEM EVENTS</option>
+                  <option value="audit_events">AUDIT EVENTS</option>
+                  <option value="analytics">PLATFORM ANALYTICS</option>
+                  <option value="ai_evaluations">AI EVALUATIONS</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" id="btn-query-explorer" class="btn">Explore Platform Category</button>
+          </form>
+          <div id="platform-admin-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
       </div>
     </section>
 

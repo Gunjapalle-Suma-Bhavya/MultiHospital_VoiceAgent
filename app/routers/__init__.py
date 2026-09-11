@@ -14,6 +14,8 @@ from app.routers.workflows import router as workflows_router
 from app.routers.events import router as events_router
 from app.routers.notifications import router as notifications_router
 from app.routers.doctor_dashboard import router as doctor_dashboard_router
+from app.routers.hospital_dashboard import router as hospital_dashboard_router
+from app.routers.platform_admin_dashboard import router as platform_admin_dashboard_router
 
 __all__ = [
     "onboarding_router",
@@ -28,7 +30,10 @@ __all__ = [
     "workflows_router",
     "events_router",
     "notifications_router",
-    "doctor_dashboard_router"
+    "doctor_dashboard_router",
+    "hospital_dashboard_router",
+    "platform_admin_dashboard_router"
 ]
+
 
 

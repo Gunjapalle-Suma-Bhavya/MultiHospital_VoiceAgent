@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventBusForm();
   setupNotificationCenterForm();
   setupDoctorDashboardForm();
+  setupHospitalDashboardForm();
+  setupPlatformAdminDashboardForm();
 });
 
 
@@ -816,6 +818,80 @@ function setupDoctorDashboardForm() {
     });
   }
 }
+
+function setupHospitalDashboardForm() {
+  const hospDashOutput = document.getElementById("hosp-dash-output");
+
+  const btnKpis = document.getElementById("btn-get-hosp-kpis");
+  if (btnKpis) {
+    btnKpis.addEventListener("click", async () => {
+      const hospId = document.getElementById("hosp-dash-id").value;
+      if (!hospId) return alert("Please enter a Hospital ID");
+      try {
+        const res = await fetch(`/api/v1/hospital-dashboard/${hospId}/kpis`);
+        const data = await res.json();
+        hospDashOutput.style.display = "block";
+        hospDashOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        hospDashOutput.style.display = "block";
+        hospDashOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnMgmt = document.getElementById("btn-get-hosp-mgmt");
+  if (btnMgmt) {
+    btnMgmt.addEventListener("click", async () => {
+      const hospId = document.getElementById("hosp-dash-id").value;
+      if (!hospId) return alert("Please enter a Hospital ID");
+      try {
+        const res = await fetch(`/api/v1/hospital-dashboard/${hospId}/management`);
+        const data = await res.json();
+        hospDashOutput.style.display = "block";
+        hospDashOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        hospDashOutput.style.display = "block";
+        hospDashOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
+function setupPlatformAdminDashboardForm() {
+  const platformAdminOutput = document.getElementById("platform-admin-output");
+
+  const btnGlobalKpis = document.getElementById("btn-get-global-kpis");
+  if (btnGlobalKpis) {
+    btnGlobalKpis.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/platform-admin/kpis");
+        const data = await res.json();
+        platformAdminOutput.style.display = "block";
+        platformAdminOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        platformAdminOutput.style.display = "block";
+        platformAdminOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnExplorer = document.getElementById("btn-query-explorer");
+  if (btnExplorer) {
+    btnExplorer.addEventListener("click", async () => {
+      const cat = document.getElementById("platform-explorer-cat").value;
+      try {
+        const res = await fetch(`/api/v1/platform-admin/explorer/${cat}`);
+        const data = await res.json();
+        platformAdminOutput.style.display = "block";
+        platformAdminOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        platformAdminOutput.style.display = "block";
+        platformAdminOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 

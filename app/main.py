@@ -22,7 +22,7 @@ from app.routers import (
     onboarding_router, admin_router, doctors_router, patients_router,
     discovery_router, voice_router, context_router, ehr_router,
     questionnaires_router, workflows_router, events_router, notifications_router,
-    doctor_dashboard_router
+    doctor_dashboard_router, hospital_dashboard_router, platform_admin_dashboard_router
 )
 
 app = FastAPI(
@@ -57,6 +57,9 @@ app.include_router(workflows_router)
 app.include_router(events_router)
 app.include_router(notifications_router)
 app.include_router(doctor_dashboard_router)
+app.include_router(hospital_dashboard_router)
+app.include_router(platform_admin_dashboard_router)
+
 
 
 
