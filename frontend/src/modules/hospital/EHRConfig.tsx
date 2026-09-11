@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Network, Satellite, CheckCircle, AlertCircle } from 'lucide-react';
+import { Network, Satellite, CheckCircle, AlertCircle, Terminal, FileCode2 } from 'lucide-react';
 import { apiCall } from '../../api/client';
+import { usePlatformEvents } from '../../context/PlatformEventContext';
+import { FHIRInspectorModal } from './FHIRInspectorModal';
 
 export const EHRConfig: React.FC = () => {
+  const { triggerEHRSync } = usePlatformEvents();
   const [connectorType, setConnectorType] = useState('EPIC');
   const [endpointUrl, setEndpointUrl] = useState('https://fhir.hospital-network.org/r4');
   const [probeStatus, setProbeStatus] = useState<string | null>(null);
   const [isProbing, setIsProbing] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
 
   const handleExecuteProbe = async () => {
     setIsProbing(true);
@@ -20,9 +24,13 @@ export const EHRConfig: React.FC = () => {
         }),
       });
 
+      triggerEHRSync(connectorType);
+
       if (res.ok && res.data) {
         const latency = res.data.latency_ms || 34;
-        setProbeStatus(`✓ Connected: ${connectorType} (HTTP 200 OK • ${latency}ms latency • SMART-on-FHIR Auth Verified)`);
+        setProbeStatus(
+          `✓ Connected: ${connectorType} (HTTP 200 OK • ${latency}ms latency • SMART-on-FHIR Auth Verified)`
+        );
       } else {
         setProbeStatus(`✓ Handshake verified via fallback sandbox adapter (42ms latency)`);
       }
@@ -79,10 +87,14 @@ export const EHRConfig: React.FC = () => {
           </div>
         )}
 
-        <div className="flex justify-between items-center pt-2 border-t border-slate-800">
-          <span className="text-[11px] text-slate-400 font-medium">
-            Status: {isProbing ? 'Testing handshake probe...' : 'Ready to probe'}
-          </span>
+        <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-slate-800">
+          <button
+            onClick={() => setIsInspectorOpen(true)}
+            className="text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-950/50 hover:bg-indigo-900/50 border border-indigo-800/80 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5"
+          >
+            <FileCode2 className="w-3.5 h-3.5" />
+            <span>Inspect FHIR R4 Payloads &amp; Mappings</span>
+          </button>
 
           <button
             onClick={handleExecuteProbe}
@@ -90,10 +102,17 @@ export const EHRConfig: React.FC = () => {
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow flex items-center space-x-1.5 disabled:opacity-50"
           >
             <Satellite className="w-3.5 h-3.5" />
-            <span>Execute Handshake Probe</span>
+            <span>{isProbing ? 'Probing...' : 'Execute Handshake Probe'}</span>
           </button>
         </div>
       </div>
+
+      {isInspectorOpen && (
+        <FHIRInspectorModal
+          connectorName={`${connectorType} FHIR R4 Connector`}
+          onClose={() => setIsInspectorOpen(false)}
+        />
+      )}
     </div>
   );
 };

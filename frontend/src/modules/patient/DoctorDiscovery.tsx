@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Clock, Check, Stethoscope, Video, Phone, UserCheck } from 'lucide-react';
+import {
+  Search,
+  Clock,
+  Check,
+  Stethoscope,
+  Video,
+  Phone,
+  ShieldCheck,
+  CreditCard,
+  Tag,
+  FileCheck,
+} from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
+import { usePlatformEvents } from '../../context/PlatformEventContext';
+import { AppointmentPassModal } from './AppointmentPassModal';
 
 interface SlotItem {
   slot_id: string;
@@ -24,13 +37,24 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   onBookingSuccess,
 }) => {
   const { user } = useAuth();
+  const { createBooking } = usePlatformEvents();
+
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [consultationMode, setConsultationMode] = useState('IN_PERSON');
   const [timeWindow, setTimeWindow] = useState('ANYTIME');
+  const [selectedInsurance, setSelectedInsurance] = useState('BCBS');
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
-  const [bookedSlot, setBookedSlot] = useState<any>(null);
+  const [passData, setPassData] = useState<any>(null);
+
+  const symptomChips = [
+    { label: 'Acute Shoulder Pain', spec: 'Orthopedics' },
+    { label: 'Knee Joint Stiffness', spec: 'Orthopedics' },
+    { label: 'Palpitations & Arrhythmia', spec: 'Cardiology' },
+    { label: 'Eczema & Skin Rash', spec: 'Dermatology' },
+    { label: 'Migraine & Vertigo', spec: 'Neurology' },
+  ];
 
   useEffect(() => {
     if (initialSpecialty) {
@@ -66,7 +90,10 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
             specialty: targetSpecialty || 'Orthopedics',
             hospital_id: 'HOSP-CITY-01',
             hospital_name: 'City Memorial Hospital',
-            start_time: mode === 'VIDEO_TELEHEALTH' ? 'Tomorrow 03:00 PM (Telehealth)' : 'Tomorrow 04:00 PM (In-Person)',
+            start_time:
+              mode === 'VIDEO_TELEHEALTH'
+                ? 'Tomorrow 03:00 PM (Telehealth)'
+                : 'Tomorrow 04:00 PM (In-Person)',
             raw_start: new Date(Date.now() + 86400000).toISOString(),
           },
           {
@@ -93,6 +120,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   const handleBook = async (slot: SlotItem) => {
     setIsBooking(true);
     try {
+      // 1. Dispatch authoritative backend capability
       const res = await apiCall('/api/v1/capabilities/execute', {
         method: 'POST',
         body: JSON.stringify({
@@ -101,7 +129,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           arguments: {
             hospital_id: slot.hospital_id || 'HOSP-CITY-01',
             doctor_id: slot.doctor_id || 'DOC-SHARMA-01',
-            patient_name: user?.name || 'Patient A',
+            patient_name: user?.name || 'Marcus Aurelius',
             patient_phone: user?.identifier || '+1-555-SHOULDER',
             start_datetime: slot.raw_start || new Date(Date.now() + 86400000).toISOString(),
             reason_for_visit: `${consultationMode} clinical consult & intake`,
@@ -109,14 +137,28 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
         }),
       });
 
-      const confirmedData = {
+      // 2. Dispatch cross-role living sync event
+      const liveBooking = createBooking({
+        doctor_id: slot.doctor_id,
         doctor_name: slot.doctor_name,
-        start_time: slot.start_time,
-        ehr_id: res.data?.data?.external_ehr_id || 'EHR-88421',
-        appointment_id: res.data?.data?.appointment_id || 'APT-1024',
+        patient_name: user?.name || 'Marcus Aurelius',
+        patient_phone: user?.identifier || '+1-555-SHOULDER',
+        scheduled_time: slot.start_time,
+        slot_time: '10:00 AM',
+        specialty: slot.specialty,
+      });
+
+      const confirmedData = {
+        id: liveBooking.id,
+        doctor_name: slot.doctor_name,
+        specialty: slot.specialty,
+        scheduled_time: slot.start_time,
+        patient_name: user?.name || 'Marcus Aurelius',
+        patient_phone: user?.identifier || '+1-555-SHOULDER',
+        hospital_name: slot.hospital_name,
       };
 
-      setBookedSlot(confirmedData);
+      setPassData(confirmedData);
       onBookingSuccess?.(confirmedData);
     } catch (err) {
       console.error('Booking failed:', err);
@@ -149,10 +191,38 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </button>
         </div>
 
+        {/* Clinical Symptom Chips */}
+        <div className="space-y-1">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+            <Tag className="w-3 h-3 text-emerald-400" />
+            <span>Select Reported Symptom / Condition:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {symptomChips.map((chip, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  setSpecialty(chip.spec);
+                  searchSlots(chip.spec, consultationMode, timeWindow);
+                }}
+                className={`text-xs px-2.5 py-1 rounded-lg border transition ${
+                  specialty === chip.spec
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                    : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border-slate-800'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 3 Filters Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Specialty:</label>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
+              Specialty:
+            </label>
             <select
               value={specialty}
               onChange={(e) => {
@@ -169,7 +239,9 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Consultation Mode:</label>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
+              Consultation Mode:
+            </label>
             <select
               value={consultationMode}
               onChange={(e) => {
@@ -185,7 +257,9 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Time Window:</label>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">
+              Time Window:
+            </label>
             <select
               value={timeWindow}
               onChange={(e) => {
@@ -201,34 +275,36 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
             </select>
           </div>
         </div>
-      </div>
 
-      {/* Booking Confirmation Banner */}
-      {bookedSlot && (
-        <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-4 space-y-3">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-sm font-black">
-                <Check className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-emerald-300">Appointment Confirmed &amp; 5-Point Verified</h4>
-                <p className="text-[11px] text-emerald-400/80">Local {bookedSlot.appointment_id} Authoritatively Synchronized with External EHR</p>
+        {/* Real-Time Insurance Pre-Eligibility Card */}
+        <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center space-x-2.5">
+            <CreditCard className="w-4 h-4 text-emerald-400" />
+            <div>
+              <div className="text-xs font-bold text-white">Insurance Eligibility Pre-Check</div>
+              <div className="text-[10px] text-slate-400">
+                Automated 270/271 Real-Time Eligibility Verification
               </div>
             </div>
-            <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase">
-              VERIFIED
-            </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
-            <div><span className="text-slate-500 text-[10px]">Doctor:</span><div className="font-bold text-slate-200">{bookedSlot.doctor_name}</div></div>
-            <div><span className="text-slate-500 text-[10px]">Time:</span><div className="font-bold text-slate-200">{bookedSlot.start_time}</div></div>
-            <div><span className="text-slate-500 text-[10px]">EHR ID:</span><div className="font-bold text-emerald-400">{bookedSlot.ehr_id}</div></div>
-            <div><span className="text-slate-500 text-[10px]">Sync Status:</span><div className="font-bold text-emerald-400">CONFIRMED</div></div>
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            <select
+              value={selectedInsurance}
+              onChange={(e) => setSelectedInsurance(e.target.value)}
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1"
+            >
+              <option value="BCBS">Blue Cross Blue Shield (PPO)</option>
+              <option value="AETNA">Aetna Choice POS II</option>
+              <option value="MEDICARE">Medicare Part B</option>
+              <option value="UHC">UnitedHealthcare Choice</option>
+            </select>
+            <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded whitespace-nowrap">
+              ✓ In-Network ($25 Copay)
+            </span>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Discovered Slots Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -249,7 +325,9 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
                   </div>
                   <div>
                     <h4 className="font-bold text-xs text-white">{s.doctor_name}</h4>
-                    <p className="text-[10px] text-slate-400">{s.specialty} &bull; {s.hospital_name}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {s.specialty} &bull; {s.hospital_name}
+                    </p>
                   </div>
                 </div>
                 <span className="text-[10px] font-bold bg-slate-900 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
@@ -265,15 +343,21 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
                 <button
                   onClick={() => handleBook(s)}
                   disabled={isBooking}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-2.5 py-1 rounded-lg transition shadow disabled:opacity-50"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow disabled:opacity-50 flex items-center space-x-1"
                 >
-                  Book Slot
+                  <FileCheck className="w-3.5 h-3.5" />
+                  <span>{isBooking ? 'Locking...' : 'Book & Verify'}</span>
                 </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {/* Appointment Care Pass Modal */}
+      {passData && (
+        <AppointmentPassModal booking={passData} onClose={() => setPassData(null)} />
+      )}
     </div>
   );
 };

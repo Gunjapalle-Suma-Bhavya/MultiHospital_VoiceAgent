@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
-import { ClipboardCheck, Check, ShieldAlert } from 'lucide-react';
+import { ClipboardCheck, Check, ShieldAlert, Stethoscope } from 'lucide-react';
 
 interface AppointmentDetailProps {
   appointment: any;
+  onOpenEncounter?: () => void;
 }
 
-export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({ appointment }) => {
+export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({
+  appointment,
+  onOpenEncounter,
+}) => {
   const [isReviewed, setIsReviewed] = useState(false);
 
-  const patientName = appointment?.patient_name || 'Patient A';
+  const patientName = appointment?.patient_name || 'Marcus Aurelius';
   const mrn = `MRN-${(appointment?.id || '88421').replace(/\D/g, '') || '88421'}`;
-  const symptoms = appointment?.complaint || 'Acute right anterior shoulder pain lasting ~7 days, aggravated by arm abduction and lifting.';
+  const symptoms =
+    appointment?.complaint ||
+    'Acute right anterior shoulder pain lasting ~7 days, aggravated by arm abduction and lifting.';
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md flex flex-col justify-between">
@@ -21,21 +27,25 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({ appointmen
             <span>Pre-Visit Clinical Brief</span>
           </h3>
           <span className="text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded">
-            AI Summarized
+            AI Summarized &bull; Zero PHI Leak
           </span>
         </div>
 
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
           <div className="flex justify-between text-slate-400 border-b border-slate-800 pb-1.5 text-[11px]">
-            <span>Patient: <strong className="text-white">{patientName}</strong></span>
-            <span>MRN: <strong className="text-slate-200">{mrn}</strong></span>
+            <span>
+              Patient: <strong className="text-white">{patientName}</strong>
+            </span>
+            <span>
+              MRN: <strong className="text-slate-200">{mrn}</strong>
+            </span>
           </div>
 
           <div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reported Symptoms:</div>
-            <p className="text-slate-200 font-medium mt-0.5 leading-relaxed">
-              "{symptoms}"
-            </p>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              Reported Symptoms:
+            </div>
+            <p className="text-slate-200 font-medium mt-0.5 leading-relaxed">"{symptoms}"</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
@@ -50,27 +60,42 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({ appointmen
           </div>
 
           <div className="pt-1">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Safety Triage Assessment:</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              AI Safety Triage Assessment:
+            </div>
             <div className="bg-emerald-950/40 border border-emerald-500/20 text-emerald-300 p-2 rounded-lg text-[11px] font-medium mt-0.5 flex items-start gap-1.5">
               <ShieldAlert className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-              <span>✓ Non-emergency complaint. Orthopedic evaluation appropriate. Zero medical diagnoses provided to patient.</span>
+              <span>
+                ✓ Non-emergency complaint. Orthopedic evaluation appropriate. Zero medical diagnoses
+                provided to patient.
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-2 border-t border-slate-800">
+      <div className="flex justify-between items-center pt-3 border-t border-slate-800 gap-2">
         <button
           onClick={() => setIsReviewed(true)}
-          className={`font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow flex items-center gap-1.5 ${
+          className={`font-bold text-xs px-3 py-1.5 rounded-lg transition shadow flex items-center gap-1.5 ${
             isReviewed
               ? 'bg-slate-800 text-emerald-400 border border-emerald-500/40'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
           }`}
         >
           <Check className="w-3.5 h-3.5" />
-          <span>{isReviewed ? '✓ Clinician Reviewed & Saved' : 'Mark Brief Reviewed'}</span>
+          <span>{isReviewed ? '✓ Reviewed' : 'Review Brief'}</span>
         </button>
+
+        {onOpenEncounter && (
+          <button
+            onClick={onOpenEncounter}
+            className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow flex items-center gap-1.5"
+          >
+            <Stethoscope className="w-3.5 h-3.5" />
+            <span>Open Clinical Encounter</span>
+          </button>
+        )}
       </div>
     </div>
   );

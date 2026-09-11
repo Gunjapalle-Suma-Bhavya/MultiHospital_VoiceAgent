@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { apiCall } from '../api/client';
 
 export interface ChatMessage {
@@ -14,6 +14,8 @@ export interface ChatMessage {
 export function useVoiceAgent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const [detectedIntent, setDetectedIntent] = useState<string>('GREETING');
   const [bargeInAlert, setBargeInAlert] = useState<boolean>(false);
@@ -22,23 +24,83 @@ export function useVoiceAgent() {
     {
       id: 'msg-init',
       sender: 'assistant',
-      text: 'Hello Patient A, I can help you schedule an appointment or answer questions. Please tell me what symptoms you are experiencing.',
+      text: 'Hello, this is the NexusHealth AI Voice Intake Agent. How can I assist you with your health or appointment scheduling today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       intent: 'GREETING',
-    }
+    },
   ]);
 
   const recognitionRef = useRef<any>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  const stopSpeaking = useCallback(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  const triggerBargeIn = useCallback(() => {
+    stopSpeaking();
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+      setStreamActive(false);
+    }
+    setBargeInAlert(true);
+    setTimeout(() => {
+      setBargeInAlert(false);
+    }, 1500);
+  }, [stopSpeaking]);
+
+  const speak = useCallback(
+    (text: string) => {
+      if (isMuted || !text.trim()) return;
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+      stopSpeaking();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(
+        (v) =>
+          v.lang.startsWith('en') &&
+          (v.name.includes('Natural') ||
+            v.name.includes('Google') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('Zira') ||
+            v.name.includes('David'))
+      ) || voices.find((v) => v.lang.startsWith('en'));
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      utterance.rate = 1.02;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    },
+    [isMuted, stopSpeaking]
+  );
+
   // Initialize Speech Recognition if supported in browser
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
+
+      recognition.onspeechstart = () => {
+        // True barge-in: cancel AI speech the moment patient voice begins
+        triggerBargeIn();
+      };
 
       recognition.onstart = () => {
         setIsRecording(true);
@@ -58,15 +120,21 @@ export function useVoiceAgent() {
 
     return () => {
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch {}
+        try {
+          recognitionRef.current.abort();
+        } catch {}
       }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }
+      stopSpeaking();
     };
-  }, []);
+  }, [triggerBargeIn, stopSpeaking]);
 
   const startVoiceRecording = (onTranscript: (text: string) => void) => {
+    // Interruption on click
+    triggerBargeIn();
+
     if (!recognitionRef.current) {
       alert('Speech Recognition is not supported by your browser. You can type or click preset prompt buttons.');
       return;
@@ -87,41 +155,16 @@ export function useVoiceAgent() {
 
   const stopVoiceRecording = () => {
     if (recognitionRef.current && isRecording) {
-      try { recognitionRef.current.stop(); } catch {}
+      try {
+        recognitionRef.current.stop();
+      } catch {}
       setIsRecording(false);
     }
   };
 
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const triggerBargeIn = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      setStreamActive(false);
-    }
-    setBargeInAlert(true);
-    setTimeout(() => {
-      setBargeInAlert(false);
-    }, 1800);
-  };
-
   // Real-Time SSE Token Streaming
   const streamAIResponse = (userUtterance: string) => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+    triggerBargeIn();
 
     const streamMsgId = `msg-stream-${Date.now()}`;
     const newMsg: ChatMessage = {
@@ -133,31 +176,39 @@ export function useVoiceAgent() {
       isStreaming: true,
     };
 
-    setMessages(prev => [...prev, newMsg]);
+    setMessages((prev) => [...prev, newMsg]);
     setStreamActive(true);
 
-    const sse = new EventSource(`/api/v1/should-have/streaming/demo?utterance=${encodeURIComponent(userUtterance)}`);
+    let accumulated = '';
+    const sse = new EventSource(
+      `/api/v1/should-have/streaming/demo?utterance=${encodeURIComponent(userUtterance)}`
+    );
     eventSourceRef.current = sse;
 
     sse.onmessage = (e) => {
       try {
         const frame = JSON.parse(e.data);
         if (frame.token) {
-          setMessages(prev =>
-            prev.map(m => m.id === streamMsgId ? { ...m, text: m.text + frame.token } : m)
+          accumulated += frame.token;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamMsgId ? { ...m, text: accumulated } : m))
           );
         }
         if (frame.status === 'COMPLETED' || frame.done) {
           sse.close();
           setStreamActive(false);
-          setMessages(prev =>
-            prev.map(m => m.id === streamMsgId ? { ...m, isStreaming: false } : m)
+          setMessages((prev) =>
+            prev.map((m) => (m.id === streamMsgId ? { ...m, isStreaming: false } : m))
           );
+          if (accumulated.trim()) {
+            speak(accumulated);
+          }
         }
-      } catch (err) {
-        // Text payload
-        setMessages(prev =>
-          prev.map(m => m.id === streamMsgId ? { ...m, text: m.text + ' ' + e.data } : m)
+      } catch {
+        // Raw token text
+        accumulated += ' ' + e.data;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === streamMsgId ? { ...m, text: accumulated } : m))
         );
       }
     };
@@ -175,13 +226,15 @@ export function useVoiceAgent() {
   ) => {
     if (!text.trim()) return null;
 
+    triggerBargeIn();
+
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'patient',
       text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setIsProcessing(true);
 
     const startTime = performance.now();
@@ -204,7 +257,8 @@ export function useVoiceAgent() {
       let isEmergency = false;
 
       if (res.ok && res.data) {
-        replyText = res.data.speech_response || res.data.response_text || res.data.message || replyText;
+        replyText =
+          res.data.speech_response || res.data.response_text || res.data.message || replyText;
         intent = res.data.detected_intent || intent;
         isEmergency = !!res.data.escalation_triggered || intent.includes('EMERGENCY');
       }
@@ -220,7 +274,7 @@ export function useVoiceAgent() {
         isEmergency,
       };
 
-      setMessages(prev => [...prev, aiMsg]);
+      setMessages((prev) => [...prev, aiMsg]);
       speak(replyText);
 
       return {
@@ -236,7 +290,7 @@ export function useVoiceAgent() {
         text: `Error processing request: ${err.message}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages((prev) => [...prev, errorMsg]);
       return null;
     } finally {
       setIsProcessing(false);
@@ -247,6 +301,9 @@ export function useVoiceAgent() {
     messages,
     isProcessing,
     isRecording,
+    isSpeaking,
+    isMuted,
+    setIsMuted,
     latencyMs,
     detectedIntent,
     bargeInAlert,
@@ -257,5 +314,6 @@ export function useVoiceAgent() {
     sendUtterance,
     triggerBargeIn,
     speak,
+    stopSpeaking,
   };
 }

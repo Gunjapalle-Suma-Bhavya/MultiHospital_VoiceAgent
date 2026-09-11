@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Send, Volume2, Hand, Sparkles, Radio, Zap } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, Hand, Sparkles, Radio, Zap } from 'lucide-react';
 import { useVoiceAgent } from '../../hooks/useVoiceAgent';
 import { useAuth } from '../../hooks/useAuth';
+import { AudioVisualizerCanvas } from '../../components/AudioVisualizerCanvas';
 
 interface VoiceAgentScreenProps {
   onSpecialtySelected?: (specialty: string) => void;
@@ -13,8 +14,10 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     messages,
     isProcessing,
     isRecording,
+    isSpeaking,
+    isMuted,
+    setIsMuted,
     latencyMs,
-    detectedIntent,
     bargeInAlert,
     streamActive,
     startVoiceRecording,
@@ -32,7 +35,11 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     if (!trimmed) return;
 
     setInputVal('');
-    const res = await sendUtterance(trimmed, user?.identifier || '+1-555-SHOULDER', user?.hospital_id || 'HOSP-CITY-01');
+    const res = await sendUtterance(
+      trimmed,
+      user?.identifier || '+1-555-SHOULDER',
+      user?.hospital_id || 'HOSP-CITY-01'
+    );
     if (res) {
       const lower = trimmed.toLowerCase();
       if (lower.includes('shoulder') || lower.includes('orthopedic') || lower.includes('bone')) {
@@ -54,9 +61,19 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
   };
 
   const presetPrompts = [
-    { label: '🦴 Shoulder Pain (Orthopedics)', text: "I've been experiencing acute right shoulder pain for a week, can I book an orthopedic doctor?" },
-    { label: '🚨 Chest Tightness (Emergency)', text: 'I have acute chest tightness and severe shortness of breath right now!', isEmergency: true },
-    { label: '🫀 Cardiology Consult', text: 'I need a routine annual cardiology checkup with Dr. Rao.' },
+    {
+      label: '🦴 Shoulder Pain (Orthopedics)',
+      text: "I've been experiencing acute right shoulder pain for a week, can I book an orthopedic doctor?",
+    },
+    {
+      label: '🚨 Chest Tightness (Emergency)',
+      text: 'I have acute chest tightness and severe shortness of breath right now!',
+      isEmergency: true,
+    },
+    {
+      label: '🫀 Cardiology Consult',
+      text: 'I need a routine annual cardiology checkup with Dr. Rao.',
+    },
   ];
 
   return (
@@ -71,26 +88,50 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               <span>AI Voice &amp; Chat Intake</span>
             </h3>
           </div>
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`p-1.5 rounded-lg border transition ${
+                isMuted
+                  ? 'bg-rose-950/60 border-rose-800/80 text-rose-400'
+                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+              title={isMuted ? 'Unmute AI Voice Synthesizer' : 'Mute AI Voice Output'}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
             <button
               onClick={() => streamAIResponse(inputVal || "I've had knee pain for 3 days")}
               disabled={streamActive}
-              className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-indigo-900 transition disabled:opacity-50"
+              className="text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 px-2 py-1 rounded flex items-center gap-1 hover:bg-indigo-900 transition disabled:opacity-50"
               title="Test Real-Time Server-Sent Events (SSE) stream"
             >
               <Zap className="w-3 h-3 text-indigo-400" />
               <span>Test SSE Stream</span>
             </button>
-            <span className="text-[10px] font-semibold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+            <span className="text-[10px] font-semibold bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">
               {latencyMs ? `${latencyMs}ms Telephony` : '<2.0s Telephony'}
             </span>
           </div>
         </div>
 
-        {/* Audio Waveform & Status */}
-        <div className={`rounded-xl p-3.5 flex items-center justify-between border transition-all ${
-          isRecording ? 'bg-rose-950/40 border-rose-500/40' : 'bg-slate-950 border-slate-800'
-        }`}>
+        {/* Real FFT Audio Visualizer Canvas */}
+        <AudioVisualizerCanvas
+          isActive={isRecording || isSpeaking || isProcessing || streamActive}
+          isSpeaking={isSpeaking}
+          isListening={isRecording}
+        />
+
+        {/* Audio Status Strip */}
+        <div
+          className={`rounded-xl p-3 flex items-center justify-between border transition-all ${
+            isRecording
+              ? 'bg-rose-950/40 border-rose-500/40'
+              : isSpeaking
+              ? 'bg-sky-950/40 border-sky-500/40'
+              : 'bg-slate-950 border-slate-800'
+          }`}
+        >
           <div className="flex items-center space-x-3">
             <button
               onClick={handleMicToggle}
@@ -108,10 +149,15 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 {isRecording ? (
                   <span className="text-rose-400 flex items-center gap-1">
                     <Radio className="w-3 h-3 animate-ping" />
-                    Listening to your voice... (Speak now)
+                    Listening to your microphone...
+                  </span>
+                ) : isSpeaking ? (
+                  <span className="text-sky-400 flex items-center gap-1">
+                    <Volume2 className="w-3 h-3 animate-bounce" />
+                    Speaking via Audio Synthesizer (TTS)...
                   </span>
                 ) : bargeInAlert ? (
-                  <span className="text-rose-400">Barge-In Interruption Detected (&lt;180ms)</span>
+                  <span className="text-rose-400 font-black">Barge-In Interruption Executed (&lt;180ms)</span>
                 ) : streamActive ? (
                   <span className="text-indigo-400">Streaming AI Audio &amp; Tokens...</span>
                 ) : isProcessing ? (
@@ -120,22 +166,29 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                   'Listening Channel Ready &bull; Mic Enabled'
                 )}
               </div>
-              <div className="text-[10px] text-slate-500">&lt;180ms Barge-In Interruption Active</div>
+              <div className="text-[10px] text-slate-500">
+                Bidirectional Audio Synthesizer &bull; Sub-180ms Barge-In Active
+              </div>
             </div>
           </div>
 
-          {/* Animated Waveform */}
-          <div className="flex items-center space-x-1 h-6">
-            <span className={`w-1 bg-emerald-500 rounded-full transition-all ${isRecording || isProcessing ? 'h-6 animate-pulse' : 'h-2'}`} />
-            <span className={`w-1 bg-emerald-500 rounded-full transition-all ${isRecording || isProcessing ? 'h-4 animate-pulse' : 'h-3'}`} />
-            <span className={`w-1 bg-emerald-500 rounded-full transition-all ${isRecording || isProcessing ? 'h-7 animate-pulse' : 'h-1'}`} />
-            <span className={`w-1 bg-emerald-500 rounded-full transition-all ${isRecording || isProcessing ? 'h-5 animate-pulse' : 'h-4'}`} />
+          <div className="flex items-center space-x-1">
+            {isSpeaking && (
+              <button
+                onClick={triggerBargeIn}
+                className="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded font-bold hover:bg-rose-500/30 transition"
+              >
+                Interrupt AI
+              </button>
+            )}
           </div>
         </div>
 
         {/* Test Scenarios */}
         <div className="space-y-1">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Test Scenario Prompts:</div>
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Clinical Scenario Quick-Triggers:
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {presetPrompts.map((p, idx) => (
               <button
@@ -167,29 +220,35 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               }`}
             >
               <div className="flex justify-between items-center text-[10px] text-slate-400">
-                <span className="font-semibold capitalize">{m.sender === 'patient' ? (user?.name || 'You') : 'AI Assistant'}</span>
+                <span className="font-semibold capitalize">
+                  {m.sender === 'patient' ? user?.name || 'You' : 'AI Medical Assistant'}
+                </span>
                 <span>{m.timestamp}</span>
               </div>
               <p className="font-medium leading-relaxed">
                 {m.text}
-                {m.isStreaming && <span className="inline-block w-1.5 h-3 bg-emerald-400 ml-1 animate-pulse" />}
+                {m.isStreaming && (
+                  <span className="inline-block w-1.5 h-3 bg-emerald-400 ml-1 animate-pulse" />
+                )}
               </p>
               {m.intent && (
                 <div className="flex justify-between items-center pt-1 text-[10px]">
-                  <span className={`px-1.5 py-0.5 rounded font-bold ${
-                    m.isEmergency
-                      ? 'bg-rose-500/20 text-rose-400'
-                      : m.intent === 'SSE_STREAMING'
-                      ? 'bg-indigo-500/20 text-indigo-300'
-                      : 'bg-emerald-500/10 text-emerald-400'
-                  }`}>
+                  <span
+                    className={`px-1.5 py-0.5 rounded font-bold ${
+                      m.isEmergency
+                        ? 'bg-rose-500/20 text-rose-400'
+                        : m.intent === 'SSE_STREAMING'
+                        ? 'bg-indigo-500/20 text-indigo-300'
+                        : 'bg-emerald-500/10 text-emerald-400'
+                    }`}
+                  >
                     {m.intent}
                   </span>
                   {m.sender === 'assistant' && !m.isStreaming && (
                     <button
                       onClick={() => speak(m.text)}
                       className="text-slate-400 hover:text-emerald-400 transition"
-                      title="Speak Response Aloud"
+                      title="Speak Response Aloud via TTS"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
                     </button>
@@ -209,7 +268,9 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             value={inputVal}
             onChange={(e) => setInputVal(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend(inputVal)}
-            placeholder={isRecording ? "Listening to your voice..." : "Type clinical complaint or talk into mic..."}
+            placeholder={
+              isRecording ? 'Listening to your voice...' : 'Speak through mic or enter symptoms...'
+            }
             className="flex-1 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
           <button
@@ -229,7 +290,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             <Hand className="w-3.5 h-3.5" />
             <span>Test Barge-In (&lt;180ms)</span>
           </button>
-          <span>Caller: {user?.identifier || '+1-555-SHOULDER'}</span>
+          <span>Active Patient: {user?.identifier || '+1-555-SHOULDER'}</span>
         </div>
       </div>
     </div>
