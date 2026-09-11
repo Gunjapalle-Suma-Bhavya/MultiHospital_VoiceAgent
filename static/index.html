@@ -172,6 +172,98 @@
       </div>
     </section>
 
+    <!-- ESCALATION CONSOLE — Section 5.39 -->
+    <section id="tab-platform-admin-escalation" class="tab-content" style="display:none;">
+      <div class="grid">
+        <div class="card">
+          <h2>Human Escalation Console (5.39)</h2>
+          <form id="form-trigger-escalation">
+            <div class="form-group">
+              <label>Session ID</label>
+              <input type="text" id="esc-session-id" placeholder="session-abc-123" required>
+            </div>
+            <div class="form-group">
+              <label>Trigger Reason</label>
+              <select id="esc-trigger-reason">
+                <option value="PATIENT_REQUESTED">PATIENT_REQUESTED</option>
+                <option value="BOOKING_SYSTEM_FAILURE">BOOKING_SYSTEM_FAILURE</option>
+                <option value="EHR_INTEGRATION_FAILURE">EHR_INTEGRATION_FAILURE</option>
+                <option value="VERIFICATION_FAILURE">VERIFICATION_FAILURE</option>
+                <option value="IDENTITY_UNRESOLVABLE">IDENTITY_UNRESOLVABLE</option>
+                <option value="MISSING_REQUIRED_INFO">MISSING_REQUIRED_INFO</option>
+                <option value="UNSUPPORTED_REQUEST">UNSUPPORTED_REQUEST</option>
+                <option value="SAFETY_POLICY">SAFETY_POLICY</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Hospital ID (optional)</label>
+              <input type="text" id="esc-hospital-id" placeholder="hospital-uuid">
+            </div>
+            <div class="form-group">
+              <label>Failure Count</label>
+              <input type="number" id="esc-failure-count" value="0" min="0">
+            </div>
+            <div class="form-group">
+              <label>Patient Intent / Summary</label>
+              <input type="text" id="esc-summary" placeholder="Patient wanted to book cardiology appointment">
+            </div>
+            <button type="submit">Trigger Escalation</button>
+          </form>
+          <div id="esc-trigger-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Escalation Context Viewer</h2>
+          <div class="form-group">
+            <label>Escalation ID (e.g. ESC-XXXXXXXX)</label>
+            <input type="text" id="esc-context-id" placeholder="ESC-XXXXXXXX">
+          </div>
+          <button onclick="loadEscalationContext()">Load Operator Context</button>
+          <div id="esc-context-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Resolve Escalation</h2>
+          <div class="form-group">
+            <label>Escalation ID</label>
+            <input type="text" id="esc-resolve-id" placeholder="ESC-XXXXXXXX">
+          </div>
+          <div class="form-group">
+            <label>Resolution</label>
+            <select id="esc-resolution-status">
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="TRANSFERRED_BACK_TO_AI">TRANSFERRED_BACK_TO_AI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Operator ID</label>
+            <input type="text" id="esc-operator-id" placeholder="operator-001">
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="esc-operator-notes" placeholder="Resolved by booking manually">
+          </div>
+          <button onclick="resolveEscalation()">Resolve</button>
+          <div id="esc-resolve-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Escalation Records</h2>
+          <div class="form-group">
+            <label>Status Filter</label>
+            <select id="esc-list-status">
+              <option value="">All</option>
+              <option value="ESCALATED">ESCALATED</option>
+              <option value="RESOLVED">RESOLVED</option>
+              <option value="TRANSFERRED_BACK_TO_AI">TRANSFERRED_BACK_TO_AI</option>
+            </select>
+          </div>
+          <button onclick="listEscalationRecords()">Load Records</button>
+          <div id="esc-list-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- PORTAL 2: DOCTOR & CALENDAR MANAGEMENT -->
     <section id="tab-doctors" class="tab-content">
       <div class="grid">

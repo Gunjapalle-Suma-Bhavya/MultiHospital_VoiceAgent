@@ -19,6 +19,7 @@ from app.routers.platform_admin_dashboard import router as platform_admin_dashbo
 from app.routers.observability import router as observability_router
 from app.routers.ai_analytics import router as ai_analytics_router
 from app.routers.feedback import router as feedback_router
+from app.routers.escalation import router as escalation_router
 
 __all__ = [
     "onboarding_router",
@@ -38,8 +39,10 @@ __all__ = [
     "platform_admin_dashboard_router",
     "observability_router",
     "ai_analytics_router",
-    "feedback_router"
+    "feedback_router",
+    "escalation_router",
 ]
+
 
 
 

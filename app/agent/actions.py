@@ -348,7 +348,35 @@ class ActionExecutor:
 
     def escalate_to_human(self, payload: EscalateToHumanInput) -> EscalateToHumanOutput:
         start_t = time.time()
-        ticket_id = f"ESC-{uuid.uuid4().hex[:8].upper()}"
+
+        # Use dedicated EscalationEngine to persist a full HumanEscalationRecord
+        from app.escalation import EscalationEngine
+        engine = EscalationEngine(self.db)
+
+        trigger_reason = "PATIENT_REQUESTED"
+        if payload.reason:
+            reason_upper = payload.reason.upper().replace(" ", "_")
+            valid_reasons = [
+                "PATIENT_REQUESTED", "BOOKING_SYSTEM_FAILURE", "EHR_INTEGRATION_FAILURE",
+                "VERIFICATION_FAILURE", "IDENTITY_UNRESOLVABLE", "MISSING_REQUIRED_INFO",
+                "UNSUPPORTED_REQUEST", "SAFETY_POLICY"
+            ]
+            if reason_upper in valid_reasons:
+                trigger_reason = reason_upper
+
+        escalation_result = engine.trigger_escalation(
+            session_id=payload.session_id,
+            trigger_reason=trigger_reason,
+            context_snapshot={
+                "patient_intent": "Escalated by AI agent",
+                "conversation_summary": payload.reason,
+                "actions_attempted": [],
+                "last_error": payload.reason,
+                "patient_info": {"patient_id": payload.patient_id},
+            }
+        )
+
+        ticket_id = escalation_result["escalation_id"]
         latency = (time.time() - start_t) * 1000
 
         self.telemetry.record_turn_telemetry(
@@ -362,15 +390,16 @@ class ActionExecutor:
         )
 
         audit_id = self._create_audit_entry(payload.session_id, "", "ESCALATE_TO_HUMAN", payload.model_dump())
-        
+
         return EscalateToHumanOutput(
             success=True,
             action_type=ActionType.ESCALATE_TO_HUMAN,
-            message="Call escalated to human support desk.",
+            message=f"Call escalated to human support desk. Ticket: {ticket_id}",
             transfer_target_phone="+1-800-HOSPITAL-HELP",
             escalation_ticket_id=ticket_id,
             audit_id=audit_id
         )
+
 
     def sync_ehr_appointment(self, payload: SyncEHRAppointmentInput) -> SyncEHRAppointmentOutput:
         is_verified, msg, ext_id = self.ehr_service.sync_and_verify_booking(payload.appointment_id)

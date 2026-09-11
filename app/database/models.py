@@ -729,6 +729,40 @@ class AIQualityFeedbackRecord(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class HumanEscalationRecord(Base):
+    """
+    Human Escalation Record (Section 5.39).
+    Persists every AI-to-human handoff with:
+    - Trigger classification (8 named reasons)
+    - Failure count before escalation
+    - Authorized context snapshot for the operator (so the patient never repeats themselves)
+    - Resolution lifecycle: ESCALATED -> RESOLVED or TRANSFERRED_BACK_TO_AI
+    """
+    __tablename__ = "human_escalation_records"
 
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    escalation_id = Column(String(100), unique=True, nullable=False, index=True)  # ESC-XXXXXXXX
+    session_id = Column(String(100), nullable=False, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
+    trace_id = Column(String(100), nullable=True, index=True)  # Links to OperationTrace (5.34)
 
+    # Why the AI stopped — one of 8 typed trigger reasons
+    trigger_reason = Column(String(100), nullable=False, index=True)
+    # PATIENT_REQUESTED, BOOKING_SYSTEM_FAILURE, EHR_INTEGRATION_FAILURE,
+    # VERIFICATION_FAILURE, IDENTITY_UNRESOLVABLE, MISSING_REQUIRED_INFO,
+    # UNSUPPORTED_REQUEST, SAFETY_POLICY
+
+    failure_count = Column(Integer, default=0)  # Retries before giving up
+
+    # Serialized authorized context for the operator handoff
+    authorized_context_json = Column(Text, nullable=True)
+
+    # Resolution fields (populated when a human operator handles the case)
+    operator_id = Column(String(100), nullable=True)
+    operator_notes = Column(Text, nullable=True)
+    resolution_status = Column(String(50), default="ESCALATED", index=True)
+    # ESCALATED -> RESOLVED | TRANSFERRED_BACK_TO_AI
+
+    escalated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    resolved_at = Column(DateTime, nullable=True)
 

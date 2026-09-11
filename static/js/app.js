@@ -16,7 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
   setupObservabilityForm();
   setupAIAnalyticsForm();
   setupFeedbackLoopForm();
+  setupEscalationConsole();
 });
+
 
 
 
@@ -1149,6 +1151,120 @@ function setupFeedbackLoopForm() {
 
 
 
+// ============================================================================
+// Section 5.39 — Human Escalation Console
+// ============================================================================
+
+function setupEscalationConsole() {
+  const form = document.getElementById("form-trigger-escalation");
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const out = document.getElementById("esc-trigger-output");
+    const sessionId = document.getElementById("esc-session-id").value.trim();
+    const triggerReason = document.getElementById("esc-trigger-reason").value;
+    const hospitalId = document.getElementById("esc-hospital-id").value.trim() || null;
+    const failureCount = parseInt(document.getElementById("esc-failure-count").value) || 0;
+    const summary = document.getElementById("esc-summary").value.trim();
+
+    out.style.display = "block";
+    out.textContent = "Triggering escalation...";
+
+    try {
+      const res = await fetch("/api/v1/escalation/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          trigger_reason: triggerReason,
+          hospital_id: hospitalId,
+          failure_count: failureCount,
+          context_snapshot: {
+            patient_intent: summary || "Not specified",
+            conversation_summary: summary || "",
+            actions_attempted: [],
+            last_error: null,
+            patient_info: {}
+          }
+        })
+      });
+      const data = await res.json();
+      out.textContent = JSON.stringify(data, null, 2);
+
+      // Auto-populate the context viewer and resolve panel with the new ticket ID
+      if (data.escalation_id) {
+        document.getElementById("esc-context-id").value = data.escalation_id;
+        document.getElementById("esc-resolve-id").value = data.escalation_id;
+      }
+    } catch (err) {
+      out.textContent = "Error: " + err.message;
+    }
+  });
+}
+
+async function loadEscalationContext() {
+  const out = document.getElementById("esc-context-output");
+  const escalationId = document.getElementById("esc-context-id").value.trim();
+  if (!escalationId) { alert("Enter an Escalation ID"); return; }
+
+  out.style.display = "block";
+  out.textContent = "Loading context...";
+
+  try {
+    const res = await fetch(`/api/v1/escalation/${escalationId}/context`);
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    out.textContent = "Error: " + err.message;
+  }
+}
+
+async function resolveEscalation() {
+  const out = document.getElementById("esc-resolve-output");
+  const escalationId = document.getElementById("esc-resolve-id").value.trim();
+  const resolutionStatus = document.getElementById("esc-resolution-status").value;
+  const operatorId = document.getElementById("esc-operator-id").value.trim() || null;
+  const operatorNotes = document.getElementById("esc-operator-notes").value.trim() || null;
+
+  if (!escalationId) { alert("Enter an Escalation ID"); return; }
+
+  out.style.display = "block";
+  out.textContent = "Resolving...";
+
+  try {
+    const res = await fetch(`/api/v1/escalation/${escalationId}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resolution_status: resolutionStatus,
+        operator_id: operatorId,
+        operator_notes: operatorNotes
+      })
+    });
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    out.textContent = "Error: " + err.message;
+  }
+}
+
+async function listEscalationRecords() {
+  const out = document.getElementById("esc-list-output");
+  const status = document.getElementById("esc-list-status").value;
+
+  out.style.display = "block";
+  out.textContent = "Loading records...";
+
+  try {
+    const url = "/api/v1/escalation/records" + (status ? `?status=${status}` : "");
+    const res = await fetch(url);
+    const data = await res.json();
+    out.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    out.textContent = "Error: " + err.message;
+  }
+}
 
 
 

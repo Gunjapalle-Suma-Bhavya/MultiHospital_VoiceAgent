@@ -23,7 +23,7 @@ from app.routers import (
     discovery_router, voice_router, context_router, ehr_router,
     questionnaires_router, workflows_router, events_router, notifications_router,
     doctor_dashboard_router, hospital_dashboard_router, platform_admin_dashboard_router,
-    observability_router, ai_analytics_router, feedback_router
+    observability_router, ai_analytics_router, feedback_router, escalation_router
 )
 
 app = FastAPI(
@@ -63,6 +63,8 @@ app.include_router(platform_admin_dashboard_router)
 app.include_router(observability_router)
 app.include_router(ai_analytics_router)
 app.include_router(feedback_router)
+app.include_router(escalation_router, prefix="/api/v1/escalation")
+
 
 
 
