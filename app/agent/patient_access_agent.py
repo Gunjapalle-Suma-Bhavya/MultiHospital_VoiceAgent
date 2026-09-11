@@ -134,16 +134,25 @@ class AIPatientAccessAgent:
         action_executed = None
         action_payload = {}
 
-        if intent in ["SEARCH_HOSPITALS", "SEARCH_DOCTORS"] and not active_doc_id:
+        # Clinical Symptom Inference Check
+        from app.agent.intent_understanding import SymptomIntentResolver
+        symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(user_utterance)
+        inferred_spec = symptom_res.inferred_specialty if symptom_res.has_symptom else None
+
+        if (intent in ["SEARCH_HOSPITALS", "SEARCH_DOCTORS"] or (symptom_res.has_symptom and inferred_spec and intent not in ["CANCEL_APPOINTMENT", "HUMAN_ESCALATION", "BOOK_APPOINTMENT"])) and not active_doc_id:
             capabilities_invoked.append("TOOL_SELECTION_SEARCH")
             search_output = self.executor.search_doctors(
-                SearchDoctorsInput(session_id=sid, patient_id=patient.id, hospital_id=active_hosp_id)
+                SearchDoctorsInput(session_id=sid, patient_id=patient.id, hospital_id=active_hosp_id, specialty=inferred_spec)
             )
             action_executed = "SEARCH_DOCTORS"
             action_payload = search_output.model_dump()
             if search_output.doctors:
-                doc_list = ", ".join([f"{doc.name} ({doc.specialty})" for doc in search_output.doctors[:3]])
-                agent_response = f"I found available doctors: {doc_list}. Which doctor would you like to schedule with?"
+                if inferred_spec:
+                    doc_list = ", ".join([f"{doc.name} at {doc.hospital_name}" for doc in search_output.doctors[:3]])
+                    agent_response = f"Based on your symptoms, I recommend seeing a {inferred_spec} specialist. I found {doc_list}. Which doctor would you like to schedule with?"
+                else:
+                    doc_list = ", ".join([f"{doc.name} ({doc.specialty})" for doc in search_output.doctors[:3]])
+                    agent_response = f"I found available doctors: {doc_list}. Which doctor would you like to schedule with?"
             else:
                 agent_response = "I couldn't find active doctors matching your criteria. Would you like to check another specialty?"
 
