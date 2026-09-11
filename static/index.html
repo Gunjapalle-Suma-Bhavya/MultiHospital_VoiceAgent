@@ -21,6 +21,7 @@
     <button class="tab-btn" data-tab="tab-audit">Audit Trail & Privacy (5.40 & 5.41)</button>
     <button class="tab-btn" data-tab="tab-rbac">Role-Based Access Control (Step 6)</button>
     <button class="tab-btn" data-tab="tab-core-data-model">Core Data Model (Step 7)</button>
+    <button class="tab-btn" data-tab="tab-patient-workflow">Patient Workflow (Step 8)</button>
   </nav>
 
   <main class="container">
@@ -835,6 +836,121 @@
             Verifies non-orphan foreign keys, cross-tenant isolation boundaries, and relational consistency.
           </p>
           <div id="data-model-integrity-output" class="status-box" style="display:none;"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 8: COMPLETE END-TO-END PATIENT WORKFLOW (STEP 8) -->
+    <section id="tab-patient-workflow" class="tab-content">
+      <div class="grid">
+
+        <!-- CARD 1: RUN 20-STEP WORKFLOW CONTROLLER -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h2>Complete End-to-End Patient Workflow (Step 8)</h2>
+              <p style="color:var(--text-muted); font-size:0.9rem;">
+                Autonomous 20-step execution: Registration, Intent Understanding, Calendar Matching, 5-Point EHR Verification, Pre-Visit Intake, Doctor Briefing, and Multi-Domain Analytics.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary workflow-preset-btn" data-preset="PRESET_KNEE_ORTHO">Preset: Knee Pain (Step 8)</button>
+              <button type="button" class="btn btn-secondary workflow-preset-btn" data-preset="PRESET_CARDIOLOGY_CHEST">Preset: Cardiology</button>
+              <button type="button" class="btn btn-secondary workflow-preset-btn" data-preset="PRESET_DERMATOLOGY_RASH">Preset: Dermatology</button>
+            </div>
+          </div>
+
+          <form id="form-patient-workflow" style="margin-top:1.25rem;">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Patient Full Name</label>
+                <input type="text" id="pwf-name" value="Alex Miller" required>
+              </div>
+              <div class="form-group">
+                <label>Phone Number</label>
+                <input type="text" id="pwf-phone" value="+1-555-0199" required>
+              </div>
+              <div class="form-group">
+                <label>Channel</label>
+                <select id="pwf-channel">
+                  <option value="WEB_VOICE">Web Voice (WebRTC / Audio Streaming)</option>
+                  <option value="TELEPHONE">Telephone (SIP / PSTN Telephony)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Patient Spoken Requirement / Utterance</label>
+              <input type="text" id="pwf-utterance" value="I've been having knee pain and I'd like to see a doctor this week." required>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 2fr; gap:1rem; align-items:center;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Patient Choice Selection</label>
+                <select id="pwf-choice-idx">
+                  <option value="0">Choice 1 (e.g. Dr. Sharma at City Hospital - Thursday 3 PM)</option>
+                  <option value="1">Choice 2 (e.g. Dr. Rao at Care Hospital - Friday 11 AM)</option>
+                </select>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
+                <button type="submit" id="btn-execute-pwf" class="btn" style="background:#2563eb; padding:0.6rem 1.5rem; font-weight:600;">Execute Full 20-Step Workflow</button>
+              </div>
+            </div>
+          </form>
+
+          <div id="pwf-summary-status" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: 20-STEP INTERACTIVE PROGRESS TIMELINE -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3>20-Step Workflow Execution Timeline</h3>
+            <span id="pwf-step-counter" style="font-size:0.85rem; color:var(--text-muted);">Awaiting execution</span>
+          </div>
+          <div id="pwf-timeline-container" style="display:flex; flex-direction:column; gap:0.75rem;">
+            <p style="color:var(--text-muted); font-size:0.9rem;">Click "Execute Full 20-Step Workflow" to start the end-to-end patient journey.</p>
+          </div>
+        </div>
+
+        <!-- CARD 3: CONVERSATIONAL TRANSCRIPT & DIALOGUE -->
+        <div class="card">
+          <h3>Conversational Speech &amp; Dialogue</h3>
+          <div id="pwf-dialogue-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.88rem; min-height:180px; max-height:320px; overflow-y:auto; line-height:1.6;">
+            <p style="color:var(--text-muted);">Voice &amp; text speech turns will appear here...</p>
+          </div>
+        </div>
+
+        <!-- CARD 4: CLINICAL CALENDAR & MATCHING -->
+        <div class="card">
+          <h3>Scheduling &amp; Calendar Checks (Step 7)</h3>
+          <div id="pwf-calendar-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:320px; overflow-y:auto; font-family:monospace;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Working hours, calendar, blocks, leave diagnostics...</p>
+          </div>
+        </div>
+
+        <!-- CARD 5: 5-POINT EHR VERIFICATION & STATE SYNC -->
+        <div class="card">
+          <h3>Authoritative EHR Verification (Steps 11-13)</h3>
+          <div id="pwf-ehr-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:320px; overflow-y:auto; font-family:monospace;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">5-Point verification ledger (Patient, Doctor, Date, Time, Status)...</p>
+          </div>
+        </div>
+
+        <!-- CARD 6: PRE-VISIT INTAKE & DOCTOR BRIEFING -->
+        <div class="card">
+          <h3>Pre-Visit Intake &amp; Doctor Briefing (Steps 16-19)</h3>
+          <div id="pwf-intake-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:320px; overflow-y:auto; line-height:1.6;">
+            <p style="color:var(--text-muted);">Patient questionnaire answers &amp; doctor preparation notes...</p>
+          </div>
+        </div>
+
+        <!-- CARD 7: MULTI-DOMAIN ANALYTICS & AUDIT -->
+        <div class="card" style="grid-column: span 2;">
+          <h3>Multi-Domain Analytics &amp; Audit Ledger (Step 20)</h3>
+          <div id="pwf-analytics-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; font-family:monospace; max-height:280px; overflow-y:auto;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Audit logs, patient activity, hospital and AI metrics...</p>
+          </div>
         </div>
 
       </div>

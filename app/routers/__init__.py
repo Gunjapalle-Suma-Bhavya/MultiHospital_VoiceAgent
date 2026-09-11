@@ -23,6 +23,7 @@ from app.routers.escalation import router as escalation_router
 from app.routers.audit import router as audit_router
 from app.routers.rbac import router as rbac_router
 from app.routers.data_model import router as data_model_router
+from app.routers.patient_workflow import router as patient_workflow_router
 
 __all__ = [
     "onboarding_router",
@@ -47,6 +48,7 @@ __all__ = [
     "audit_router",
     "rbac_router",
     "data_model_router",
+    "patient_workflow_router",
 ]
 
 

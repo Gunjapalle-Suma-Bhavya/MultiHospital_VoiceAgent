@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAuditTrailForms();
   setupRBACForms();
   setupCoreDataModelForms();
+  setupPatientWorkflowForms();
 });
 
 
@@ -1795,6 +1796,202 @@ function setupCoreDataModelForms() {
     });
   }
 }
+
+// Portal 8: Complete End-to-End Patient Workflow (Step 8) Logic
+function setupPatientWorkflowForms() {
+  const form = document.getElementById("form-patient-workflow");
+  const summaryBox = document.getElementById("pwf-summary-status");
+  const stepCounter = document.getElementById("pwf-step-counter");
+  const timelineContainer = document.getElementById("pwf-timeline-container");
+  const dialogueOutput = document.getElementById("pwf-dialogue-output");
+  const calendarOutput = document.getElementById("pwf-calendar-output");
+  const ehrOutput = document.getElementById("pwf-ehr-output");
+  const intakeOutput = document.getElementById("pwf-intake-output");
+  const analyticsOutput = document.getElementById("pwf-analytics-output");
+  const presetButtons = document.querySelectorAll(".workflow-preset-btn");
+
+  const PRESETS_DATA = {
+    PRESET_KNEE_ORTHO: {
+      name: "Alex Miller",
+      phone: "+1-555-0199",
+      channel: "WEB_VOICE",
+      utterance: "I've been having knee pain and I'd like to see a doctor this week.",
+      choice: "0"
+    },
+    PRESET_CARDIOLOGY_CHEST: {
+      name: "Rachel Adams",
+      phone: "+1-555-0288",
+      channel: "TELEPHONE",
+      utterance: "I've had mild palpitations during jogging and want to consult a cardiologist.",
+      choice: "0"
+    },
+    PRESET_DERMATOLOGY_RASH: {
+      name: "David Clark",
+      phone: "+1-555-0377",
+      channel: "WEB_VOICE",
+      utterance: "I have an itchy skin rash on my arm and need an appointment with a skin specialist.",
+      choice: "1"
+    }
+  };
+
+  // Wire presets
+  presetButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pKey = btn.getAttribute("data-preset");
+      const pData = PRESETS_DATA[pKey];
+      if (pData) {
+        document.getElementById("pwf-name").value = pData.name;
+        document.getElementById("pwf-phone").value = pData.phone;
+        document.getElementById("pwf-channel").value = pData.channel;
+        document.getElementById("pwf-utterance").value = pData.utterance;
+        document.getElementById("pwf-choice-idx").value = pData.choice;
+      }
+    });
+  });
+
+  if (!form) return;
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      patient_name: document.getElementById("pwf-name").value.trim(),
+      phone_number: document.getElementById("pwf-phone").value.trim(),
+      channel: document.getElementById("pwf-channel").value,
+      utterance: document.getElementById("pwf-utterance").value.trim(),
+      selected_choice_index: parseInt(document.getElementById("pwf-choice-idx").value, 10),
+      questionnaire_answers: {
+        "knee_pain_duration": "About 3 weeks, worsens while climbing stairs",
+        "previous_surgeries": "None",
+        "current_medications": "Ibuprofen as needed"
+      }
+    };
+
+    summaryBox.style.display = "block";
+    summaryBox.textContent = "Executing complete 20-step patient workflow pipeline...";
+    stepCounter.textContent = "Executing 20 steps in real time...";
+
+    try {
+      const res = await fetch("/api/v1/patient-workflow/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail ? JSON.stringify(data.detail) : `HTTP ${res.status}`);
+      }
+
+      summaryBox.innerHTML = `<strong style="color:var(--success-color);">Workflow Completed Successfully!</strong><br>` +
+        `Appointment ID: <code>${escapeHtml(data.appointment_id)}</code> | Doctor: <strong>${escapeHtml(data.doctor_name)}</strong> | ` +
+        `Hospital: <strong>${escapeHtml(data.hospital_name)}</strong> | External EHR ID: <code>${escapeHtml(data.external_appointment_id)}</code>`;
+
+      stepCounter.textContent = `All ${data.steps_completed} Steps Executed (100% Complete)`;
+
+      // Render 20-Step Progress Timeline
+      if (data.execution_trace && timelineContainer) {
+        let timelineHtml = "";
+        data.execution_trace.forEach(item => {
+          const isOk = item.status === "COMPLETED";
+          const badgeColor = isOk ? "#16a34a" : "#dc2626";
+          const bgColor = isOk ? "#f0fdf4" : "#fef2f2";
+          const borderColor = isOk ? "#bbf7d0" : "#fecaca";
+
+          timelineHtml += `
+            <div style="background:${bgColor}; border:1px solid ${borderColor}; border-radius:6px; padding:0.6rem 1rem; display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <span style="background:${badgeColor}; color:#fff; font-size:0.75rem; font-weight:700; width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;">${item.step}</span>
+                <div>
+                  <strong style="font-size:0.9rem; color:#0f172a;">Step ${item.step}: ${escapeHtml(item.title)}</strong>
+                  ${item.pipeline ? `<div style="font-size:0.75rem; color:#64748b;">${escapeHtml(item.pipeline)}</div>` : ""}
+                </div>
+              </div>
+              <span style="font-size:0.75rem; font-weight:600; color:${badgeColor}; background:#fff; padding:0.2rem 0.5rem; border-radius:4px; border:1px solid ${borderColor};">
+                ${escapeHtml(item.status)}
+              </span>
+            </div>
+          `;
+        });
+        timelineContainer.innerHTML = timelineHtml;
+      }
+
+      // Render Dialogue Transcript
+      if (dialogueOutput && data.execution_trace) {
+        const step3 = data.execution_trace.find(s => s.step === 3);
+        const step8 = data.execution_trace.find(s => s.step === 8);
+        const step9 = data.execution_trace.find(s => s.step === 9);
+        const step10 = data.execution_trace.find(s => s.step === 10);
+        const step14 = data.execution_trace.find(s => s.step === 14);
+        const step16 = data.execution_trace.find(s => s.step === 16);
+        const step17 = data.execution_trace.find(s => s.step === 17);
+
+        let dHtml = `<div style="display:flex; flex-direction:column; gap:0.6rem;">`;
+        if (step3) dHtml += `<div><strong style="color:#2563eb;">Patient:</strong> "${escapeHtml(step3.utterance)}"</div>`;
+        if (step8) dHtml += `<div><strong style="color:#059669;">AI Agent:</strong> "${escapeHtml(step8.agent_utterance)}"</div>`;
+        if (step9) dHtml += `<div><strong style="color:#2563eb;">Patient:</strong> "${escapeHtml(step9.patient_utterance)}"</div>`;
+        if (step10) dHtml += `<div><strong style="color:#059669;">AI Agent:</strong> "${escapeHtml(step10.agent_confirmation)}"</div>`;
+        if (step14) dHtml += `<div><strong style="color:#059669;">AI Agent (Verified):</strong> "${escapeHtml(step14.agent_utterance)}"</div>`;
+        if (step16) dHtml += `<div><strong style="color:#059669;">AI Agent (Questionnaire):</strong> "${escapeHtml(step16.agent_utterance)}"</div>`;
+        if (step17) dHtml += `<div><strong style="color:#2563eb;">Patient (Responses):</strong> ${escapeHtml(JSON.stringify(step17.patient_responses))}</div>`;
+        dHtml += `</div>`;
+        dialogueOutput.innerHTML = dHtml;
+      }
+
+      // Render Calendar Output
+      if (calendarOutput && data.execution_trace) {
+        const step7 = data.execution_trace.find(s => s.step === 7);
+        if (step7 && step7.results) {
+          calendarOutput.textContent = JSON.stringify(step7.results, null, 2);
+        }
+      }
+
+      // Render EHR Output
+      if (ehrOutput && data.execution_trace) {
+        const step11 = data.execution_trace.find(s => s.step === 11);
+        const step12 = data.execution_trace.find(s => s.step === 12);
+        const step13 = data.execution_trace.find(s => s.step === 13);
+        const ehrObj = {
+          booking_pipeline: step11 ? step11.ehr_pipeline : null,
+          five_point_verification: step12 ? step12.verification_results : null,
+          synchronized_state: step13 ? step13.details : null
+        };
+        ehrOutput.textContent = JSON.stringify(ehrObj, null, 2);
+      }
+
+      // Render Intake Output
+      if (intakeOutput && data.doctor_preparation_briefing) {
+        const dpb = data.doctor_preparation_briefing;
+        intakeOutput.innerHTML = `
+          <div>
+            <div style="margin-bottom:0.5rem;"><strong style="color:#0f172a;">Doctor Preparation Briefing</strong> <span style="background:#e0f2fe; color:#0284c7; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; font-weight:600;">${escapeHtml(dpb.review_status)}</span></div>
+            <div><strong>Patient:</strong> ${escapeHtml(dpb.patient_name)}</div>
+            <div><strong>Specialty:</strong> ${escapeHtml(dpb.inferred_specialty)}</div>
+            <div><strong>Primary Complaint:</strong> ${escapeHtml(dpb.primary_complaint)}</div>
+            <div style="margin-top:0.5rem;"><strong>Authorized Clinical Responses:</strong></div>
+            <pre style="background:#fff; border:1px solid #e2e8f0; border-radius:4px; padding:0.5rem; font-size:0.8rem; margin-top:0.25rem;">${escapeHtml(JSON.stringify(dpb.authorized_patient_responses, null, 2))}</pre>
+          </div>
+        `;
+      }
+
+      // Render Analytics Output
+      if (analyticsOutput && data.analytics_summary) {
+        analyticsOutput.textContent = JSON.stringify(data.analytics_summary, null, 2);
+      }
+
+    } catch (err) {
+      summaryBox.textContent = "Error executing patient workflow: " + err.message;
+      stepCounter.textContent = "Execution encountered an error";
+    }
+  });
+}
+
 
 
 
