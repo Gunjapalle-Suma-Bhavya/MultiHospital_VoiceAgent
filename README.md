@@ -289,7 +289,6 @@ The platform is pre-loaded with demonstration clinical scenarios:
 - **Architecture Documentation**: [`ARCHITECTURE.md`](file:///C:/Users/Shanmukha%20Tharun/.gemini/antigravity/scratch/multi-hospital-voice-agent/ARCHITECTURE.md)
 - **AI Tools & Usage Documentation**: [`AI_TOOLS.md`](file:///C:/Users/Shanmukha%20Tharun/.gemini/antigravity/scratch/multi-hospital-voice-agent/AI_TOOLS.md)
 - **AI Prompts Used**: [`AI_PROMPTS.md`](file:///C:/Users/Shanmukha%20Tharun/.gemini/antigravity/scratch/multi-hospital-voice-agent/AI_PROMPTS.md)
-- **Demo Script & Video Walkthrough**: [`DEMO_SCRIPT.md`](file:///C:/Users/Shanmukha%20Tharun/.gemini/antigravity/scratch/multi-hospital-voice-agent/DEMO_SCRIPT.md)
 - **Definition of Done Verification**: [`tests/test_definition_of_done_section_35.py`](file:///C:/Users/Shanmukha%20Tharun/.gemini/antigravity/scratch/multi-hospital-voice-agent/tests/test_definition_of_done_section_35.py)
 
 ---
