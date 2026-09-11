@@ -42,6 +42,7 @@ export function useVoiceAgent() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const lastTranscriptRef = useRef<string>('');
   const onAutoSendRef = useRef<((text: string) => void) | null>(null);
+  const onInterimRef = useRef<((text: string) => void) | null>(null);
 
   const stopSpeaking = useCallback(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -123,7 +124,7 @@ export function useVoiceAgent() {
           };
 
           utterance.onerror = (e) => {
-            console.warn('Speech synthesis utterance notice:', e);
+            console.warn('Speech synthesis notice:', e);
             activeUtterance = null;
             if (resumeTimer) {
               clearInterval(resumeTimer);
@@ -162,13 +163,13 @@ export function useVoiceAgent() {
 
     if (!SpeechRecognition) {
       setHasSpeechSupport(false);
-      setVoiceNotice('Browser Notice: Speech recognition is optimized for Chrome, Edge, and Chromium browsers.');
+      setVoiceNotice('Browser Notice: Speech recognition is native to Chrome, Edge, and Chromium browsers.');
       return;
     }
 
     try {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
@@ -188,29 +189,34 @@ export function useVoiceAgent() {
         }
         lastTranscriptRef.current = current;
         setTranscriptLive(current);
+        if (onInterimRef.current) {
+          onInterimRef.current(current);
+        }
       };
 
       recognition.onend = () => {
         setIsRecording(false);
         const finalVal = lastTranscriptRef.current.trim();
         if (finalVal && onAutoSendRef.current) {
-          onAutoSendRef.current(finalVal);
+          const fn = onAutoSendRef.current;
+          onAutoSendRef.current = null;
           lastTranscriptRef.current = '';
           setTranscriptLive('');
+          fn(finalVal);
         }
       };
 
       recognition.onerror = (e: any) => {
-        console.warn('Speech recognition notice:', e.error);
+        console.warn('Speech recognition status:', e.error);
         setIsRecording(false);
         if (e.error === 'not-allowed') {
-          setVoiceNotice('Microphone permission blocked. Please click the lock or camera/mic icon in your browser URL address bar to allow microphone access.');
+          setVoiceNotice('Microphone blocked: Please click the lock or camera icon in your browser address bar to Allow microphone access.');
         } else if (e.error === 'no-speech') {
-          setVoiceNotice('No speech detected. Please speak closer to your mic or click any quick scenario below.');
+          setVoiceNotice('No words heard: Speak closer to your microphone or click a quick scenario below.');
         } else if (e.error === 'network') {
-          setVoiceNotice('Speech recognition network service paused. You can click any quick scenario or type below to interact with the AI.');
+          setVoiceNotice('Speech recognition network paused: You can click any quick scenario or type below to talk with AI.');
         } else {
-          setVoiceNotice(`Microphone status: ${e.error}. You can also type or use quick prompts.`);
+          setVoiceNotice(`Microphone status: ${e.error}`);
         }
       };
 
@@ -220,7 +226,6 @@ export function useVoiceAgent() {
       setHasSpeechSupport(false);
     }
 
-    // Chrome voices changed listener
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         try {
@@ -254,6 +259,9 @@ export function useVoiceAgent() {
       return;
     }
 
+    if (onInterim) {
+      onInterimRef.current = onInterim;
+    }
     if (onFinalSubmit) {
       onAutoSendRef.current = onFinalSubmit;
     }
@@ -281,10 +289,17 @@ export function useVoiceAgent() {
         recognitionRef.current.stop();
       } catch {}
       setIsRecording(false);
+      const textToSend = lastTranscriptRef.current.trim();
+      if (textToSend && onAutoSendRef.current) {
+        const fn = onAutoSendRef.current;
+        onAutoSendRef.current = null;
+        lastTranscriptRef.current = '';
+        setTranscriptLive('');
+        fn(textToSend);
+      }
     }
   };
 
-  // Test speaker function that the user can trigger anytime
   const testSpeaker = () => {
     speak('NexusHealth AI voice system is active. Your audio output is working properly.');
   };
