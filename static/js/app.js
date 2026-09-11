@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPlatformAdminDashboardForm();
   setupObservabilityForm();
   setupAIAnalyticsForm();
+  setupFeedbackLoopForm();
 });
 
 
@@ -1028,6 +1029,122 @@ function setupAIAnalyticsForm() {
     });
   }
 }
+
+function setupFeedbackLoopForm() {
+  const fbOutput = document.getElementById("feedback-output");
+  let activeFeedbackId = null;
+
+  const btnIngest = document.getElementById("btn-fb-ingest");
+  if (btnIngest) {
+    btnIngest.addEventListener("click", async () => {
+      const interactionId = document.getElementById("fb-interaction-id").value;
+      const score = parseFloat(document.getElementById("fb-score").value) || 0.82;
+      if (!interactionId) return alert("Please enter an Interaction ID");
+      try {
+        const res = await fetch("/api/v1/feedback/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            interaction_id: interactionId,
+            evaluation_score: score,
+            is_success: score >= 0.70,
+            failure_reason: score < 0.90 ? "Sub-optimal prompt disambiguation" : null
+          })
+        });
+        const data = await res.json();
+        activeFeedbackId = data.feedback_id;
+        fbOutput.style.display = "block";
+        fbOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        fbOutput.style.display = "block";
+        fbOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnReview = document.getElementById("btn-fb-review");
+  if (btnReview) {
+    btnReview.addEventListener("click", async () => {
+      const targetId = activeFeedbackId || document.getElementById("fb-interaction-id").value;
+      if (!targetId) return alert("Please ingest or enter an Interaction ID / Feedback ID first");
+      try {
+        const res = await fetch(`/api/v1/feedback/${targetId}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            root_cause_category: "PROMPT_AMBIGUITY",
+            review_notes: "Natural language doctor name entity parser requires few-shot prompt tuning"
+          })
+        });
+        const data = await res.json();
+        fbOutput.style.display = "block";
+        fbOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        fbOutput.style.display = "block";
+        fbOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnImprove = document.getElementById("btn-fb-improve");
+  if (btnImprove) {
+    btnImprove.addEventListener("click", async () => {
+      const targetId = activeFeedbackId || document.getElementById("fb-interaction-id").value;
+      if (!targetId) return alert("Please ingest or enter an Interaction ID / Feedback ID first");
+      try {
+        const res = await fetch(`/api/v1/feedback/${targetId}/apply-improvement`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            improvement_type: "PROMPT_REFINEMENT",
+            improvement_details: { prompt_version: "v2.5", added_few_shots: 5 }
+          })
+        });
+        const data = await res.json();
+        fbOutput.style.display = "block";
+        fbOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        fbOutput.style.display = "block";
+        fbOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnReeval = document.getElementById("btn-fb-reeval");
+  if (btnReeval) {
+    btnReeval.addEventListener("click", async () => {
+      const targetId = activeFeedbackId || document.getElementById("fb-interaction-id").value;
+      if (!targetId) return alert("Please ingest or enter an Interaction ID / Feedback ID first");
+      try {
+        const res = await fetch(`/api/v1/feedback/${targetId}/re-evaluate`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        fbOutput.style.display = "block";
+        fbOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        fbOutput.style.display = "block";
+        fbOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHistory = document.getElementById("btn-fb-history");
+  if (btnHistory) {
+    btnHistory.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/feedback/records");
+        const data = await res.json();
+        fbOutput.style.display = "block";
+        fbOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        fbOutput.style.display = "block";
+        fbOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 

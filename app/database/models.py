@@ -701,5 +701,34 @@ class AIEvaluationRecord(Base):
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class AIQualityFeedbackRecord(Base):
+    """
+    AI Quality Feedback Loop & Continuous Improvement Ledger (Section 5.38).
+    Tracks the continuous engineering lifecycle:
+    AI Interaction -> Outcome -> Evaluation -> Classification -> Review -> Improvement -> Re-Evaluation
+    """
+    __tablename__ = "ai_quality_feedback_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    interaction_id = Column(String(100), nullable=False, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
+    session_id = Column(String(100), nullable=True, index=True)
+    trace_id = Column(String(100), nullable=True, index=True)
+    
+    classification = Column(String(50), default="SUCCESS")  # SUCCESS, MINOR_FAILURE, CRITICAL_FAILURE, ESCALATED
+    evaluation_score = Column(Float, default=1.0)
+    root_cause_category = Column(String(100), nullable=True)  # PROMPT_AMBIGUITY, WORKFLOW_TIMEOUT, CAPABILITY_MISCONFIG, EHR_SCHEMA_MISMATCH, GUARDRAIL_TRIGGER, UNSUPPORTED_INTENT
+    review_notes = Column(Text, nullable=True)
+    
+    improvement_type = Column(String(100), nullable=True)  # PROMPT_REFINEMENT, WORKFLOW_SCHEDULE_ADJUSTMENT, CAPABILITY_REGISTRATION, EHR_ADAPTER_MAPPING, GUARDRAIL_RULE
+    improvement_details_json = Column(Text, nullable=True)
+    improvement_status = Column(String(50), default="IDENTIFIED")  # IDENTIFIED, UNDER_REVIEW, IMPROVEMENT_APPLIED, VERIFIED_IN_RE_EVALUATION
+    re_evaluation_id = Column(String(100), nullable=True)
+    
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+
 
 
