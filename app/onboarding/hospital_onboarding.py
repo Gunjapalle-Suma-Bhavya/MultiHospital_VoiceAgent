@@ -146,6 +146,13 @@ class HospitalSelfServiceOnboardingService:
         self.db.commit()
         return hosp
 
+    def get_hospital(self, hospital_id: str) -> Optional[Hospital]:
+        """
+        Retrieves a hospital by ID.
+        """
+        return self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+
+
 
 from pydantic import BaseModel
 

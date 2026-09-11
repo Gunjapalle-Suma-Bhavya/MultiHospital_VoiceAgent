@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPrototypeScopeUI();
   setupAdvancedCapabilitiesUI();
   setupDefinitionOfDoneUI();
+  setupFinalChecklistUI();
 });
 
 
@@ -4537,6 +4538,90 @@ function setupDefinitionOfDoneUI() {
     });
   }
 }
+
+// =============================================================================
+// Section 41 & 42: Final Submission Checklist & Success UI Handler
+// =============================================================================
+function setupFinalChecklistUI() {
+  const btnRunAudit = document.getElementById("btn-run-final-audit");
+  const btnLoadChecklist = document.getElementById("btn-load-checklist-details");
+  const complianceEl = document.getElementById("final-audit-compliance");
+  const totalEl = document.getElementById("final-audit-total");
+  const badgeEl = document.getElementById("final-audit-badge");
+  const auditJson = document.getElementById("final-audit-json");
+  const pillarsContainer = document.getElementById("final-pillars-container");
+
+  if (btnRunAudit) {
+    btnRunAudit.addEventListener("click", async () => {
+      btnRunAudit.disabled = true;
+      btnRunAudit.textContent = "⏳ Auditing 76 Checks...";
+      if (auditJson) auditJson.textContent = "Executing programmatic compliance audit across 7 pillars...";
+
+      try {
+        const res = await fetch("/api/v1/final-submission/run-verification-audit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        if (auditJson) auditJson.textContent = JSON.stringify(data, null, 2);
+
+        if (data.status === "SUCCESS") {
+          if (complianceEl) complianceEl.textContent = `${data.compliance_percentage}%`;
+          if (totalEl) totalEl.textContent = `${data.verified_checks} / ${data.total_checks}`;
+          if (badgeEl) {
+            badgeEl.textContent = "100% VERIFIED";
+            badgeEl.style.color = "#10b981";
+          }
+        }
+      } catch (err) {
+        if (auditJson) auditJson.textContent = `❌ Error running audit: ${err.message}`;
+      } finally {
+        btnRunAudit.disabled = false;
+        btnRunAudit.textContent = "⚡ Run Programmatic Audit (76 Checks)";
+      }
+    });
+  }
+
+  if (btnLoadChecklist) {
+    btnLoadChecklist.addEventListener("click", async () => {
+      btnLoadChecklist.disabled = true;
+      btnLoadChecklist.textContent = "⏳ Loading...";
+      try {
+        const res = await fetch("/api/v1/final-submission/checklist");
+        const data = await res.json();
+        if (auditJson) auditJson.textContent = JSON.stringify(data, null, 2);
+
+        if (data.pillars && pillarsContainer) {
+          const pillarsList = Object.entries(data.pillars).map(([key, p]) => {
+            const verified = p.items.filter(i => i.verified).length;
+            const pct = Math.round((verified / p.total) * 100);
+            return `
+              <div style="margin-bottom:0.85rem; padding:0.6rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
+                <div style="display:flex; justify-content:space-between; font-weight:700; color:#1e293b; font-size:0.85rem; margin-bottom:0.25rem;">
+                  <span>${p.name}</span>
+                  <span style="color:#10b981;">${verified}/${p.total} (${pct}%)</span>
+                </div>
+                <div style="background:#e2e8f0; border-radius:9999px; height:6px; overflow:hidden; margin-bottom:0.4rem;">
+                  <div style="background:#10b981; width:${pct}%; height:100%;"></div>
+                </div>
+                <div style="font-size:0.75rem; color:#64748b;">
+                  ${p.items.slice(0, 3).map(i => `✓ ${i.item}`).join(" | ")}...
+                </div>
+              </div>
+            `;
+          }).join("");
+          pillarsContainer.innerHTML = pillarsList;
+        }
+      } catch (err) {
+        if (auditJson) auditJson.textContent = `❌ Error loading checklist: ${err.message}`;
+      } finally {
+        btnLoadChecklist.disabled = false;
+        btnLoadChecklist.textContent = "📋 Load Full Checklist";
+      }
+    });
+  }
+}
+
 
 
 
