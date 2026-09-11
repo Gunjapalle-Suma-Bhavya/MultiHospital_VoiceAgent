@@ -29,7 +29,8 @@ from app.routers import (
     dashboard_analytics_router, operational_monitoring_router, reliability_router,
     security_concurrency_router, safety_knowledge_router, workflow_examples_router,
     product_metrics_and_scenario_router, product_principles_router, prototype_scope_router,
-    should_have_router, definition_of_done_router, final_submission_router
+    should_have_router, definition_of_done_router, final_submission_router,
+    mongodb_sync_router
 )
 
 app = FastAPI(
@@ -89,6 +90,7 @@ app.include_router(prototype_scope_router)
 app.include_router(should_have_router)
 app.include_router(definition_of_done_router)
 app.include_router(final_submission_router)
+app.include_router(mongodb_sync_router)
 
 
 

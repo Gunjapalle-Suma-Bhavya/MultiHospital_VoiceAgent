@@ -39,6 +39,7 @@ from app.routers.prototype_scope import router as prototype_scope_router
 from app.routers.should_have import router as should_have_router
 from app.routers.definition_of_done import router as definition_of_done_router
 from app.routers.final_submission import router as final_submission_router
+from app.routers.mongodb_sync import router as mongodb_sync_router
 
 __all__ = [
     "onboarding_router",
@@ -79,6 +80,7 @@ __all__ = [
     "should_have_router",
     "definition_of_done_router",
     "final_submission_router",
+    "mongodb_sync_router",
 ]
 
 
