@@ -36,6 +36,7 @@
     <button class="tab-btn" data-tab="tab-e2e-scenario-step24">End-to-End Scenario (24)</button>
     <button class="tab-btn" data-tab="tab-product-principles-step25">Product Principles (25)</button>
     <button class="tab-btn" data-tab="tab-prototype-scope-step26">Prototype Scope (26)</button>
+    <button class="tab-btn" data-tab="tab-should-have-step27">Advanced Capabilities (27)</button>
   </nav>
 
   <main class="container">
@@ -2938,6 +2939,238 @@
         <h3 style="margin-top: 0; color: #1e293b;">📋 Prototype Scope Live Verification Output</h3>
         <div id="prototype-scope-verify-output" class="status-box" style="display:none;"></div>
       </div>
+    </section>
+
+    <!-- PORTAL: SECTION 27 SHOULD HAVE (ADVANCED CAPABILITIES & OPERATIONAL POLISH) -->
+    <section id="tab-should-have-step27" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; border-left: 5px solid #2563eb; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h1 style="color: #1e3a8a; margin: 0 0 0.5rem 0; font-size: 1.7rem;">⚡ Section 27: Should Have &amp; Advanced Operations</h1>
+            <p style="color: #475569; margin: 0; font-size: 0.95rem;">
+              Production-grade extensions: Multi-Connector Hub (FHIR R4, Epic, Cerner, HL7 v2, Mock), EHR Circuit Breaker &amp; 1-Click Reconciliation, 
+              Advanced Multi-Path Branching Engine, Automated $T-24\text{h}/T-2\text{h}$ Reminders, Unit Economics Cost Estimator, Triage Escalation Queue, and Streaming AI Voice.
+            </p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button id="btn-sec27-quick-scan" class="btn btn-primary" style="background:#2563eb;">🚀 Run Full Operations Sweep</button>
+            <button id="btn-sec27-circuit-reset" class="btn btn-secondary">⚡ Reset Circuit Breaker</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 GOLDEN SIGNALS TELEMETRY BAR -->
+      <div class="card" style="margin-bottom: 1.5rem; background: #0f172a; color: #f8fafc; border-radius: 8px;">
+        <h3 style="color: #38bdf8; margin-top: 0; font-size: 1.1rem; display:flex; align-items:center; gap:0.5rem;">
+          <span>📈</span> SRE Golden Signals Live Telemetry (Latency, Traffic, Errors, Saturation)
+        </h3>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Average Latency</div>
+            <div id="metric-golden-latency" style="font-size: 1.6rem; font-weight: 700; color: #38bdf8;">-- ms</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Target: &lt; 850ms</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Traffic Volume</div>
+            <div id="metric-golden-traffic" style="font-size: 1.6rem; font-weight: 700; color: #4ade80;">-- reqs</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Voice turns &amp; API requests</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Error Rate</div>
+            <div id="metric-golden-errors" style="font-size: 1.6rem; font-weight: 700; color: #f87171;">-- %</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Failures / Disconnections</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase;">Saturation / Health</div>
+            <div id="metric-golden-saturation" style="font-size: 1.6rem; font-weight: 700; color: #fbbf24;">-- %</div>
+            <div style="font-size: 0.75rem; color: #64748b;">Circuit Breaker: CLOSED</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        
+        <!-- CARD 1: MULTI-HEALTHCARE SYSTEM CONNECTORS -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+            <h3 style="margin:0; color:#1e293b;">🏥 Multi-System EHR Connectors</h3>
+            <button id="btn-sec27-load-connectors" class="btn btn-secondary" style="font-size:0.8rem; padding:0.3rem 0.6rem;">Refresh Connectors</button>
+          </div>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Native interoperability across HL7 v2, FHIR R4, Epic Systems, Cerner Millennium, and Mock Sandbox.
+          </p>
+          <div id="sec27-connector-list" style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem;">
+            <div style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Click "Refresh Connectors" to probe active adapters...</div>
+          </div>
+          <div class="form-group" style="margin-top:1rem;">
+            <label>Test Live Interoperability Probe</label>
+            <div style="display:flex; gap:0.5rem;">
+              <select id="sec27-select-connector" style="flex:1;">
+                <option value="EPIC">Epic Systems (FHIR R4/Open.Epic)</option>
+                <option value="CERNER">Cerner Millennium (Oracle Health)</option>
+                <option value="HL7_V2">HL7 v2.x (MLLP/EDI Parser)</option>
+                <option value="FHIR_R4">Generic FHIR R4 Standards</option>
+                <option value="MOCK">Mock Enterprise EHR</option>
+              </select>
+              <button id="btn-sec27-test-connector" class="btn btn-primary" style="background:#2563eb;">Send Probe</button>
+            </div>
+          </div>
+          <div id="sec27-connector-output" class="status-box" style="display:none; margin-top:0.8rem;"></div>
+        </div>
+
+        <!-- CARD 2: EHR CIRCUIT BREAKER & RECONCILIATION -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+            <h3 style="margin:0; color:#1e293b;">🛡️ EHR Circuit Breaker &amp; Reconciliation</h3>
+            <span id="sec27-circuit-badge" class="badge badge-success">STATE: CLOSED</span>
+          </div>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Monitors external EHR failure thresholds. In case of outage, trips to <code>OPEN</code>, queues asynchronous retries, and surfaces discrepancies for 1-click reconciliation.
+          </p>
+          <div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+            <button id="btn-sec27-scan-discrepancies" class="btn btn-secondary">Scan EHR Discrepancies</button>
+            <button id="btn-sec27-reconcile-one" class="btn btn-success" style="background:#059669;">1-Click Reconcile</button>
+            <button id="btn-sec27-trip-circuit" class="btn btn-danger" style="background:#dc2626;">Simulate EHR Outage</button>
+          </div>
+          <div id="sec27-reconciliation-output" class="status-box" style="display:none;"></div>
+        </div>
+
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        
+        <!-- CARD 3: ADVANCED WORKFLOW BRANCHING ENGINE -->
+        <div class="card">
+          <h3 style="margin-top:0; color:#1e293b;">🔀 Advanced Multi-Path Workflow Branching</h3>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Evaluates patient history, safety red flags, and external system states to dispatch one of four branches:
+            <br/><strong>Path A</strong>: Returning Fast-Track | <strong>Path B</strong>: New Comprehensive Intake | <strong>Path C</strong>: Emergency Escalation | <strong>Path D</strong>: EHR Outage Circuit Fallback.
+          </p>
+          <form id="form-sec27-branching">
+            <div class="form-group">
+              <label>Patient Phone Number</label>
+              <input type="text" id="sec27-branch-phone" value="+15554443322">
+            </div>
+            <div class="form-group">
+              <label>Patient Utterance / Intent</label>
+              <input type="text" id="sec27-branch-utterance" value="I have eczema and an itchy rash on my face">
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
+              <button type="button" id="btn-sec27-exec-branch" class="btn btn-primary" style="background:#2563eb;">Execute Branch Decision</button>
+              <button type="button" id="btn-sec27-preset-emerg" class="btn btn-secondary">Preset: Emergency P0</button>
+              <button type="button" id="btn-sec27-preset-rash" class="btn btn-secondary">Preset: New Patient</button>
+            </div>
+          </form>
+          <div id="sec27-branching-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 4: UNIT ECONOMICS & COST ESTIMATOR -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+            <h3 style="margin:0; color:#1e293b;">💰 AI Unit Economics &amp; ROI Projections</h3>
+            <button id="btn-sec27-calc-roi" class="btn btn-secondary" style="font-size:0.8rem; padding:0.3rem 0.6rem;">Recalculate Projections</button>
+          </div>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Granular cost estimation per voice call (LLM inference, Whisper STT, ElevenLabs/Google TTS, Twilio Telephony) vs human staff receptionists.
+          </p>
+          <div id="sec27-roi-summary" style="margin-bottom:1rem; font-size:0.9rem;">
+            <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:0.5rem;">
+              <span style="font-weight:600; color:#0f172a;">Voice AI Cost per Call:</span> 
+              <span id="sec27-cost-per-call" style="color:#2563eb; font-weight:700;">$0.125</span> 
+              <span style="color:#64748b; font-size:0.8rem;">(LLM + STT + TTS + SIP)</span>
+            </div>
+            <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:0.5rem;">
+              <span style="font-weight:600; color:#0f172a;">Human Receptionist Cost:</span> 
+              <span style="color:#dc2626; font-weight:700;">$3.750</span> 
+              <span style="color:#64748b; font-size:0.8rem;">(Average 5-min staffing cost)</span>
+            </div>
+            <div style="background:#ecfdf5; padding:0.75rem; border-radius:6px; border:1px solid #a7f3d0;">
+              <span style="font-weight:600; color:#065f46;">Net Cost Savings:</span> 
+              <span id="sec27-cost-savings-pct" style="color:#059669; font-weight:700;">96.67%</span> 
+              <span style="color:#047857; font-size:0.8rem;">($3.625 saved per interaction)</span>
+            </div>
+          </div>
+          <div id="sec27-roi-output" class="status-box" style="display:none;"></div>
+        </div>
+
+      </div>
+
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        
+        <!-- CARD 5: HUMAN ESCALATION & TRIAGE DASHBOARD -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+            <h3 style="margin:0; color:#1e293b;">🧑‍⚕️ Human Escalation Triage Dashboard</h3>
+            <button id="btn-sec27-refresh-queue" class="btn btn-secondary" style="font-size:0.8rem; padding:0.3rem 0.6rem;">Fetch Active Queue</button>
+          </div>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Real-time supervisor and clinical triage desk for managing calls escalated by conversational red flags or patient requests.
+          </p>
+          <div id="sec27-triage-queue" style="max-height:220px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; padding:0.5rem; background:#fdfdfd; margin-bottom:1rem;">
+            <div style="color:#94a3b8; font-size:0.85rem; font-style:italic;">No escalated tickets currently pending resolution.</div>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="text" id="sec27-resolve-ticket-id" placeholder="Ticket ID (e.g. ESC-EMERG-a1b2)" style="flex:1;">
+            <button id="btn-sec27-resolve-ticket" class="btn btn-success" style="background:#059669;">Resolve Ticket</button>
+          </div>
+          <div id="sec27-triage-output" class="status-box" style="display:none; margin-top:0.8rem;"></div>
+        </div>
+
+        <!-- CARD 6: AUTOMATED REMINDERS & NOTIFICATION PREFERENCES -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+            <h3 style="margin:0; color:#1e293b;">⏰ Automated Appointment Reminders &amp; Channels</h3>
+            <button id="btn-sec27-trigger-reminders" class="btn btn-primary" style="font-size:0.8rem; padding:0.3rem 0.6rem; background:#2563eb;">Trigger Batch Scan</button>
+          </div>
+          <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+            Proactively identifies upcoming visits and schedules multi-channel notifications (SMS/Email at $T-24\text{h}$, Voice/Push at $T-2\text{h}$) respecting patient preferences.
+          </p>
+          <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:1rem;">
+            <div style="font-size:0.85rem; font-weight:600; color:#1e293b; margin-bottom:0.3rem;">Active Notification Cadence:</div>
+            <ul style="font-size:0.8rem; color:#475569; margin:0; padding-left:1.2rem; line-height:1.4;">
+              <li><strong>$T-24\text{h}$ Tier:</strong> SMS text &amp; confirmation link + clinical intake questionnaire reminder</li>
+              <li><strong>$T-2\text{h}$ Tier:</strong> Automated interactive voice call + urgent clinic arrival details</li>
+            </ul>
+          </div>
+          <div id="sec27-reminders-output" class="status-box" style="display:none;"></div>
+        </div>
+
+      </div>
+
+      <!-- CARD 7: STREAMING AI VOICE DEMONSTRATION -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-top:0; color:#1e293b;">🎙️ Real-Time Voice Interaction (Fillers, Barge-In &amp; SSE Stream)</h3>
+        <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">
+          Low-latency streaming architecture with natural conversational fillers (<em>"Let me check that for you..."</em>), 
+          instant barge-in speech interruption detection, and sub-second token delivery.
+        </p>
+        <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 1rem;">
+          <div>
+            <div class="form-group">
+              <label>Speech Utterance Simulation</label>
+              <div style="display:flex; gap:0.5rem;">
+                <input type="text" id="sec27-voice-input" value="I need an appointment for knee pain tomorrow morning" style="flex:1;">
+                <button id="btn-sec27-stream-voice" class="btn btn-primary" style="background:#2563eb;">Stream Response</button>
+                <button id="btn-sec27-barge-in" class="btn btn-danger" style="background:#dc2626;">Barge-In Interrupt</button>
+              </div>
+            </div>
+            <div id="sec27-stream-log" style="background:#1e293b; color:#f8fafc; font-family:monospace; font-size:0.85rem; padding:1rem; border-radius:6px; min-height:120px; max-height:220px; overflow-y:auto; line-height:1.4;">
+              <span style="color:#94a3b8;">Click "Stream Response" to initiate real-time Server-Sent Events stream...</span>
+            </div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:1rem;">
+            <div style="font-size:0.85rem; font-weight:600; color:#1e293b; margin-bottom:0.5rem;">Voice Engine Config</div>
+            <div style="font-size:0.8rem; color:#475569; line-height:1.6;">
+              • Conversational Fillers: <span class="badge badge-success">ENABLED</span><br/>
+              • Silence Detection Threshold: <strong>450 ms</strong><br/>
+              • Barge-In Interrupt Time: <strong>&lt; 180 ms</strong><br/>
+              • Audio Frame Chunking: <strong>24 kHz Opus</strong><br/>
+              • Knowledge Retrieval: <strong>Citation Verified</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
 

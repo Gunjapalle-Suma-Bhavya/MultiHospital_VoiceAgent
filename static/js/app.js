@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEndToEndScenarioUI();
   setupProductPrinciplesUI();
   setupPrototypeScopeUI();
+  setupAdvancedCapabilitiesUI();
 });
 
 
@@ -3913,6 +3914,448 @@ function setupPrototypeScopeUI() {
     });
   }
 }
+
+// SECTION 27: ADVANCED CAPABILITIES & OPERATIONAL POLISH HANDLERS
+function setupAdvancedCapabilitiesUI() {
+  const quickScanBtn = document.getElementById("btn-sec27-quick-scan");
+  const circuitResetBtn = document.getElementById("btn-sec27-circuit-reset");
+  const tripCircuitBtn = document.getElementById("btn-sec27-trip-circuit");
+  const scanDiscrepBtn = document.getElementById("btn-sec27-scan-discrepancies");
+  const reconcileOneBtn = document.getElementById("btn-sec27-reconcile-one");
+  const loadConnectorsBtn = document.getElementById("btn-sec27-load-connectors");
+  const testConnectorBtn = document.getElementById("btn-sec27-test-connector");
+  const execBranchBtn = document.getElementById("btn-sec27-exec-branch");
+  const presetEmergBtn = document.getElementById("btn-sec27-preset-emerg");
+  const presetRashBtn = document.getElementById("btn-sec27-preset-rash");
+  const calcRoiBtn = document.getElementById("btn-sec27-calc-roi");
+  const refreshQueueBtn = document.getElementById("btn-sec27-refresh-queue");
+  const resolveTicketBtn = document.getElementById("btn-sec27-resolve-ticket");
+  const triggerRemindersBtn = document.getElementById("btn-sec27-trigger-reminders");
+  const streamVoiceBtn = document.getElementById("btn-sec27-stream-voice");
+  const bargeInBtn = document.getElementById("btn-sec27-barge-in");
+
+  // Output containers
+  const connectorList = document.getElementById("sec27-connector-list");
+  const connectorOutput = document.getElementById("sec27-connector-output");
+  const reconciliationOutput = document.getElementById("sec27-reconciliation-output");
+  const circuitBadge = document.getElementById("sec27-circuit-badge");
+  const branchingOutput = document.getElementById("sec27-branching-output");
+  const roiOutput = document.getElementById("sec27-roi-output");
+  const triageQueue = document.getElementById("sec27-triage-queue");
+  const triageOutput = document.getElementById("sec27-triage-output");
+  const remindersOutput = document.getElementById("sec27-reminders-output");
+  const streamLog = document.getElementById("sec27-stream-log");
+
+  // Golden signals elements
+  const goldenLat = document.getElementById("metric-golden-latency");
+  const goldenTraf = document.getElementById("metric-golden-traffic");
+  const goldenErr = document.getElementById("metric-golden-errors");
+  const goldenSat = document.getElementById("metric-golden-saturation");
+
+  // Load telemetry metrics
+  async function refreshTelemetry() {
+    try {
+      const res = await fetch("/api/v1/should-have/monitoring/golden-signals");
+      if (res.ok) {
+        const data = await res.json();
+        if (goldenLat) goldenLat.textContent = `${data.latency_ms.p50} ms`;
+        if (goldenTraf) goldenTraf.textContent = `${data.traffic.total_requests} reqs`;
+        if (goldenErr) goldenErr.textContent = `${data.errors.error_rate_pct}%`;
+        if (goldenSat) goldenSat.textContent = `${data.saturation.circuit_breaker_state}`;
+      }
+    } catch (e) {
+      console.error("Telemetry fetch error:", e);
+    }
+  }
+
+  // Load connectors catalog
+  async function refreshConnectors() {
+    try {
+      const res = await fetch("/api/v1/should-have/connectors");
+      if (res.ok) {
+        const data = await res.json();
+        if (connectorList) {
+          connectorList.innerHTML = data.connectors.map(c => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:0.6rem 0.8rem; border-radius:6px; border:1px solid #e2e8f0;">
+              <div>
+                <strong>${c.name}</strong> <span style="font-size:0.75rem; color:#64748b;">(${c.type})</span>
+                <div style="font-size:0.75rem; color:#475569;">Protocol: ${c.protocol} | Version: ${c.version}</div>
+              </div>
+              <span class="badge badge-${c.status === 'ACTIVE' ? 'success' : 'warning'}">${c.status}</span>
+            </div>
+          `).join("");
+        }
+      }
+    } catch (e) {
+      console.error("Connectors fetch error:", e);
+    }
+  }
+
+  // Load circuit breaker status
+  async function refreshCircuitBreaker() {
+    try {
+      const res = await fetch("/api/v1/should-have/circuit-breaker");
+      if (res.ok) {
+        const data = await res.json();
+        if (circuitBadge) {
+          circuitBadge.textContent = `STATE: ${data.state}`;
+          circuitBadge.className = data.state === "CLOSED" ? "badge badge-success" : (data.state === "OPEN" ? "badge badge-danger" : "badge badge-warning");
+        }
+      }
+    } catch (e) {
+      console.error("Circuit breaker fetch error:", e);
+    }
+  }
+
+  // Load triage queue
+  async function refreshTriageQueue() {
+    try {
+      const res = await fetch("/api/v1/should-have/escalations/queue");
+      if (res.ok) {
+        const data = await res.json();
+        if (triageQueue) {
+          if (data.active_tickets && data.active_tickets.length > 0) {
+            triageQueue.innerHTML = data.active_tickets.map(t => `
+              <div style="background:#fff; border:1px solid #cbd5e1; border-radius:4px; padding:0.5rem 0.7rem; margin-bottom:0.4rem; font-size:0.8rem;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+                  <strong>${t.ticket_id}</strong>
+                  <span class="badge badge-${t.priority === 'P0_CRITICAL' ? 'danger' : 'warning'}">${t.priority}</span>
+                </div>
+                <div><strong>Reason:</strong> ${t.reason}</div>
+                <div style="color:#64748b; font-size:0.75rem;">Status: ${t.status} | Created: ${new Date(t.created_at).toLocaleTimeString()}</div>
+              </div>
+            `).join("");
+          } else {
+            triageQueue.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem; font-style:italic;">No escalated tickets currently pending resolution.</div>';
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Triage queue fetch error:", e);
+    }
+  }
+
+  // Bind Quick Scan
+  if (quickScanBtn) {
+    quickScanBtn.addEventListener("click", async () => {
+      await refreshTelemetry();
+      await refreshConnectors();
+      await refreshCircuitBreaker();
+      await refreshTriageQueue();
+    });
+  }
+
+  // Initial load
+  refreshTelemetry();
+  refreshConnectors();
+  refreshCircuitBreaker();
+  refreshTriageQueue();
+
+  // Test Connector
+  if (testConnectorBtn) {
+    testConnectorBtn.addEventListener("click", async () => {
+      const connectorType = document.getElementById("sec27-select-connector").value;
+      try {
+        const res = await fetch("/api/v1/should-have/connectors/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ connector_type: connectorType })
+        });
+        const data = await res.json();
+        connectorOutput.style.display = "block";
+        connectorOutput.className = data.status === "CONNECTED" ? "status-box status-success" : "status-box status-error";
+        connectorOutput.innerHTML = `
+          <strong>Connection Probe Result:</strong> ${data.status}<br/>
+          <strong>Connector:</strong> ${data.connector_type}<br/>
+          <strong>Patient Resolution Verified:</strong> ${data.patient_resolution_tested ? 'YES' : 'NO'}<br/>
+          <strong>Roundtrip Latency:</strong> ${data.roundtrip_latency_ms} ms
+        `;
+      } catch (e) {
+        connectorOutput.style.display = "block";
+        connectorOutput.className = "status-box status-error";
+        connectorOutput.textContent = "Error testing connector: " + e.message;
+      }
+    });
+  }
+
+  // Load connectors button
+  if (loadConnectorsBtn) {
+    loadConnectorsBtn.addEventListener("click", refreshConnectors);
+  }
+
+  // Scan Discrepancies
+  if (scanDiscrepBtn) {
+    scanDiscrepBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/reconciliation/discrepancies");
+        const data = await res.json();
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-info";
+        reconciliationOutput.innerHTML = `
+          <strong>EHR Discrepancy Audit Completed:</strong><br/>
+          Discrepancies Detected: <strong>${data.count}</strong><br/>
+          Sync Status: <strong>${data.sync_status}</strong><br/>
+          Records Inspected: <code>${JSON.stringify(data.discrepancies.slice(0, 3))}</code>
+        `;
+      } catch (e) {
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-error";
+        reconciliationOutput.textContent = "Error scanning discrepancies: " + e.message;
+      }
+    });
+  }
+
+  // 1-Click Reconcile
+  if (reconcileOneBtn) {
+    reconcileOneBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/reconciliation/reconcile-one", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: "APP-SEC27-REC-01", target_status: "CONFIRMED" })
+        });
+        const data = await res.json();
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-success";
+        reconciliationOutput.innerHTML = `
+          <strong>1-Click Reconciliation Executed:</strong><br/>
+          Appointment ID: <code>${data.appointment_id}</code><br/>
+          Action Taken: <strong>${data.action_taken}</strong><br/>
+          Reconciliation Hash: <code>${data.reconciliation_hash}</code>
+        `;
+      } catch (e) {
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-error";
+        reconciliationOutput.textContent = "Error during reconciliation: " + e.message;
+      }
+    });
+  }
+
+  // Trip Circuit Simulator
+  if (tripCircuitBtn) {
+    tripCircuitBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/circuit-breaker/trip-test", { method: "POST" });
+        const data = await res.json();
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-error";
+        reconciliationOutput.innerHTML = `
+          <strong>Circuit Breaker Tripped!</strong><br/>
+          State: <strong>${data.circuit_state}</strong><br/>
+          Failure Threshold: ${data.consecutive_failures} failures recorded.<br/>
+          All subsequent EHR writes will degrade gracefully into asynchronous dead-letter queues.
+        `;
+        refreshCircuitBreaker();
+        refreshTelemetry();
+      } catch (e) {
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-error";
+        reconciliationOutput.textContent = "Error tripping circuit: " + e.message;
+      }
+    });
+  }
+
+  // Reset Circuit Breaker
+  if (circuitResetBtn) {
+    circuitResetBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/circuit-breaker/reset", { method: "POST" });
+        const data = await res.json();
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-success";
+        reconciliationOutput.innerHTML = `<strong>Circuit Breaker Reset:</strong> State is now <strong>${data.status.state}</strong>. Normal EHR synchronization restored.`;
+        refreshCircuitBreaker();
+        refreshTelemetry();
+      } catch (e) {
+        reconciliationOutput.style.display = "block";
+        reconciliationOutput.className = "status-box status-error";
+        reconciliationOutput.textContent = "Error resetting circuit breaker: " + e.message;
+      }
+    });
+  }
+
+  // Execute Workflow Branch
+  if (execBranchBtn) {
+    execBranchBtn.addEventListener("click", async () => {
+      const phone = document.getElementById("sec27-branch-phone").value;
+      const utterance = document.getElementById("sec27-branch-utterance").value;
+      try {
+        const res = await fetch("/api/v1/should-have/workflows/execute-branch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patient_phone: phone, user_utterance: utterance })
+        });
+        const data = await res.json();
+        branchingOutput.style.display = "block";
+        branchingOutput.className = data.branch_taken.includes("EMERGENCY") ? "status-box status-error" : "status-box status-success";
+        branchingOutput.innerHTML = `
+          <strong>Selected Workflow Branch:</strong> <code>${data.branch_taken}</code><br/>
+          <strong>Status:</strong> ${data.status}<br/>
+          <strong>Advisory / Message:</strong> ${data.advisory || data.message}<br/>
+          <strong>Inferred Specialty:</strong> ${data.inferred_specialty || "N/A"}<br/>
+          <strong>Step Pipeline Execution:</strong>
+          <pre style="background:#fff; padding:0.5rem; margin-top:0.4rem; border-radius:4px; font-size:0.8rem;">${JSON.stringify(data.execution_steps, null, 2)}</pre>
+        `;
+        refreshTriageQueue();
+      } catch (e) {
+        branchingOutput.style.display = "block";
+        branchingOutput.className = "status-box status-error";
+        branchingOutput.textContent = "Error executing workflow branch: " + e.message;
+      }
+    });
+  }
+
+  // Presets
+  if (presetEmergBtn) {
+    presetEmergBtn.addEventListener("click", () => {
+      document.getElementById("sec27-branch-utterance").value = "I have severe chest pain and cannot breathe";
+    });
+  }
+  if (presetRashBtn) {
+    presetRashBtn.addEventListener("click", () => {
+      document.getElementById("sec27-branch-utterance").value = "I have eczema and an itchy rash on my face";
+    });
+  }
+
+  // Cost Estimator
+  if (calcRoiBtn) {
+    calcRoiBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/cost-estimate");
+        const data = await res.json();
+        roiOutput.style.display = "block";
+        roiOutput.className = "status-box status-info";
+        roiOutput.innerHTML = `
+          <strong>Monthly Volume Projections (10,000 calls):</strong><br/>
+          • Total AI Voice Cost: <strong>$${data.monthly_projections_10k_calls.voice_ai_cost_usd}</strong><br/>
+          • Human Staff Cost: <strong>$${data.monthly_projections_10k_calls.human_staff_cost_usd}</strong><br/>
+          • Monthly Net Savings: <strong>$${data.monthly_projections_10k_calls.monthly_net_savings_usd}</strong> (${data.unit_economics_per_5min_call.savings_vs_human_percent}% reduction)<br/>
+          <small>Cost Breakdown: LLM $${data.unit_economics_per_5min_call.llm_cost_usd} | STT $${data.unit_economics_per_5min_call.stt_cost_usd} | TTS $${data.unit_economics_per_5min_call.tts_cost_usd} | Telephony $${data.unit_economics_per_5min_call.telephony_cost_usd}</small>
+        `;
+      } catch (e) {
+        roiOutput.style.display = "block";
+        roiOutput.className = "status-box status-error";
+        roiOutput.textContent = "Error calculating ROI: " + e.message;
+      }
+    });
+  }
+
+  // Triage Ticket Resolution
+  if (resolveTicketBtn) {
+    resolveTicketBtn.addEventListener("click", async () => {
+      const ticketId = document.getElementById("sec27-resolve-ticket-id").value;
+      if (!ticketId) {
+        alert("Please enter a ticket ID to resolve");
+        return;
+      }
+      try {
+        const res = await fetch("/api/v1/should-have/escalations/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticket_id: ticketId, resolution_notes: "Supervisor reviewed and reassigned to specialist triage nurse." })
+        });
+        const data = await res.json();
+        triageOutput.style.display = "block";
+        triageOutput.className = "status-box status-success";
+        triageOutput.innerHTML = `<strong>Ticket ${ticketId} Resolved!</strong> Status: <strong>${data.status}</strong>`;
+        refreshTriageQueue();
+      } catch (e) {
+        triageOutput.style.display = "block";
+        triageOutput.className = "status-box status-error";
+        triageOutput.textContent = "Error resolving ticket: " + e.message;
+      }
+    });
+  }
+  if (refreshQueueBtn) {
+    refreshQueueBtn.addEventListener("click", refreshTriageQueue);
+  }
+
+  // Automated Reminders Batch Scan
+  if (triggerRemindersBtn) {
+    triggerRemindersBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/reminders/trigger-batch", { method: "POST" });
+        const data = await res.json();
+        remindersOutput.style.display = "block";
+        remindersOutput.className = "status-box status-success";
+        remindersOutput.innerHTML = `
+          <strong>Automated Reminders Batch Execution:</strong><br/>
+          Appointments Evaluated: <strong>${data.appointments_evaluated}</strong><br/>
+          Reminders Dispatched: <strong>${data.reminders_dispatched_count}</strong><br/>
+          Summary: <code>${JSON.stringify(data.dispatched_reminders)}</code>
+        `;
+      } catch (e) {
+        remindersOutput.style.display = "block";
+        remindersOutput.className = "status-box status-error";
+        remindersOutput.textContent = "Error triggering reminders: " + e.message;
+      }
+    });
+  }
+
+  // Streaming AI Voice SSE Simulator
+  if (streamVoiceBtn) {
+    streamVoiceBtn.addEventListener("click", async () => {
+      const text = document.getElementById("sec27-voice-input").value;
+      if (!streamLog) return;
+      streamLog.innerHTML = `<span style="color:#38bdf8;">[INIT] Connecting to SSE voice stream for utterance: "${text}"...</span><br/>`;
+
+      try {
+        const response = await fetch(`/api/v1/should-have/voice/stream?user_utterance=${encodeURIComponent(text)}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const event = JSON.parse(line.substring(6));
+                let color = "#cbd5e1";
+                if (event.event === "filler") color = "#fbbf24";
+                else if (event.event === "token") color = "#4ade80";
+                else if (event.event === "tool_call") color = "#c084fc";
+                else if (event.event === "done") color = "#38bdf8";
+
+                streamLog.innerHTML += `<span style="color:${color};">[${event.event.toUpperCase()}] ${event.token || event.text || JSON.stringify(event)}</span><br/>`;
+                streamLog.scrollTop = streamLog.scrollHeight;
+              } catch (err) {
+                // Non-JSON line
+              }
+            }
+          }
+        }
+      } catch (err) {
+        streamLog.innerHTML += `<span style="color:#f87171;">[ERROR] Stream error: ${err.message}</span><br/>`;
+      }
+    });
+  }
+
+  // Barge-In Interrupt Simulator
+  if (bargeInBtn) {
+    bargeInBtn.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/should-have/voice/barge-in", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: "SES-LIVE-ACTIVE" })
+        });
+        const data = await res.json();
+        if (streamLog) {
+          streamLog.innerHTML += `<span style="color:#ef4444; font-weight:bold;">[BARGE-IN] ${data.action} - Speech detected! Audio buffer flushed in ${data.interruption_latency_ms}ms</span><br/>`;
+          streamLog.scrollTop = streamLog.scrollHeight;
+        }
+      } catch (err) {
+        if (streamLog) {
+          streamLog.innerHTML += `<span style="color:#ef4444;">[BARGE-IN ERROR] ${err.message}</span><br/>`;
+        }
+      }
+    });
+  }
+}
+
 
 
 

@@ -5,9 +5,8 @@ Manages patient registration, profile, self-service appointment viewing, cancell
 
 STRICT DATA MINIMIZATION: Patient profile root stores non-clinical administrative data only. Clinical responses are stored separately in encrypted intake records.
 """
-
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
@@ -259,6 +258,31 @@ class PatientSelfServiceService:
         patient.communication_preference = preference_channel
         self.db.commit()
         return patient
+
+    def set_granular_notification_preferences(
+        self,
+        patient_id: str,
+        channels: Dict[str, bool],
+        preferred_time_window: Optional[str] = "ANYTIME"
+    ) -> Dict[str, Any]:
+        patient = self.db.query(PatientProfile).filter(PatientProfile.id == patient_id).first()
+        if not patient:
+            raise ValueError("Patient not found")
+
+        current_prefs = json.loads(patient.saved_preferences_json) if patient.saved_preferences_json else {}
+        current_prefs["notification_channels"] = channels
+        current_prefs["preferred_time_window"] = preferred_time_window
+        patient.saved_preferences_json = json.dumps(current_prefs)
+        patient.preferred_time_window = preferred_time_window
+        self.db.commit()
+
+        return {
+            "patient_id": patient.id,
+            "notification_channels": channels,
+            "preferred_time_window": preferred_time_window,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+
 
 
 from pydantic import BaseModel
