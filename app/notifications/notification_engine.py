@@ -141,13 +141,26 @@ class NotificationEngine:
         body = f"Doctor Status Update: Dr. {doctor_name} status is now {status}."
         return self.send_notification("HOSPITAL", hospital_id, "DOCTOR_STATUS_CHANGE", body)
 
+    def notify_hospital_workflow_failure(self, hospital_id: str, workflow_name: str, error_msg: str) -> NotificationRecord:
+        body = f"Workflow Failure Alert: Workflow '{workflow_name}' failed for hospital {hospital_id}. Error: {error_msg}"
+        return self.send_notification("HOSPITAL", hospital_id, "WORKFLOW_FAILURE", body)
+
     def notify_hospital_operational_alert(self, hospital_id: str, alert_msg: str) -> NotificationRecord:
         body = f"Operational Alert: {alert_msg}"
         return self.send_notification("HOSPITAL", hospital_id, "OPERATIONAL_ALERT", body)
 
     def notify_hospital_integration_failure(self, hospital_id: str, failure_reason: str) -> NotificationRecord:
-        body = f"Integration Failure Alert: EHR connector experienced failure: {failure_reason}"
+        body = f"Healthcare-System Integration Failure Alert: EHR connector experienced failure: {failure_reason}"
         return self.send_notification("HOSPITAL", hospital_id, "INTEGRATION_FAILURE", body)
+
+    # Aliases matching Section 14 spec terminology
+    def notify_doctor_workflow_notification(self, doctor_id: str, workflow_name: str, message: str) -> NotificationRecord:
+        body = f"Workflow Notification: Task '{workflow_name}' update: {message}"
+        return self.send_notification("DOCTOR", doctor_id, "WORKFLOW_NOTIFICATION", body)
+
+    def notify_patient_important_appointment_update(self, patient_phone: str, doctor_name: str, update_msg: str) -> NotificationRecord:
+        body = f"Important Appointment Update with {doctor_name}: {update_msg}"
+        return self.send_notification("PATIENT", patient_phone, "IMPORTANT_APPOINTMENT_UPDATE", body)
 
     # -------------------------------------------------------------------------
     # QUERY NOTIFICATIONS HISTORY

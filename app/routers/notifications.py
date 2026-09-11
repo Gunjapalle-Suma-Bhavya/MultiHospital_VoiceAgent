@@ -86,15 +86,38 @@ def get_recipient_notifications(role: str, recipient_id: str, db: Session = Depe
     }
 
 
-@router.post("/configure")
-def configure_notification_preferences(payload: NotificationPreferenceInput, db: Session = Depends(get_db)):
+@router.get("/catalog")
+def get_notification_catalog():
     """
-    Configures recipient notification preferences and delivery channels.
+    Returns the complete catalog of configurable notifications across all 3 roles (Section 14 / Section 5.30).
     """
     return {
-        "success": True,
-        "message": f"Notification preferences configured for {payload.recipient_role} '{payload.recipient_id}'.",
-        "preferred_channel": payload.preferred_channel.upper(),
-        "opt_in_sms": payload.opt_in_sms,
-        "opt_in_email": payload.opt_in_email
+        "HOSPITAL": [
+            {"type": "HOSPITAL_APPROVED", "title": "Hospital approved", "description": "Alert when hospital registration is approved and active."},
+            {"type": "HOSPITAL_REJECTED", "title": "Hospital rejected", "description": "Alert when hospital application is rejected with cause."},
+            {"type": "NEW_APPOINTMENT", "title": "New appointment", "description": "Real-time notice of new patient booking created."},
+            {"type": "CANCELLATION", "title": "Cancellation", "description": "Notice of appointment cancellation."},
+            {"type": "RESCHEDULING", "title": "Rescheduling", "description": "Notice of appointment rescheduled."},
+            {"type": "DOCTOR_STATUS_CHANGE", "title": "Doctor status change", "description": "Alert when physician availability or status changes."},
+            {"type": "WORKFLOW_FAILURE", "title": "Workflow failure", "description": "High-priority alert when clinical background workflow fails."},
+            {"type": "OPERATIONAL_ALERT", "title": "Operational alert", "description": "Platform or institutional capacity alert."},
+            {"type": "INTEGRATION_FAILURE", "title": "Healthcare-system integration failure", "description": "Alert when EHR/FHIR sync fails or requires recovery."},
+        ],
+        "DOCTOR": [
+            {"type": "NEW_APPOINTMENT", "title": "New appointment", "description": "Notice when a patient books a consultation slot."},
+            {"type": "APPOINTMENT_CANCELLED", "title": "Appointment cancelled", "description": "Notice when a booked appointment is cancelled."},
+            {"type": "APPOINTMENT_RESCHEDULED", "title": "Appointment rescheduled", "description": "Notice when an appointment is rescheduled."},
+            {"type": "QUESTIONNAIRE_COMPLETED", "title": "Questionnaire completed", "description": "Alert when patient finishes pre-visit intake form."},
+            {"type": "UPCOMING_APPOINTMENT", "title": "Upcoming appointment", "description": "Daily or pre-shift reminder of upcoming schedule."},
+            {"type": "WORKFLOW_NOTIFICATION", "title": "Workflow notification", "description": "Clinical task, reminder, or follow-up status."},
+        ],
+        "PATIENT": [
+            {"type": "APPOINTMENT_CONFIRMATION", "title": "Appointment confirmation", "description": "Immediate confirmation following 5-point verification."},
+            {"type": "APPOINTMENT_REMINDER", "title": "Appointment reminder", "description": "24h / 2h upcoming visit reminder via SMS or voice."},
+            {"type": "RESCHEDULING_CONFIRMATION", "title": "Rescheduling confirmation", "description": "Confirmation of updated date, time, and doctor."},
+            {"type": "CANCELLATION_CONFIRMATION", "title": "Cancellation confirmation", "description": "Confirmation of appointment cancellation."},
+            {"type": "QUESTIONNAIRE_REMINDER", "title": "Questionnaire reminder", "description": "Prompt to fill pre-visit intake questionnaire."},
+            {"type": "QUESTIONNAIRE_COMPLETED", "title": "Questionnaire completion", "description": "Acknowledgment of submitted intake responses."},
+            {"type": "IMPORTANT_APPOINTMENT_UPDATES", "title": "Important appointment updates", "description": "Clinic delays, room changes, or urgent preparation notices."},
+        ]
     }

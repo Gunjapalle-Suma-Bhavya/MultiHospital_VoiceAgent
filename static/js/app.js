@@ -774,6 +774,33 @@ function setupNotificationCenterForm() {
       }
     });
   }
+
+  const btnCatalog = document.getElementById("btn-get-notif-catalog");
+  if (btnCatalog) {
+    btnCatalog.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/notifications/catalog");
+        const data = await res.json();
+        notifOutput.style.display = "block";
+        notifOutput.textContent = "[Section 14: Configurable Notification Catalog]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        notifOutput.style.display = "block";
+        notifOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  // Update default event type on role change
+  const roleSelect = document.getElementById("notif-role");
+  const typeInput = document.getElementById("notif-type");
+  if (roleSelect && typeInput) {
+    roleSelect.addEventListener("change", () => {
+      const r = roleSelect.value;
+      if (r === "PATIENT") typeInput.value = "APPOINTMENT_CONFIRMATION";
+      else if (r === "DOCTOR") typeInput.value = "NEW_APPOINTMENT";
+      else if (r === "HOSPITAL") typeInput.value = "HOSPITAL_APPROVED";
+    });
+  }
 }
 
 function setupDoctorDashboardForm() {

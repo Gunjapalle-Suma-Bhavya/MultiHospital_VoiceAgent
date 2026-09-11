@@ -499,7 +499,10 @@
         </div>
 
         <div class="card" style="grid-column: span 2;">
-          <h2>Multi-Role Notification Center (5.30)</h2>
+          <h2>Multi-Role Configurable Notification Center (14. Notifications / 5.30)</h2>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+            Configurable notifications dispatched across Hospital (9 events), Doctor (6 events), and Patient (7 events).
+          </p>
           <form id="form-send-notification">
             <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
               <div class="form-group">
@@ -512,20 +515,21 @@
               </div>
               <div class="form-group">
                 <label>Recipient ID / Phone</label>
-                <input type="text" id="notif-recipient-id" placeholder="e.g. +15551234567 or DOC-001" required>
+                <input type="text" id="notif-recipient-id" placeholder="e.g. +15551234567, DOC-001, HOSP-001" required>
               </div>
               <div class="form-group">
                 <label>Notification Type</label>
-                <input type="text" id="notif-type" value="APPOINTMENT_CONFIRMATION" required>
+                <input type="text" id="notif-type" value="APPOINTMENT_CONFIRMATION" placeholder="Select or type event" required>
               </div>
             </div>
             <div class="form-group">
               <label>Message Body</label>
-              <input type="text" id="notif-body" placeholder="e.g. Your appointment with Dr. House is confirmed for Friday at 10 AM." required>
+              <input type="text" id="notif-body" placeholder="e.g. Your appointment with Dr. Sharma at City Hospital is confirmed for Thursday at 3 PM." required>
             </div>
-            <div style="display:flex; gap:1rem;">
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
               <button type="submit" class="btn">Send Notification</button>
               <button type="button" id="btn-get-notif-history" class="btn btn-secondary">Get Recipient History</button>
+              <button type="button" id="btn-get-notif-catalog" class="btn btn-secondary">View Configurable Notification Catalog (14)</button>
             </div>
           </form>
           <div id="notif-output" class="status-box" style="display:none; margin-top:1rem;"></div>
