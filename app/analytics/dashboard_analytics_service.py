@@ -178,9 +178,9 @@ class DashboardAnalyticsService:
                 ai_log_count = db.query(AIUsageRecord).count()
                 if ai_log_count > 0:
                     ai_calls = ai_log_count
-                    escalation_rate = round((esc_count / max(ai_log_count, 1)) * 100, 1)
+                    escalation_rate = min(100.0, round((esc_count / max(ai_log_count, 1)) * 100, 1))
                 elif esc_count > 0:
-                    escalation_rate = round((esc_count / max(total_appts, 1)) * 100, 1)
+                    escalation_rate = min(100.0, round((esc_count / max(total_appts, 1)) * 100, 1))
 
                 # 12. Questionnaire completion
                 q_count = db.query(PatientQuestionnaireResponse).count()

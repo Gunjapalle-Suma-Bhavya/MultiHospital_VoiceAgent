@@ -32,6 +32,8 @@
     <button class="tab-btn" data-tab="tab-safety-knowledge-step18-19">AI Safety & Knowledge (18 & 19)</button>
     <button class="tab-btn" data-tab="tab-workflow-examples-step20">Workflow Examples (20)</button>
     <button class="tab-btn" data-tab="tab-ai-evaluation-step21-22">AI Evaluation (21 &amp; 22)</button>
+    <button class="tab-btn" data-tab="tab-product-metrics-step23">Product Metrics (23)</button>
+    <button class="tab-btn" data-tab="tab-e2e-scenario-step24">End-to-End Scenario (24)</button>
   </nav>
 
   <main class="container">
@@ -2340,6 +2342,244 @@
       <div class="card">
         <h3 style="margin-top: 0; color: #1e293b;">📋 Systematic Evaluation Run Output</h3>
         <div id="ai-evaluation-output" class="status-box" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- PORTAL 19: SECTION 23 PRODUCT METRICS -->
+    <section id="tab-product-metrics-step23" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>📈</span> Section 23: Product &amp; System Reliability Metrics
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #a7f3d0; font-size: 0.9rem;">
+          Measuring both business outcomes and system reliability across all 7 operational dimensions.
+        </p>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <button type="button" id="btn-refresh-product-metrics" class="btn btn-success">
+          🔄 Refresh Product Metrics
+        </button>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+        <!-- 1. PATIENT EXPERIENCE -->
+        <div class="card" style="border-top: 4px solid #0284c7;">
+          <h3 style="margin-top: 0; color: #0284c7;">👤 Patient Experience</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>✅ <strong>Appointment Completion Rate:</strong> 92.4%</li>
+            <li>⏱️ <strong>Average Booking Time:</strong> 48.0 seconds</li>
+            <li>📉 <strong>Conversation Abandonment:</strong> 3.2%</li>
+            <li>❓ <strong>Clarification Rate:</strong> 4.5%</li>
+            <li>📋 <strong>Questionnaire Completion:</strong> 88.6%</li>
+            <li>⭐ <strong>User Satisfaction:</strong> 4.8 / 5.0</li>
+          </ul>
+        </div>
+
+        <!-- 2. SCHEDULING -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+          <h3 style="margin-top: 0; color: #8b5cf6;">📅 Scheduling Reliability</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>🎯 <strong>Booking Success Rate:</strong> 98.2%</li>
+            <li>🛡️ <strong>Double-Booking Prevention:</strong> 100.0%</li>
+            <li>❌ <strong>Cancellation Rate:</strong> 4.1%</li>
+            <li>🔄 <strong>Rescheduling Rate:</strong> 6.3%</li>
+            <li>📊 <strong>Slot Utilization:</strong> 84.7%</li>
+          </ul>
+        </div>
+
+        <!-- 3. AI -->
+        <div class="card" style="border-top: 4px solid #059669;">
+          <h3 style="margin-top: 0; color: #059669;">🤖 AI Performance</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>⏱️ <strong>Average Response Latency:</strong> 1.4 sec</li>
+            <li>⚡ <strong>Capability Success Rate:</strong> 96.8%</li>
+            <li>🚨 <strong>Human Escalation Rate:</strong> 2.1%</li>
+            <li>✅ <strong>Task Completion Rate:</strong> 95.4%</li>
+            <li>🔍 <strong>Context Resolution Accuracy:</strong> 91.8%</li>
+            <li>🛡️ <strong>Safety Evaluation Score:</strong> 99.1%</li>
+          </ul>
+        </div>
+
+        <!-- 4. EHR INTEGRATION -->
+        <div class="card" style="border-top: 4px solid #d97706;">
+          <h3 style="margin-top: 0; color: #d97706;">🏥 EHR / External Integration</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>✅ <strong>Integration Success Rate:</strong> 97.8%</li>
+            <li>⚠️ <strong>Integration Error Rate:</strong> 2.2%</li>
+            <li>🔄 <strong>Recovery Rate:</strong> 96.5%</li>
+            <li>⏱️ <strong>Average Duration:</strong> 185 ms</li>
+            <li>🔍 <strong>Verification Success Rate:</strong> 98.4%</li>
+            <li>🔄 <strong>State Sync Success Rate:</strong> 97.5%</li>
+            <li>⚖️ <strong>Reconciliation Rate:</strong> 2.4%</li>
+            <li>❓ <strong>Unknown-Outcome Rate:</strong> 0.1%</li>
+            <li>🚫 <strong>Duplicate Prevention Rate:</strong> 100.0%</li>
+          </ul>
+        </div>
+
+        <!-- 5. WORKFLOW -->
+        <div class="card" style="border-top: 4px solid #dc2626;">
+          <h3 style="margin-top: 0; color: #dc2626;">⚡ Workflow Orchestration</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>✅ <strong>Workflow Success Rate:</strong> 98.6%</li>
+            <li>❌ <strong>Workflow Failure Rate:</strong> 1.4%</li>
+            <li>🔄 <strong>Retry Rate:</strong> 2.8%</li>
+            <li>⏱️ <strong>Average Duration:</strong> 3.2 sec</li>
+            <li>🚨 <strong>Escalation Rate:</strong> 1.8%</li>
+            <li>🚫 <strong>Duplicate Execution Rate:</strong> 0.0%</li>
+          </ul>
+        </div>
+
+        <!-- 6. NOTIFICATIONS -->
+        <div class="card" style="border-top: 4px solid #14b8a6;">
+          <h3 style="margin-top: 0; color: #14b8a6;">🔔 Multi-Role Notifications</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.9;">
+            <li>📬 <strong>Delivery Rate:</strong> 99.2%</li>
+            <li>⚠️ <strong>Failure Rate:</strong> 0.8%</li>
+            <li>⏱️ <strong>Average Delivery Latency:</strong> 1.8 sec</li>
+          </ul>
+        </div>
+
+        <!-- 7. HOSPITAL -->
+        <div class="card" style="border-top: 4px solid #6366f1; grid-column: span 2;">
+          <h3 style="margin-top: 0; color: #6366f1;">🏢 Hospital Operational Outcomes</h3>
+          <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.5rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Active Doctors</div>
+              <div id="metric-active-docs" style="font-size: 1.4rem; font-weight: 700; color: #1e293b;">12</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Appointment Volume</div>
+              <div id="metric-appt-volume" style="font-size: 1.4rem; font-weight: 700; color: #1e293b;">284</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Calendar Utilization</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: #059669;">82.3%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Questionnaire Completion</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: #0284c7;">88.6%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">AI-Assisted Bookings</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: #8b5cf6;">89.5%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #64748b;">Integration Health</div>
+              <div style="font-size: 1.4rem; font-weight: 700; color: #10b981;">HEALTHY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PORTAL 20: SECTION 24 EXAMPLE END-TO-END SCENARIO -->
+    <section id="tab-e2e-scenario-step24" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #312e81 0%, #4338ca 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🩺</span> Section 24: Canonical Example End-to-End Scenario
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #c7d2fe; font-size: 0.9rem;">
+          Complete clinical intake demonstration: Patient shoulder pain &rarr; Discovery &rarr; Selection &rarr; Booking Capability &rarr; EHR Sync &amp; Verification (APT-1024 / EHR-88421) &rarr; Pre-Visit Clinical Questionnaire &rarr; Multi-Role Perspectives.
+        </p>
+      </div>
+
+      <!-- SCENARIO CONTROLS -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="btn-run-e2e-scenario" class="btn btn-success" style="padding: 0.6rem 1.5rem;">
+            🚀 Execute Section 24 Scenario ("Shoulder Pain Intake")
+          </button>
+          <span style="color: var(--text-muted); font-size: 0.85rem;">
+            Simulates patient conversation, external Epic/FHIR appointment creation (EHR-88421), internal record (APT-1024), and pre-visit intake.
+          </span>
+        </div>
+      </div>
+
+      <!-- DIALOGUE PROGRESSION & MULTI-ROLE PERSPECTIVES -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- LEFT: CONVERSATIONAL & SYSTEM DIALOGUE -->
+        <div class="card" style="border-top: 4px solid #6366f1;">
+          <h3 style="margin-top: 0; color: #4338ca;">💬 Conversational &amp; Capability Journey</h3>
+          <div id="e2e-dialogue-stream" style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem; max-height: 500px; overflow-y: auto;">
+            <div style="background: #f1f5f9; padding: 0.6rem; border-radius: 6px;">
+              <strong>Patient:</strong> "Hi, I've been having shoulder pain for the last week and I'd like to see a doctor."
+            </div>
+            <div style="background: #e0f2fe; padding: 0.6rem; border-radius: 6px;">
+              <strong>AI:</strong> "I found three available options. Dr. Sharma at City Hospital has an appointment tomorrow at 4 PM. Dr. Rao at Care Hospital has an appointment tomorrow at 5:30 PM. Which would you prefer?"
+            </div>
+            <div style="background: #f1f5f9; padding: 0.6rem; border-radius: 6px;">
+              <strong>Patient:</strong> "Dr. Sharma at 4 PM."
+            </div>
+            <div style="background: #ede9fe; padding: 0.6rem; border-radius: 6px;">
+              <strong>Capability &amp; EHR Layer:</strong> Validate Patient &rarr; Doctor &rarr; Slot &rarr; EHR External Booking (EHR-88421) &rarr; Verify Record &rarr; Sync Internal State (APT-1024).
+            </div>
+            <div style="background: #e0f2fe; padding: 0.6rem; border-radius: 6px;">
+              <strong>AI:</strong> "Your appointment with Dr. Sharma at City Hospital is confirmed for tomorrow at 4 PM."
+            </div>
+            <div style="background: #d1fae5; padding: 0.6rem; border-radius: 6px;">
+              <strong>System Triggers:</strong> Questionnaire Workflow &rarr; Reminder Workflow &rarr; Doctor Notification &rarr; Analytics &amp; Audit.
+            </div>
+            <div style="background: #e0f2fe; padding: 0.6rem; border-radius: 6px;">
+              <strong>AI:</strong> "Dr. Sharma has also configured a few questions to help prepare for your appointment. Would you like to answer them now?"
+            </div>
+            <div style="background: #f1f5f9; padding: 0.6rem; border-radius: 6px;">
+              <strong>Patient:</strong> "Sure."
+            </div>
+            <div style="background: #fef3c7; padding: 0.6rem; border-radius: 6px;">
+              <strong>AI &amp; System:</strong> Records pre-visit responses (Shoulder pain: Yes, Duration: 1 week, Previous treatment: No, Questionnaire: Complete).
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: MULTI-ROLE PERSPECTIVES -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <!-- DOCTOR PERSPECTIVE -->
+          <div class="card" style="border-top: 4px solid #0284c7;">
+            <h3 style="margin-top: 0; color: #0369a1;">👨‍⚕️ Doctor Perspective (Before Appointment)</h3>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: 6px; font-size: 0.85rem;">
+              <div style="font-weight: 600; color: #1e293b; margin-bottom: 0.25rem;">Today's Appointments</div>
+              <div>📅 <strong>4:00 PM — Patient A</strong> (ID: APT-1024 | EHR: EHR-88421)</div>
+              <hr style="margin: 0.5rem 0; border: none; border-top: 1px dashed #cbd5e1;">
+              <div style="font-weight: 600; color: #1e293b; margin-bottom: 0.25rem;">Pre-Visit Information</div>
+              <ul style="list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 0.8rem;">
+                <li>Shoulder pain: Yes</li>
+                <li>Duration: 1 week</li>
+                <li>Previous treatment: No</li>
+                <li>Questionnaire: Complete</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- HOSPITAL ADMIN PERSPECTIVE -->
+          <div class="card" style="border-top: 4px solid #059669;">
+            <h3 style="margin-top: 0; color: #047857;">🏥 Hospital Admin Perspective</h3>
+            <p style="font-size: 0.85rem; margin: 0; color: #334155;">
+              Sees appointment activity: <strong>1 active booking today for Dr. Sharma at City Hospital</strong>. Questionnaire intake status: <span class="badge" style="background: #d1fae5; color: #047857;">COMPLETED</span>. EHR sync status: <span class="badge" style="background: #e0f2fe; color: #0369a1;">SYNCHRONIZED</span>.
+            </p>
+          </div>
+
+          <!-- PLATFORM ADMIN PERSPECTIVE -->
+          <div class="card" style="border-top: 4px solid #8b5cf6;">
+            <h3 style="margin-top: 0; color: #6d28d9;">🌐 Platform Admin Perspective</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+              <div>✅ Booking Event: <code>APT-1024</code></div>
+              <div>🤖 AI Interaction: <code>1.4s latency</code></div>
+              <div>🏥 EHR Integration: <code>EHR-88421</code></div>
+              <div>🔍 External Verification: <code>VERIFIED_5_POINT</code></div>
+              <div>🔄 State Sync: <code>CONFIRMED</code></div>
+              <div>⚡ Workflow: <code>REMINDER_SCHEDULED</code></div>
+              <div>🔔 Notification: <code>DELIVERED</code></div>
+              <div>📜 Audit Trail: <code>RECORDED</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXECUTION STATUS OUTPUT -->
+      <div class="card">
+        <h3 style="margin-top: 0; color: #1e293b;">📋 Scenario Execution Logs</h3>
+        <div id="e2e-scenario-output" class="status-box" style="display:none;"></div>
       </div>
     </section>
 

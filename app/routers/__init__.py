@@ -33,6 +33,7 @@ from app.routers.reliability import router as reliability_router
 from app.routers.security_concurrency import router as security_concurrency_router
 from app.routers.safety_knowledge import router as safety_knowledge_router
 from app.routers.workflow_examples import router as workflow_examples_router
+from app.routers.product_metrics_and_scenario import router as product_metrics_and_scenario_router
 
 __all__ = [
     "onboarding_router",
@@ -67,6 +68,7 @@ __all__ = [
     "security_concurrency_router",
     "safety_knowledge_router",
     "workflow_examples_router",
+    "product_metrics_and_scenario_router",
 ]
 
 

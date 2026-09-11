@@ -31,6 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSafetyKnowledgeUI();
   setupWorkflowExamplesUI();
   setupAIEvaluationFrameworkUI();
+  setupProductMetricsUI();
+  setupEndToEndScenarioUI();
 });
 
 
@@ -3690,6 +3692,82 @@ function setupAIEvaluationFrameworkUI() {
         } else {
           outputBox.className = "status-box status-error";
           outputBox.innerHTML = `<strong>Evaluation Failure:</strong> ${JSON.stringify(result)}`;
+        }
+      } catch (err) {
+        outputBox.className = "status-box status-error";
+        outputBox.innerHTML = `<strong>Execution Error:</strong> ${err.message}`;
+      }
+    });
+  }
+}
+
+
+// Setup Section 23 Product Metrics UI
+function setupProductMetricsUI() {
+  const btnRefresh = document.getElementById("btn-refresh-product-metrics");
+
+  async function loadMetrics() {
+    try {
+      const res = await fetch("/api/v1/metrics/product");
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.hospital) {
+        const elDocs = document.getElementById("metric-active-docs");
+        const elVol = document.getElementById("metric-appt-volume");
+        if (elDocs) elDocs.textContent = data.hospital.active_doctors;
+        if (elVol) elVol.textContent = data.hospital.appointment_volume;
+      }
+    } catch (err) {
+      console.warn("Could not load product metrics:", err);
+    }
+  }
+
+  loadMetrics();
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      loadMetrics();
+    });
+  }
+}
+
+
+// Setup Section 24 Example End-to-End Scenario UI
+function setupEndToEndScenarioUI() {
+  const btnRun = document.getElementById("btn-run-e2e-scenario");
+  const outputBox = document.getElementById("e2e-scenario-output");
+
+  if (btnRun) {
+    btnRun.addEventListener("click", async () => {
+      if (!outputBox) return;
+      outputBox.style.display = "block";
+      outputBox.className = "status-box status-loading";
+      outputBox.innerHTML = `<strong>Executing Section 24 Canonical Scenario...</strong> Simulating shoulder pain consultation, EHR booking, and pre-visit intake...`;
+
+      try {
+        const res = await fetch("/api/v1/scenario/end-to-end/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            patient_name: "Patient A",
+            patient_phone: "+1-555-SHOULDER",
+            run_questionnaire: true
+          })
+        });
+        const result = await res.json();
+
+        if (res.ok && result.status === "COMPLETED") {
+          outputBox.className = "status-box status-success";
+          outputBox.innerHTML = `
+            <strong>Canonical End-to-End Scenario Completed Successfully!</strong>
+            <p>Internal Appointment: <code>${result.internal_appointment_id}</code> | External EHR: <code>${result.external_appointment_id}</code> | Status: <strong>CONFIRMED</strong></p>
+            <div style="font-family: monospace; font-size: 0.85rem; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 0.5rem; max-height: 250px; overflow-y: auto;">
+              ${JSON.stringify(result.perspectives, null, 2).replace(/\\n/g, '<br/>').replace(/ /g, '&nbsp;')}
+            </div>
+          `;
+        } else {
+          outputBox.className = "status-box status-error";
+          outputBox.innerHTML = `<strong>Scenario Execution Failed:</strong> ${JSON.stringify(result)}`;
         }
       } catch (err) {
         outputBox.className = "status-box status-error";
