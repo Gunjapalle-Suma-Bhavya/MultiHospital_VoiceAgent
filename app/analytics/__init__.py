@@ -12,9 +12,12 @@ from app.analytics.dashboard_analytics_service import (
     AnalyticsSummaryResponse
 )
 
+from app.analytics.ai_evaluation_framework_service import AIEvaluationFrameworkService
+
 __all__ = [
     "AIUsageCostTracker",
     "AIEvaluationEngine",
+    "AIEvaluationFrameworkService",
     "DashboardAnalyticsService",
     "PlatformAnalyticsResponse",
     "HospitalAnalyticsResponse",

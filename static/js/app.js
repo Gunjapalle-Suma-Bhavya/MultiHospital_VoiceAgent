@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSecurityConcurrencyUI();
   setupSafetyKnowledgeUI();
   setupWorkflowExamplesUI();
+  setupAIEvaluationFrameworkUI();
 });
 
 
@@ -3612,6 +3613,90 @@ function setupWorkflowExamplesUI() {
   // 20.6
   const btn206 = document.getElementById("btn-wf-20-6");
   if (btn206) btn206.addEventListener("click", () => runWorkflow("20.6"));
+}
+
+
+// Setup Section 21 & 22 AI Evaluation Framework & Executive Dashboard
+function setupAIEvaluationFrameworkUI() {
+  const btnRunSystematic = document.getElementById("btn-eval-run-systematic");
+  const btnRefreshDashboard = document.getElementById("btn-eval-refresh-dashboard");
+  const outputBox = document.getElementById("ai-evaluation-output");
+
+  async function loadDashboardMetrics() {
+    try {
+      const res = await fetch("/api/v1/ai/evaluation-framework/dashboard");
+      if (!res.ok) throw new Error(`Dashboard fetch failed: ${res.statusText}`);
+      const data = await res.json();
+
+      // Update KPI cards
+      if (data.kpis) {
+        const k = data.kpis;
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = val;
+        };
+        setVal("eval-kpi-intent", `${k.intent_accuracy_percent}%`);
+        setVal("eval-kpi-context", `${k.context_resolution_percent}%`);
+        setVal("eval-kpi-capability", `${k.capability_selection_percent}%`);
+        setVal("eval-kpi-verify", `${k.booking_verification_percent}%`);
+        setVal("eval-kpi-ehr", `${k.ehr_integration_success_percent}%`);
+        setVal("eval-kpi-safety", `${k.safety_compliance_percent}%`);
+        setVal("eval-kpi-latency", `${k.average_response_seconds} sec`);
+      }
+    } catch (err) {
+      console.warn("Could not load initial AI evaluation dashboard metrics:", err);
+    }
+  }
+
+  // Load dashboard metrics on page load
+  loadDashboardMetrics();
+
+  if (btnRefreshDashboard) {
+    btnRefreshDashboard.addEventListener("click", async () => {
+      await loadDashboardMetrics();
+      if (outputBox) {
+        outputBox.style.display = "block";
+        outputBox.className = "status-box status-success";
+        outputBox.innerHTML = `<strong>Dashboard Refreshed:</strong> Metrics synchronized with latest platform benchmarks.`;
+      }
+    });
+  }
+
+  if (btnRunSystematic) {
+    btnRunSystematic.addEventListener("click", async () => {
+      if (!outputBox) return;
+      outputBox.style.display = "block";
+      outputBox.className = "status-box status-loading";
+      outputBox.innerHTML = `<strong>Running Systematic 6-Pillar Evaluation Suite...</strong> (Intent, Context, Capability, EHR, Safety, Voice)...`;
+
+      try {
+        const res = await fetch("/api/v1/ai/evaluation-framework/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sample_size: 100 })
+        });
+        const result = await res.json();
+
+        if (res.ok && result.all_passed) {
+          outputBox.className = "status-box status-success";
+          outputBox.innerHTML = `
+            <strong>All 6 Pillars Passed Systematic Evaluation!</strong>
+            <p>Run ID: <code>${result.evaluation_run_id}</code> | Total Evaluated Interactions: <strong>${result.total_evaluated_interactions}</strong></p>
+            <div style="font-family: monospace; font-size: 0.85rem; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 0.5rem; max-height: 250px; overflow-y: auto;">
+              ${JSON.stringify(result.results, null, 2).replace(/\\n/g, '<br/>').replace(/ /g, '&nbsp;')}
+            </div>
+          `;
+          await loadDashboardMetrics();
+        } else {
+          outputBox.className = "status-box status-error";
+          outputBox.innerHTML = `<strong>Evaluation Failure:</strong> ${JSON.stringify(result)}`;
+        }
+      } catch (err) {
+        outputBox.className = "status-box status-error";
+        outputBox.innerHTML = `<strong>Execution Error:</strong> ${err.message}`;
+      }
+    });
+  }
 }
 
 

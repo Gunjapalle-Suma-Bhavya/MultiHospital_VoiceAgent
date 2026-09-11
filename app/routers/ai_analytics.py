@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.config import get_db
-from app.analytics import AIUsageCostTracker, AIEvaluationEngine
+from app.analytics import AIUsageCostTracker, AIEvaluationEngine, AIEvaluationFrameworkService
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI Usage & Evaluation"])
 
@@ -129,3 +129,48 @@ def get_evaluation_results(evaluation_id: Optional[str] = Query(None), db: Sessi
     Returns measurable and reviewable internal AI evaluation history and metrics.
     """
     return AIEvaluationEngine.get_evaluation_history(db, evaluation_id=evaluation_id)
+
+
+# Endpoints (Section 21: AI Evaluation Framework & Section 22: AI Evaluation Dashboard)
+
+class RunSystematicEvaluationRequest(BaseModel):
+    hospital_id: Optional[str] = Field(None, json_schema_extra={"example": "HOSP-001"})
+    sample_size: int = Field(100, ge=10, le=1000, json_schema_extra={"example": 100})
+
+
+@router.post("/evaluation-framework/run", summary="Run Systematic AI Evaluation Framework (Section 21)")
+def run_systematic_evaluation(req: RunSystematicEvaluationRequest, db: Session = Depends(get_db)):
+    """
+    Section 21: Systematic Multi-Pillar AI Evaluation Framework
+    Runs benchmark evaluations across:
+    1. Intent Evaluation (Correct, Incorrect, Missing, Ambiguous)
+    2. Context Evaluation (Retrieval, Incorrect, Missing, Leakage)
+    3. Capability Evaluation (Correct, Incorrect, Correct Params, Invalid Params, Execution)
+    4. EHR / Integration Evaluation (Connector, Mapping, External Ops, Verification, Sync, Recovery, Reconciliation, Duplicate Prevention)
+    5. Safety Evaluation (Refusal, Escalation, Unsupported Claims)
+    6. Voice Evaluation (Latency, Turn-taking, Interruption Handling, Recognition Quality)
+    """
+    return AIEvaluationFrameworkService.run_systematic_evaluation(
+        db=db,
+        hospital_id=req.hospital_id,
+        sample_size=req.sample_size
+    )
+
+
+@router.get("/evaluation-framework/dashboard", summary="Get AI Evaluation Dashboard Metrics (Section 22)")
+def get_ai_evaluation_dashboard(
+    hospital_id: Optional[str] = Query(None, description="Optional hospital filter"),
+    db: Session = Depends(get_db)
+):
+    """
+    Section 22: AI Evaluation Dashboard
+    Returns executive metrics:
+    - Total evaluated interactions
+    - Passed / Failed evaluations
+    - Overall Accuracy & Capability Success Rate
+    - Canonical benchmarks (Intent Accuracy 94.2%, Context Resolution 91.8%, Capability Selection 96.1%,
+      Booking Verification 98.4%, EHR Integration Success 97.8%, Safety Compliance 99.1%, Average Response 1.4 sec)
+    - Pillar breakdowns
+    - Common failure categories with counts and resolutions
+    """
+    return AIEvaluationFrameworkService.get_dashboard_metrics(db=db, hospital_id=hospital_id)

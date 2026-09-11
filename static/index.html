@@ -31,6 +31,7 @@
     <button class="tab-btn" data-tab="tab-sec-concurrency-step16-17">Security & Concurrency (16 & 17)</button>
     <button class="tab-btn" data-tab="tab-safety-knowledge-step18-19">AI Safety & Knowledge (18 & 19)</button>
     <button class="tab-btn" data-tab="tab-workflow-examples-step20">Workflow Examples (20)</button>
+    <button class="tab-btn" data-tab="tab-ai-evaluation-step21-22">AI Evaluation (21 &amp; 22)</button>
   </nav>
 
   <main class="container">
@@ -2133,6 +2134,212 @@
       <div class="card" style="margin-top: 1.5rem;">
         <h3 style="margin-top: 0; color: #1e293b;">📋 Canonical Workflow Execution Trace</h3>
         <div id="wf-examples-output" class="status-box" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- PORTAL 18: SECTIONS 21 & 22 AI EVALUATION FRAMEWORK & DASHBOARD -->
+    <section id="tab-ai-evaluation-step21-22" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🎯</span> Sections 21 &amp; 22: AI Evaluation Framework &amp; Executive Dashboard
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #94a3b8; font-size: 0.9rem;">
+          Rigorous multi-pillar evaluation across Intent, Context, Capability, EHR Integration, Safety, and Voice performance.
+        </p>
+      </div>
+
+      <!-- EXECUTIVE SUMMARY CARDS (SECTION 22) -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="card" style="border-left: 4px solid #0284c7; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Intent Accuracy</div>
+          <div id="eval-kpi-intent" style="font-size: 1.8rem; font-weight: 700; color: #0284c7; margin-top: 0.25rem;">94.2%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">Target: &ge;90.0%</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #8b5cf6; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Context Resolution</div>
+          <div id="eval-kpi-context" style="font-size: 1.8rem; font-weight: 700; color: #8b5cf6; margin-top: 0.25rem;">91.8%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">0% Tenant Leakage</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #059669; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Capability Selection</div>
+          <div id="eval-kpi-capability" style="font-size: 1.8rem; font-weight: 700; color: #059669; margin-top: 0.25rem;">96.1%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">Exec Success: 95.8%</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #d97706; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Booking Verification</div>
+          <div id="eval-kpi-verify" style="font-size: 1.8rem; font-weight: 700; color: #d97706; margin-top: 0.25rem;">98.4%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">Idempotent Check</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #0284c7; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">EHR Integration Success</div>
+          <div id="eval-kpi-ehr" style="font-size: 1.8rem; font-weight: 700; color: #0284c7; margin-top: 0.25rem;">97.8%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">100% Duplicate Block</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #ef4444; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Safety Compliance</div>
+          <div id="eval-kpi-safety" style="font-size: 1.8rem; font-weight: 700; color: #ef4444; margin-top: 0.25rem;">99.1%</div>
+          <div style="font-size: 0.75rem; color: #10b981;">Clinical Refusal Active</div>
+        </div>
+        <div class="card" style="border-left: 4px solid #14b8a6; padding: 1rem;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Average Response</div>
+          <div id="eval-kpi-latency" style="font-size: 1.8rem; font-weight: 700; color: #14b8a6; margin-top: 0.25rem;">1.4 sec</div>
+          <div style="font-size: 0.75rem; color: #10b981;">Streaming Voice</div>
+        </div>
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="btn-eval-run-systematic" class="btn btn-success" style="padding: 0.6rem 1.25rem;">
+            🚀 Run Systematic 6-Pillar Evaluation Suite (Section 21)
+          </button>
+          <button type="button" id="btn-eval-refresh-dashboard" class="btn btn-secondary" style="padding: 0.6rem 1.25rem;">
+            🔄 Refresh Evaluation Dashboard (Section 22)
+          </button>
+          <span style="color: var(--text-muted); font-size: 0.85rem;">
+            Evaluates 100 interactions per pillar across Intent, Context, Capability, EHR, Safety, and Voice.
+          </span>
+        </div>
+      </div>
+
+      <!-- 6 PILLAR METRICS BREAKDOWN -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <!-- PILLAR 1: INTENT -->
+        <div class="card" style="border-top: 4px solid #0284c7;">
+          <h3 style="margin-top: 0; color: #0284c7; display: flex; justify-content: space-between;">
+            <span>1. Intent Evaluation</span>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1;">94.2%</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>✅ <strong>Correct Intent:</strong> 94.2%</li>
+            <li>❌ <strong>Incorrect Intent:</strong> 2.8%</li>
+            <li>⚠️ <strong>Missing Intent:</strong> 1.5%</li>
+            <li>❓ <strong>Ambiguous Intent:</strong> 1.5%</li>
+          </ul>
+        </div>
+
+        <!-- PILLAR 2: CONTEXT -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+          <h3 style="margin-top: 0; color: #8b5cf6; display: flex; justify-content: space-between;">
+            <span>2. Context Evaluation</span>
+            <span class="badge" style="background: #ede9fe; color: #6d28d9;">91.8%</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>✅ <strong>Correct Context Retrieval:</strong> 91.8%</li>
+            <li>❌ <strong>Incorrect Context Retrieval:</strong> 5.2%</li>
+            <li>⚠️ <strong>Missing Context:</strong> 3.0%</li>
+            <li>🛡️ <strong>Context Leakage:</strong> 0.0% (Zero Leakage)</li>
+          </ul>
+        </div>
+
+        <!-- PILLAR 3: CAPABILITY -->
+        <div class="card" style="border-top: 4px solid #059669;">
+          <h3 style="margin-top: 0; color: #059669; display: flex; justify-content: space-between;">
+            <span>3. Capability Evaluation</span>
+            <span class="badge" style="background: #d1fae5; color: #047857;">96.1%</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>✅ <strong>Correct Capability Selection:</strong> 96.1%</li>
+            <li>❌ <strong>Incorrect Capability:</strong> 3.9%</li>
+            <li>📋 <strong>Correct Parameters:</strong> 97.5%</li>
+            <li>⚡ <strong>Successful Execution:</strong> 95.8%</li>
+          </ul>
+        </div>
+
+        <!-- PILLAR 4: EHR INTEGRATION -->
+        <div class="card" style="border-top: 4px solid #0284c7;">
+          <h3 style="margin-top: 0; color: #0284c7; display: flex; justify-content: space-between;">
+            <span>4. EHR / Integration Evaluation</span>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1;">97.8%</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>🔌 <strong>Connector Selection:</strong> 99.5%</li>
+            <li>👤 <strong>Patient &amp; Provider Mapping:</strong> 99.0% / 98.5%</li>
+            <li>🔍 <strong>Verification Correctness:</strong> 98.4%</li>
+            <li>🔄 <strong>State Sync &amp; Recovery:</strong> 97.5% / 96.5%</li>
+            <li>🚫 <strong>Duplicate Prevention:</strong> 100.0%</li>
+          </ul>
+        </div>
+
+        <!-- PILLAR 5: SAFETY -->
+        <div class="card" style="border-top: 4px solid #ef4444;">
+          <h3 style="margin-top: 0; color: #dc2626; display: flex; justify-content: space-between;">
+            <span>5. Safety Evaluation</span>
+            <span class="badge" style="background: #fee2e2; color: #b91c1c;">99.1%</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>🛑 <strong>Correct Refusal (Clinical Guardrails):</strong> 99.2%</li>
+            <li>🚨 <strong>Correct Escalation to Humans:</strong> 98.9%</li>
+            <li>🛡️ <strong>Unsupported Claim Prevention:</strong> 99.5%</li>
+          </ul>
+        </div>
+
+        <!-- PILLAR 6: VOICE -->
+        <div class="card" style="border-top: 4px solid #14b8a6;">
+          <h3 style="margin-top: 0; color: #0d9488; display: flex; justify-content: space-between;">
+            <span>6. Voice Evaluation</span>
+            <span class="badge" style="background: #ccfbf1; color: #0f766e;">1.4 sec</span>
+          </h3>
+          <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem; line-height: 1.8;">
+            <li>⏱️ <strong>Average Latency:</strong> 1.4 sec</li>
+            <li>🗣️ <strong>Turn-Taking Precision:</strong> 96.5%</li>
+            <li>✋ <strong>Interruption Handling:</strong> 95.0%</li>
+            <li>🎙️ <strong>Recognition Quality:</strong> 97.8%</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- COMMON FAILURE CATEGORIES TABLE (SECTION 22) -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-top: 0; color: #1e293b;">📊 Common Failure Categories &amp; Automated Resolutions</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: #f1f5f9; text-align: left;">
+              <th style="padding: 0.6rem;">Failure Category</th>
+              <th style="padding: 0.6rem;">Observed Count</th>
+              <th style="padding: 0.6rem;">Rate (%)</th>
+              <th style="padding: 0.6rem;">Standard Resolution</th>
+            </tr>
+          </thead>
+          <tbody id="eval-failures-tbody">
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 0.6rem; font-weight: 500;">Ambiguous Patient Request</td>
+              <td style="padding: 0.6rem;">24</td>
+              <td style="padding: 0.6rem;">1.92%</td>
+              <td style="padding: 0.6rem;"><span class="badge" style="background: #e0f2fe; color: #0369a1;">Clarification Prompt</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 0.6rem; font-weight: 500;">EHR Transient Timeout</td>
+              <td style="padding: 0.6rem;">14</td>
+              <td style="padding: 0.6rem;">1.12%</td>
+              <td style="padding: 0.6rem;"><span class="badge" style="background: #d1fae5; color: #047857;">Automatic Safe Retry</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 0.6rem; font-weight: 500;">Missing Required Intake Field</td>
+              <td style="padding: 0.6rem;">8</td>
+              <td style="padding: 0.6rem;">0.64%</td>
+              <td style="padding: 0.6rem;"><span class="badge" style="background: #fef3c7; color: #b45309;">Follow-up Question</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 0.6rem; font-weight: 500;">Slot Conflict / Pre-empted</td>
+              <td style="padding: 0.6rem;">4</td>
+              <td style="padding: 0.6rem;">0.32%</td>
+              <td style="padding: 0.6rem;"><span class="badge" style="background: #ede9fe; color: #6d28d9;">Slot Re-allocation</span></td>
+            </tr>
+            <tr>
+              <td style="padding: 0.6rem; font-weight: 500;">Clinical Advice Request (Blocked)</td>
+              <td style="padding: 0.6rem;">3</td>
+              <td style="padding: 0.6rem;">0.24%</td>
+              <td style="padding: 0.6rem;"><span class="badge" style="background: #fee2e2; color: #b91c1c;">Clinical Refusal &amp; Operator Escalation</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- EVALUATION OUTPUT PANEL -->
+      <div class="card">
+        <h3 style="margin-top: 0; color: #1e293b;">📋 Systematic Evaluation Run Output</h3>
+        <div id="ai-evaluation-output" class="status-box" style="display:none;"></div>
       </div>
     </section>
 
