@@ -23,6 +23,7 @@
     <button class="tab-btn" data-tab="tab-core-data-model">Core Data Model (Step 7)</button>
     <button class="tab-btn" data-tab="tab-patient-workflow">Patient Workflow (Step 8)</button>
     <button class="tab-btn" data-tab="tab-hospital-workflow">Hospital Workflow (Step 9)</button>
+    <button class="tab-btn" data-tab="tab-architecture">Platform Architecture (Step 10)</button>
   </nav>
 
   <main class="container">
@@ -1091,6 +1092,113 @@
           <h3>Hospital Operational Analytics &amp; Health (Stage 23)</h3>
           <div id="hwf-analytics-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; font-family:monospace; max-height:250px; overflow-y:auto;">
             <p style="color:var(--text-muted); font-family:var(--font-family);">Real-time hospital statistics, doctor counts, sync rate, and operational health...</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 10: PLATFORM ARCHITECTURE (STEP 10) -->
+    <section id="tab-architecture" class="tab-content">
+      <!-- HEADER CARD -->
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f8fafc; border-left: 5px solid #38bdf8;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2 style="color: #38bdf8; margin: 0 0 0.5rem 0;">10. Complete Platform Architecture</h2>
+            <p style="margin: 0; color: #cbd5e1; max-width: 900px; line-height: 1.5;">
+              Unified 9-Layer Architecture: Patient Entry (Web Voice &amp; Telephony) &rarr; Real-Time Voice Streaming &rarr; Conversational AI (Context, Capabilities, Safety) &rarr; EHR Integration &amp; 5-Point Verification &rarr; Workflow/Event Bus &rarr; Core Platform &rarr; Multi-Tier Data Layer &rarr; Observability/Audit &rarr; Operations &amp; Admin Dashboards.
+            </p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button id="btn-audit-arch-health" class="btn" style="background:#0ea5e9; color:#fff;">Audit Layer Health</button>
+            <button id="btn-refresh-topology" class="btn btn-secondary">Refresh Topology</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROLLER & SYNTHETIC DISTRIBUTED TRACE RUNNER -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Distributed Synthetic Transaction Tracer</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Execute a live distributed transaction traversing all 9 architectural layers sequentially to measure latencies, capture payload snapshots, and verify end-to-end multi-layer integrity.
+        </p>
+        <form id="form-synthetic-trace" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; align-items: flex-end;">
+          <div class="form-group">
+            <label>Patient Entry Channel</label>
+            <select id="trace-channel">
+              <option value="WEB_VOICE">Web Voice (WebRTC Stream)</option>
+              <option value="TELEPHONY">Telephony (SIP / PSTN)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>EHR Connector</label>
+            <select id="trace-connector">
+              <option value="CONNECTOR_A">Connector A (FHIR R4 Adapter)</option>
+              <option value="CONNECTOR_B">Connector B (Epic Interconnect)</option>
+              <option value="CONNECTOR_C">Connector C (Cerner Millennium)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Patient Clinical Requirement</label>
+            <input type="text" id="trace-symptom" value="Persistent knee inflammation requiring orthopedic consultation" required>
+          </div>
+          <div class="form-group">
+            <label>Preferred Hospital</label>
+            <input type="text" id="trace-hospital" value="St. Jude Memorial Hospital">
+          </div>
+          <div>
+            <button type="submit" id="btn-run-synthetic-trace" class="btn btn-primary" style="width: 100%; height: 38px;">Run Distributed Synthetic Trace</button>
+          </div>
+        </form>
+
+        <div id="trace-summary-bar" style="display:none; margin-top:1.2rem; padding:0.75rem 1rem; border-radius:6px; background:#f0fdf4; border:1px solid #bbf7d0; font-size:0.9rem; color:#166534;">
+          <strong>Trace ID:</strong> <span id="summary-trace-id" style="font-family:monospace;">-</span> |
+          <strong>Status:</strong> <span id="summary-trace-status">COMPLETED</span> |
+          <strong>Total Latency:</strong> <span id="summary-trace-latency">-</span> ms |
+          <strong>Channel:</strong> <span id="summary-trace-channel">-</span> |
+          <strong>EHR Connector:</strong> <span id="summary-trace-ehr">-</span>
+        </div>
+      </div>
+
+      <!-- MAIN GRID: TOPOLOGY DIAGRAM & WATERFALL SPAN INSPECTOR -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        
+        <!-- LEFT: 9-LAYER TOPOLOGY DIAGRAM -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="margin:0;">9-Layer Architectural Topology</h3>
+            <span class="badge" style="background:#e0f2fe; color:#0369a1;">Canonical Architecture</span>
+          </div>
+          <div id="arch-topology-viewer" style="display:flex; flex-direction:column; gap:0.75rem; max-height:650px; overflow-y:auto; padding-right:0.5rem;">
+            <div style="text-align:center; padding:2rem 1rem; color:var(--text-muted);">
+              Loading platform architecture topology...
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: DISTRIBUTED TRACE WATERFALL & PAYLOAD INSPECTOR -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="margin:0;">Distributed Trace Waterfall &amp; Spans</h3>
+            <span id="trace-spans-count-badge" class="badge" style="background:#f1f5f9; color:#475569;">0 Spans</span>
+          </div>
+          <div id="arch-waterfall-viewer" style="display:flex; flex-direction:column; gap:0.75rem; max-height:650px; overflow-y:auto; padding-right:0.5rem;">
+            <div style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+              Click <strong>"Run Distributed Synthetic Trace"</strong> to execute a transaction across all 9 layers and inspect waterfall latency and payload snapshots.
+            </div>
+          </div>
+        </div>
+
+        <!-- FULL WIDTH: 9-LAYER HEALTH & AVAILABILITY MONITOR -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3 style="margin:0;">Multi-Layer Health &amp; Subsystem Audit</h3>
+            <span id="arch-overall-health-badge" class="badge badge-success">Overall Status: HEALTHY</span>
+          </div>
+          <div id="arch-health-grid" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:1rem;">
+            <div style="text-align:center; padding:2rem 1rem; color:var(--text-muted); grid-column: span 3;">
+              Click "Audit Layer Health" to evaluate real-time health across all 9 layers.
+            </div>
           </div>
         </div>
 

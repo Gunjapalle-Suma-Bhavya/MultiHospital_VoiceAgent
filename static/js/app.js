@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupCoreDataModelForms();
   setupPatientWorkflowForms();
   setupHospitalWorkflowForms();
+  setupArchitectureUI();
 });
 
 
@@ -2206,6 +2207,242 @@ function setupHospitalWorkflowForms() {
     }
   });
 }
+
+
+// ============================================================================
+// Step 10: Complete Platform Architecture UI Controller
+// ============================================================================
+function setupArchitectureUI() {
+  const topologyViewer = document.getElementById("arch-topology-viewer");
+  const waterfallViewer = document.getElementById("arch-waterfall-viewer");
+  const healthGrid = document.getElementById("arch-health-grid");
+  const overallBadge = document.getElementById("arch-overall-health-badge");
+  const spansCountBadge = document.getElementById("trace-spans-count-badge");
+  const summaryBar = document.getElementById("trace-summary-bar");
+
+  const btnAuditHealth = document.getElementById("btn-audit-arch-health");
+  const btnRefreshTopology = document.getElementById("btn-refresh-topology");
+  const formSyntheticTrace = document.getElementById("form-synthetic-trace");
+  const btnRunTrace = document.getElementById("btn-run-synthetic-trace");
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // 1. Fetch and Render 9-Layer Topology
+  async function fetchTopology() {
+    if (!topologyViewer) return;
+    topologyViewer.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Loading 9-Layer platform architecture topology...</div>`;
+
+    try {
+      const res = await fetch("/api/v1/architecture/topology");
+      const data = await res.json();
+
+      if (!data.layers || data.layers.length === 0) {
+        topologyViewer.innerHTML = `<div style="color:var(--danger-color);">No architecture layers returned.</div>`;
+        return;
+      }
+
+      let html = "";
+      data.layers.forEach(layer => {
+        html += `
+          <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:0.85rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); border-left:4px solid #0284c7;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span style="background:#0284c7; color:#fff; font-weight:700; font-size:0.75rem; padding:0.15rem 0.45rem; border-radius:4px;">L${layer.layer_number}</span>
+                <strong style="color:#0f172a; font-size:0.95rem;">${escapeHtml(layer.name)}</strong>
+              </div>
+              <span style="font-size:0.75rem; background:#f1f5f9; color:#475569; padding:0.15rem 0.4rem; border-radius:4px;">${escapeHtml(layer.components.length)} components</span>
+            </div>
+            <p style="font-size:0.8rem; color:#64748b; margin:0 0 0.5rem 0;">${escapeHtml(layer.description)}</p>
+            
+            <div style="display:flex; flex-wrap:wrap; gap:0.35rem; margin-bottom:0.4rem;">
+              ${layer.components.map(c => `
+                <span style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:0.2rem 0.4rem; font-size:0.75rem; color:#334155;" title="${escapeHtml(c.description)}">
+                  <strong>${escapeHtml(c.display_title)}</strong>
+                  ${c.sub_category ? `<span style="color:#94a3b8; font-size:0.7rem;">(${escapeHtml(c.sub_category)})</span>` : ""}
+                </span>
+              `).join("")}
+            </div>
+
+            <div style="font-size:0.7rem; color:#94a3b8; display:flex; gap:0.8rem;">
+              <span><strong>In:</strong> ${escapeHtml((layer.inbound_protocols || []).join(", "))}</span>
+              <span><strong>Out:</strong> ${escapeHtml((layer.outbound_protocols || []).join(", "))}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      topologyViewer.innerHTML = html;
+    } catch (err) {
+      topologyViewer.innerHTML = `<div style="color:var(--danger-color); padding:1rem;">Failed to fetch topology: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // 2. Audit Layer Health Across all 9 Layers
+  async function auditHealth() {
+    if (!healthGrid) return;
+    healthGrid.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted); grid-column:span 3;">Auditing health across all 9 architectural layers...</div>`;
+
+    try {
+      const res = await fetch("/api/v1/architecture/health");
+      const data = await res.json();
+
+      if (overallBadge) {
+        overallBadge.textContent = `Overall Status: ${data.overall_status}`;
+        overallBadge.className = data.overall_status === "HEALTHY" ? "badge badge-success" : "badge badge-warning";
+      }
+
+      let gridHtml = "";
+      (data.layer_health || []).forEach(lh => {
+        const isHealthy = lh.status === "HEALTHY";
+        gridHtml += `
+          <div style="background:#ffffff; border:1px solid ${isHealthy ? '#bbf7d0' : '#fecaca'}; border-radius:6px; padding:0.85rem; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <strong style="font-size:0.85rem; color:#0f172a;">L${lh.layer_number} — ${escapeHtml(lh.name)}</strong>
+              <span class="badge ${isHealthy ? 'badge-success' : 'badge-danger'}" style="font-size:0.7rem;">${escapeHtml(lh.status)}</span>
+            </div>
+            <div style="font-size:0.8rem; color:#475569; margin-bottom:0.25rem;">
+              Components: <strong>${lh.healthy_components}/${lh.total_components} Healthy</strong>
+            </div>
+            <div style="font-size:0.75rem; color:#64748b;">
+              Avg Latency: <strong>${lh.average_latency_ms} ms</strong>
+            </div>
+          </div>
+        `;
+      });
+
+      healthGrid.innerHTML = gridHtml;
+    } catch (err) {
+      healthGrid.innerHTML = `<div style="color:var(--danger-color); padding:1rem; grid-column:span 3;">Failed to audit health: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // 3. Run Synthetic Distributed Transaction Trace
+  if (formSyntheticTrace) {
+    formSyntheticTrace.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const channel = document.getElementById("trace-channel").value;
+      const connector = document.getElementById("trace-connector").value;
+      const symptom = document.getElementById("trace-symptom").value.trim();
+      const hospital = document.getElementById("trace-hospital").value.trim();
+
+      if (btnRunTrace) {
+        btnRunTrace.disabled = true;
+        btnRunTrace.textContent = "Tracing 9 Layers...";
+      }
+
+      if (waterfallViewer) {
+        waterfallViewer.innerHTML = `<div style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+          Executing synthetic transaction across 9 layers: Ingress &rarr; Voice Stream &rarr; AI &rarr; EHR &rarr; Event Bus &rarr; Core Entities &rarr; Data &rarr; Observability &rarr; Dashboard...
+        </div>`;
+      }
+
+      try {
+        const payload = {
+          patient_channel: channel,
+          ehr_connector: connector,
+          patient_symptom: symptom,
+          preferred_hospital_name: hospital || "St. Jude Memorial Hospital",
+          simulate_guardrail_pass: true,
+          simulate_ehr_verification: true,
+        };
+
+        const res = await fetch("/api/v1/architecture/synthesize-trace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        // Update Summary Bar
+        if (summaryBar) {
+          summaryBar.style.display = "block";
+          document.getElementById("summary-trace-id").textContent = data.trace_id;
+          document.getElementById("summary-trace-status").textContent = data.execution_status;
+          document.getElementById("summary-trace-latency").textContent = data.total_duration_ms;
+          document.getElementById("summary-trace-channel").textContent = data.channel;
+          document.getElementById("summary-trace-ehr").textContent = data.ehr_connector_used;
+        }
+
+        if (spansCountBadge) {
+          spansCountBadge.textContent = `${(data.spans || []).length} Spans Complete`;
+        }
+
+        // Render Waterfall Spans
+        if (waterfallViewer && data.spans) {
+          let wfHtml = "";
+          data.spans.forEach((span, idx) => {
+            const barWidth = Math.max(12, Math.min(100, span.duration_ms * 5));
+            wfHtml += `
+              <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:0.75rem; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="background:#0284c7; color:#fff; font-size:0.7rem; font-weight:700; padding:0.1rem 0.4rem; border-radius:4px;">Span ${idx + 1}</span>
+                    <strong style="font-size:0.85rem; color:#0f172a;">L${span.layer_number} [${escapeHtml(span.layer_id)}] &mdash; ${escapeHtml(span.operation)}</strong>
+                  </div>
+                  <span class="badge badge-success" style="font-size:0.7rem;">${escapeHtml(span.status)}</span>
+                </div>
+                
+                <!-- Timing Bar -->
+                <div style="display:flex; align-items:center; gap:0.5rem; margin:0.35rem 0;">
+                  <div style="flex:1; background:#f1f5f9; height:8px; border-radius:4px; overflow:hidden;">
+                    <div style="width:${barWidth}%; background:#0284c7; height:100%; border-radius:4px;"></div>
+                  </div>
+                  <span style="font-size:0.75rem; font-weight:600; color:#334155; min-width:55px; text-align:right;">${span.duration_ms} ms</span>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:#64748b;">
+                  <span>Component: <code>${escapeHtml(span.component)}</code></span>
+                  <details style="cursor:pointer;">
+                    <summary style="color:#0284c7; font-weight:600;">View Snapshots</summary>
+                    <div style="margin-top:0.4rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:0.5rem; font-family:monospace; font-size:0.72rem; max-height:160px; overflow-y:auto;">
+                      <div><strong>Input Snapshot:</strong></div>
+                      <pre style="margin:0.2rem 0 0.4rem 0;">${escapeHtml(JSON.stringify(span.input_snapshot, null, 2))}</pre>
+                      <div><strong>Output Snapshot:</strong></div>
+                      <pre style="margin:0.2rem 0 0.4rem 0;">${escapeHtml(JSON.stringify(span.output_snapshot, null, 2))}</pre>
+                      <div><strong>Metadata:</strong></div>
+                      <pre style="margin:0.2rem 0 0 0;">${escapeHtml(JSON.stringify(span.metadata, null, 2))}</pre>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            `;
+          });
+
+          waterfallViewer.innerHTML = wfHtml;
+        }
+
+      } catch (err) {
+        if (waterfallViewer) {
+          waterfallViewer.innerHTML = `<div style="color:var(--danger-color); padding:1rem;">Error synthesizing trace: ${escapeHtml(err.message)}</div>`;
+        }
+      } finally {
+        if (btnRunTrace) {
+          btnRunTrace.disabled = false;
+          btnRunTrace.textContent = "Run Distributed Synthetic Trace";
+        }
+      }
+    });
+  }
+
+  // 4. Wire Buttons
+  if (btnAuditHealth) btnAuditHealth.addEventListener("click", auditHealth);
+  if (btnRefreshTopology) btnRefreshTopology.addEventListener("click", fetchTopology);
+
+  // Trigger initial loads
+  fetchTopology();
+  auditHealth();
+}
+
 
 
 
