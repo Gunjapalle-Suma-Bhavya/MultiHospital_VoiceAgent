@@ -1,4 +1,4 @@
-﻿"""
+"""
 Operational Monitoring Service (Step 13).
 
 Calculates real-time telemetry across the four core operational pillars:
@@ -102,11 +102,11 @@ class OperationalMonitoringService:
                 escalated_count = sum(1 for l in ai_logs if l.escalated_to_human is True)
                 esc_records_count = db.query(HumanEscalationRecord).count()
                 total_esc = max(escalated_count, esc_records_count)
-                escalation_rate = round((total_esc / max(total_logs, 1)) * 100.0, 2)
+                escalation_rate = min(round((total_esc / max(total_logs, total_esc, 1)) * 100.0, 2), 100.0)
 
                 # 5. AI error rate
                 error_count = sum(1 for l in ai_logs if (l.failure_location or not l.verification_succeeded))
-                ai_error_rate = round((error_count / max(total_logs, 1)) * 100.0, 2)
+                ai_error_rate = min(round((error_count / max(total_logs, error_count, 1)) * 100.0, 2), 100.0)
             else:
                 # Default baseline in case of pristine test database
                 active_convos = 2

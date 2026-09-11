@@ -1,871 +1,800 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NexusHealth — Autonomous Multi-Hospital Patient Access &amp; AI Voice Platform</title>
+  <title>NexusHealth — Autonomous Multi-Hospital Healthcare Operating &amp; Access Platform</title>
+  
   <!-- Tailwind CSS & Inter Font -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <!-- FontAwesome Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: { sans: ['Inter', 'sans-serif'] },
           colors: {
-            brand: { 50: '#f0fdf4', 500: '#10b981', 600: '#059669', 700: '#047857' },
-            hospital: { 500: '#0284c7', 600: '#0369a1', 700: '#075985' }
+            brand: { 50: '#ecfdf5', 500: '#10b981', 600: '#059669', 700: '#047857' },
+            hospital: { 50: '#f0f9ff', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' }
           }
         }
       }
     }
   </script>
   <style>
-    .audio-bar { animation: pulseBar 1.2s infinite ease-in-out; }
-    @keyframes pulseBar { 0%, 100% { height: 6px; } 50% { height: 28px; } }
+    /* Custom scrollbar and animations */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .pulse-glow { box-shadow: 0 0 15px rgba(16, 185, 129, 0.35); }
+    .waveform-bar { animation: barWave 1.2s infinite ease-in-out; }
+    @keyframes barWave { 0%, 100% { height: 4px; } 50% { height: 26px; } }
   </style>
 </head>
-<body class="h-full flex flex-col text-slate-900 bg-slate-50 font-sans antialiased">
+<body class="min-h-full flex flex-col font-sans bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-white">
 
   <!-- ========================================================================= -->
-  <!-- TOP NAVIGATION HEADER -->
+  <!-- 1. AUTHENTICATION / ROLE SELECTION OVERLAY SCREEN (DEFAULT VIEW) -->
   <!-- ========================================================================= -->
-  <header class="bg-slate-900 text-white shadow-md border-b border-slate-800 sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <!-- Logo & Branding -->
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-            <i class="fa-solid fa-heart-pulse text-white text-xl"></i>
-          </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <span class="font-extrabold text-lg tracking-tight text-white">Nexus<span class="text-emerald-400">Health</span></span>
-              <span class="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">Enterprise AI OS</span>
-            </div>
-            <p class="text-[11px] text-slate-400 hidden sm:block">Multi-Hospital Patient Intake, 5-Point Verified EHR Scheduling &amp; SRE Telemetry</p>
-          </div>
-        </div>
+  <div id="view-auth" class="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+    <!-- Ambient Background Glows -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        <!-- Live Platform Telemetry Pills -->
-        <div class="hidden md:flex items-center space-x-2 text-xs">
-          <div class="flex items-center space-x-1.5 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/60">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span class="w-2 h-2 rounded-full bg-emerald-500 -ml-3.5"></span>
-            <span class="text-slate-300 font-medium">FastAPI Online</span>
+    <div class="max-w-4xl w-full mx-auto space-y-8 relative z-10">
+      <!-- Branding & Title -->
+      <div class="text-center space-y-3">
+        <div class="inline-flex items-center space-x-3 bg-slate-900/80 border border-slate-800 px-4 py-1.5 rounded-full shadow-lg">
+          <div class="w-6 h-6 rounded-md bg-gradient-to-tr from-emerald-500 to-cyan-400 flex items-center justify-center text-slate-950 text-xs font-black">
+            <i class="fa-solid fa-heart-pulse"></i>
           </div>
-          <div class="flex items-center space-x-1.5 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/60">
-            <i class="fa-solid fa-shield-halved text-cyan-400 text-xs"></i>
-            <span class="text-slate-300 font-medium">5-Point EHR Verification</span>
-          </div>
-          <div class="flex items-center space-x-1.5 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/60">
-            <i class="fa-solid fa-vial-circle-check text-emerald-400 text-xs"></i>
-            <span class="text-emerald-400 font-semibold">255/255 Tests</span>
-          </div>
-          <a href="/docs" target="_blank" class="flex items-center space-x-1 bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1 rounded-md transition font-medium">
-            <i class="fa-solid fa-book-open text-xs"></i>
-            <span>Swagger API</span>
-          </a>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300">NexusHealth Operating System</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="text-xs text-emerald-400 font-semibold">255/255 Tests Passed</span>
         </div>
-      </div>
-    </div>
-
-    <!-- 5 Clean Workspaces Nav Bar -->
-    <nav class="bg-slate-800/90 border-t border-slate-700/60 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-4 overflow-x-auto py-1">
-        <button class="nav-tab active flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition text-white bg-emerald-600 shadow-sm" data-target="portal-patient">
-          <i class="fa-solid fa-microphone-lines"></i>
-          <span>1. Patient Voice &amp; Intake</span>
-        </button>
-        <button class="nav-tab flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/60" data-target="portal-doctor">
-          <i class="fa-solid fa-user-doctor"></i>
-          <span>2. Doctor Workspace</span>
-        </button>
-        <button class="nav-tab flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/60" data-target="portal-hospital">
-          <i class="fa-solid fa-hospital"></i>
-          <span>3. Hospital Network Admin</span>
-        </button>
-        <button class="nav-tab flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/60" data-target="portal-ops">
-          <i class="fa-solid fa-chart-line"></i>
-          <span>4. Operations &amp; SRE</span>
-        </button>
-        <button class="nav-tab flex items-center space-x-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/60" data-target="portal-dod">
-          <i class="fa-solid fa-trophy text-amber-400"></i>
-          <span>5. Definition of Done &amp; Audit (35 &amp; 41)</span>
-        </button>
-      </div>
-    </nav>
-  </header>
-
-  <!-- ========================================================================= -->
-  <!-- MAIN CONTENT CONTAINER -->
-  <!-- ========================================================================= -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-
-    <!-- ======================================================================= -->
-    <!-- PORTAL 1: PATIENT ACCESS, AI VOICE & 5-POINT BOOKING -->
-    <!-- ======================================================================= -->
-    <section id="portal-patient" class="portal-pane block space-y-6">
-      <!-- Hero Banner -->
-      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-slate-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div class="inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/30 mb-2">
-            <i class="fa-solid fa-circle-nodes"></i>
-            <span>Real-Time Speech &amp; Intelligent Intake</span>
-          </div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Patient Conversational Access &amp; Booking</h1>
-          <p class="text-slate-300 text-sm mt-1 max-w-2xl">
-            Speak or type symptoms naturally. The AI extracts clinical complaints, matches medical specialties across hospital networks, verifies live doctor availability, and secures appointments with 5-point EHR synchronization.
-          </p>
-        </div>
-        <div class="flex items-center space-x-3">
-          <div class="bg-slate-800/80 p-3 rounded-xl border border-slate-700 text-center min-w-[120px]">
-            <div class="text-xs text-slate-400">Phone Telephony</div>
-            <div class="text-sm font-bold text-white mt-0.5">+1-555-SHOULDER</div>
-          </div>
-        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+          Healthcare Access, Automated Intake &amp; <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-sky-400">Verified EHR Operations</span>
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+          Select your role to access role-specific workflows, live clinical state machines, and real-time backend API integration.
+        </p>
       </div>
 
-      <!-- 2-Column Core Interface -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- 4 Role Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <!-- Left: Voice & Assistant Console (5 cols) -->
-        <div class="lg:col-span-5 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
-          <div>
-            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
-              <div class="flex items-center space-x-2">
-                <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-                <h3 class="font-bold text-slate-800 text-sm">AI Voice &amp; Chat Intake</h3>
-              </div>
-              <span id="voice-latency-badge" class="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Latency: ~140ms</span>
+        <!-- Role Card 1: PATIENT -->
+        <div class="persona-card group bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between shadow-xl space-y-4" data-role="PATIENT" data-identifier="+1-555-SHOULDER" data-name="Patient A">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xl group-hover:scale-105 transition">
+              <i class="fa-solid fa-user"></i>
             </div>
-
-            <!-- Waveform Animation Display -->
-            <div class="bg-slate-900 rounded-xl p-4 my-4 flex items-center justify-between text-white">
-              <div class="flex items-center space-x-3">
-                <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                  <i class="fa-solid fa-waveform-lines text-lg" id="waveform-icon"></i>
-                </div>
-                <div>
-                  <div class="text-xs font-semibold text-slate-200" id="audio-stream-status">Voice Channel Idle</div>
-                  <div class="text-[10px] text-slate-400">Sub-180ms Barge-In Enabled</div>
-                </div>
-              </div>
-              <!-- Simulated Waveform Bars -->
-              <div class="flex items-center space-x-1 h-8" id="waveform-bars">
-                <div class="w-1 bg-emerald-400 rounded-full h-2 transition-all"></div>
-                <div class="w-1 bg-emerald-400 rounded-full h-4 transition-all"></div>
-                <div class="w-1 bg-emerald-400 rounded-full h-6 transition-all"></div>
-                <div class="w-1 bg-emerald-400 rounded-full h-3 transition-all"></div>
-                <div class="w-1 bg-emerald-400 rounded-full h-5 transition-all"></div>
-              </div>
-            </div>
-
-            <!-- Quick Scenario Presets -->
-            <div class="space-y-1.5 mb-4">
-              <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quick Clinical Prompts:</div>
-              <div class="flex flex-wrap gap-1.5">
-                <button class="preset-btn text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition font-medium" data-text="I've been experiencing acute shoulder pain for a week, can I book an orthopedic doctor?">
-                  🦴 Shoulder Pain (Orthopedics)
-                </button>
-                <button class="preset-btn text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 px-2.5 py-1 rounded-md transition font-medium border border-rose-200" data-text="I have severe acute chest tightness and shortness of breath right now!">
-                  🚨 Chest Tightness (Emergency Triage)
-                </button>
-                <button class="preset-btn text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 px-2.5 py-1 rounded-md transition font-medium" data-text="I want to schedule a routine cardiology follow-up consultation.">
-                  🫀 Cardiology Follow-Up
-                </button>
-              </div>
-            </div>
-
-            <!-- Speech Output Box -->
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs min-h-[110px] flex flex-col justify-between">
-              <div>
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Agent Response:</div>
-                <p id="agent-speech-text" class="text-slate-800 leading-relaxed font-medium">
-                  "Hello, I am your healthcare assistant. Please tell me what symptoms you are experiencing or what specialist you would like to consult."
-                </p>
-              </div>
-              <div class="flex justify-between items-center pt-2 border-t border-slate-200/60 mt-2 text-[11px]">
-                <div class="flex items-center space-x-2">
-                  <span id="intent-badge" class="bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">GREETING</span>
-                  <span id="specialty-badge" class="hidden bg-sky-100 text-sky-800 font-semibold px-2 py-0.5 rounded"></span>
-                </div>
-                <button id="btn-speak-response" class="text-slate-500 hover:text-emerald-600 transition" title="Listen to speech">
-                  <i class="fa-solid fa-volume-high"></i>
-                </button>
-              </div>
+            <div>
+              <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Patient Access</div>
+              <h3 class="text-base font-bold text-white group-hover:text-emerald-300 transition">Patient Portal</h3>
+              <p class="text-xs text-slate-400 mt-1">AI voice intake, clinical symptom triage, doctor search &amp; verified booking.</p>
             </div>
           </div>
-
-          <!-- Input Controls -->
-          <div class="space-y-2 pt-2">
-            <div class="flex space-x-2">
-              <input id="patient-utterance-input" type="text" placeholder="Type clinical complaint or question..." class="flex-1 text-xs sm:text-sm border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" value="I have had acute right shoulder pain for a week" />
-              <button id="btn-send-utterance" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-1.5">
-                <i class="fa-solid fa-paper-plane"></i>
-                <span class="hidden sm:inline">Send</span>
-              </button>
-            </div>
-            <div class="flex justify-between items-center text-xs text-slate-500">
-              <button id="btn-barge-in" class="text-rose-600 hover:text-rose-700 font-semibold flex items-center space-x-1">
-                <i class="fa-solid fa-hand"></i>
-                <span>Test Barge-In Interruption (&lt;180ms)</span>
-              </button>
-              <span class="text-[11px] text-slate-400">Caller: +1-555-SHOULDER</span>
-            </div>
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Demo: <strong>+1-555-SHOULDER</strong></span>
+            <span class="text-emerald-400 font-semibold group-hover:translate-x-1 transition">&rarr;</span>
           </div>
         </div>
 
-        <!-- Right: Doctor Discovery & 5-Point Booking (7 cols) -->
-        <div class="lg:col-span-7 bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between space-y-4">
+        <!-- Role Card 2: DOCTOR -->
+        <div class="persona-card group bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-sky-500/50 rounded-2xl p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between shadow-xl space-y-4" data-role="DOCTOR" data-identifier="DOC-SHARMA-01" data-name="Dr. Sharma" data-hospital="HOSP-CITY-01">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center text-xl group-hover:scale-105 transition">
+              <i class="fa-solid fa-user-doctor"></i>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Clinical Care</div>
+              <h3 class="text-base font-bold text-white group-hover:text-sky-300 transition">Doctor Workspace</h3>
+              <p class="text-xs text-slate-400 mt-1">Today's patient schedule, pre-visit intake briefs, working hours &amp; calendar blocks.</p>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Demo: <strong>Dr. Sharma</strong></span>
+            <span class="text-sky-400 font-semibold group-hover:translate-x-1 transition">&rarr;</span>
+          </div>
+        </div>
+
+        <!-- Role Card 3: HOSPITAL ADMIN -->
+        <div class="persona-card group bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between shadow-xl space-y-4" data-role="HOSPITAL_ADMIN" data-identifier="admin@citymemorial.org" data-name="Admin Connor" data-hospital="HOSP-CITY-01">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center text-xl group-hover:scale-105 transition">
+              <i class="fa-solid fa-hospital"></i>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Facility Ops</div>
+              <h3 class="text-base font-bold text-white group-hover:text-indigo-300 transition">Hospital Admin</h3>
+              <p class="text-xs text-slate-400 mt-1">Facility management, doctor rostering, FHIR/Epic connectors &amp; anti-double-booking.</p>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Demo: <strong>City Memorial</strong></span>
+            <span class="text-indigo-400 font-semibold group-hover:translate-x-1 transition">&rarr;</span>
+          </div>
+        </div>
+
+        <!-- Role Card 4: PLATFORM SUPER-ADMIN -->
+        <div class="persona-card group bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-5 transition-all duration-200 cursor-pointer flex flex-col justify-between shadow-xl space-y-4" data-role="PLATFORM_ADMIN" data-identifier="admin@hospitalplatform.org" data-name="Super Admin">
+          <div class="space-y-3">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-xl group-hover:scale-105 transition">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Platform Governance</div>
+              <h3 class="text-base font-bold text-white group-hover:text-amber-300 transition">Super-Admin &amp; SRE</h3>
+              <p class="text-xs text-slate-400 mt-1">SRE 4 Golden Signals, 27-Stage DoD journey runner, 76-item audit &amp; zero-PHI logs.</p>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>Demo: <strong>Platform Admin</strong></span>
+            <span class="text-amber-400 font-semibold group-hover:translate-x-1 transition">&rarr;</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Custom Identifier / Login Input Form -->
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 max-w-xl mx-auto space-y-3 text-xs shadow-lg backdrop-blur-sm">
+        <div class="flex justify-between items-center text-slate-400">
+          <span class="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Or Sign In with Custom Credentials:</span>
+          <span class="text-slate-500">POST /api/v1/auth/login</span>
+        </div>
+        <form id="form-custom-login" class="flex flex-col sm:flex-row gap-2">
+          <select id="login-role-select" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="PATIENT">Patient</option>
+            <option value="DOCTOR">Doctor</option>
+            <option value="HOSPITAL_ADMIN">Hospital Admin</option>
+            <option value="PLATFORM_ADMIN">Platform Super-Admin</option>
+          </select>
+          <input id="login-identifier-input" type="text" placeholder="Phone or Email (e.g. +1-555-SHOULDER)" class="flex-1 bg-slate-800 border border-slate-700 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" value="+1-555-SHOULDER" required />
+          <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-xl transition shadow-md flex items-center justify-center space-x-1.5">
+            <span>Sign In</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MAIN APPLICATION SHELL (AFTER AUTHENTICATION) -->
+  <!-- ========================================================================= -->
+  <div id="view-app" class="hidden flex-1 flex flex-col">
+    
+    <!-- Top Workspace Navigation Bar -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          
+          <!-- Logo & Brand -->
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-md">
+              <i class="fa-solid fa-heart-pulse text-slate-950 text-base"></i>
+            </div>
+            <div>
+              <span class="font-extrabold text-base tracking-tight text-white">Nexus<span class="text-emerald-400">Health</span></span>
+              <span id="header-facility-tag" class="text-[10px] font-bold text-slate-400 block -mt-1">City Memorial Hospital</span>
+            </div>
+          </div>
+
+          <!-- Active Workspace Switcher Tabs -->
+          <div class="hidden md:flex items-center space-x-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 text-xs">
+            <button class="app-tab-btn px-3 py-1.5 rounded-lg font-semibold transition text-slate-300 hover:text-white" data-portal="portal-patient">
+              <i class="fa-solid fa-user mr-1 text-emerald-400"></i> Patient
+            </button>
+            <button class="app-tab-btn px-3 py-1.5 rounded-lg font-semibold transition text-slate-300 hover:text-white" data-portal="portal-doctor">
+              <i class="fa-solid fa-user-doctor mr-1 text-sky-400"></i> Doctor
+            </button>
+            <button class="app-tab-btn px-3 py-1.5 rounded-lg font-semibold transition text-slate-300 hover:text-white" data-portal="portal-hospital">
+              <i class="fa-solid fa-hospital mr-1 text-indigo-400"></i> Hospital
+            </button>
+            <button class="app-tab-btn px-3 py-1.5 rounded-lg font-semibold transition text-slate-300 hover:text-white" data-portal="portal-admin">
+              <i class="fa-solid fa-shield-halved mr-1 text-amber-400"></i> Platform SRE
+            </button>
+          </div>
+
+          <!-- Session Badge & Logout -->
+          <div class="flex items-center space-x-3">
+            <div class="text-right hidden sm:block">
+              <div class="text-xs font-bold text-white flex items-center justify-end space-x-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="header-user-name">Patient A</span>
+              </div>
+              <div id="header-role-badge" class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Patient Access</div>
+            </div>
+            <button id="btn-logout" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1">
+              <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+              <span class="hidden sm:inline">Switch Role</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </header>
+
+    <!-- App Body Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+      <!-- ===================================================================== -->
+      <!-- 1. PATIENT WORKSPACE (Dynamic End-to-End) -->
+      <!-- ===================================================================== -->
+      <section id="portal-patient" class="portal-view hidden space-y-6">
+        
+        <!-- Welcome Strip -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg">
           <div>
-            <div class="flex flex-wrap justify-between items-center pb-3 border-b border-slate-100 gap-2">
-              <div>
-                <h3 class="font-bold text-slate-800 text-sm">Specialist Discovery &amp; Verified Booking</h3>
-                <p class="text-xs text-slate-500">Network Availability Engine honors doctor working hours &amp; blocked times</p>
-              </div>
-              <!-- Specialty Filter -->
-              <div class="flex items-center space-x-2">
-                <select id="discovery-specialty-select" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-medium">
-                  <option value="Orthopedics">Orthopedic Surgery</option>
-                  <option value="Cardiology">Cardiology</option>
-                  <option value="Dermatology">Dermatology</option>
-                  <option value="Neurology">Neurology</option>
-                  <option value="General Medicine">General Medicine</option>
-                </select>
-                <button id="btn-run-discovery" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <span>Find</span>
-                </button>
-              </div>
-            </div>
+            <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Patient Self-Service Access</div>
+            <h2 class="text-xl sm:text-2xl font-black text-white mt-0.5">Welcome, <span id="pat-welcome-name">Patient A</span></h2>
+            <p class="text-xs text-slate-400 mt-1">Phone: <span id="pat-phone-label" class="font-mono text-slate-300">+1-555-SHOULDER</span> &bull; Preferred Communication: SMS / Voice</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1.5">
+              <i class="fa-solid fa-shield-check"></i>
+              <span>HIPAA Encrypted Profile</span>
+            </span>
+          </div>
+        </div>
 
-            <!-- Doctor Roster Results Grid -->
-            <div id="doctor-discovery-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 my-3">
-              <!-- Doctor Card 1 -->
-              <div class="border border-slate-200 rounded-xl p-3.5 hover:border-emerald-400 transition bg-slate-50/50 space-y-2.5">
-                <div class="flex items-start justify-between">
-                  <div class="flex items-center space-x-2.5">
-                    <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm">DS</div>
-                    <div>
-                      <h4 class="font-bold text-xs text-slate-900">Dr. Sharma</h4>
-                      <p class="text-[11px] text-slate-500">Orthopedic Surgery</p>
-                    </div>
-                  </div>
-                  <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">City Memorial</span>
-                </div>
-                <div class="text-[11px] text-slate-600 flex justify-between">
-                  <span>Fee: <strong>$150</strong> (30 min)</span>
-                  <span>Rating: <i class="fa-solid fa-star text-amber-400"></i> 4.9 (128)</span>
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[10px] font-bold text-slate-400 uppercase">Available Slots Tomorrow:</div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button class="slot-btn text-xs bg-white hover:bg-emerald-600 hover:text-white border border-slate-200 px-2 py-1 rounded transition font-medium text-slate-700" data-doctor="Dr. Sharma" data-docid="DOC-SHARMA-01" data-hospid="HOSP-CITY-01" data-time="10:00 AM">10:00 AM</button>
-                    <button class="slot-btn text-xs bg-white hover:bg-emerald-600 hover:text-white border border-slate-200 px-2 py-1 rounded transition font-medium text-slate-700" data-doctor="Dr. Sharma" data-docid="DOC-SHARMA-01" data-hospid="HOSP-CITY-01" data-time="02:30 PM">02:30 PM</button>
-                    <button class="slot-btn text-xs bg-white hover:bg-emerald-600 hover:text-white border border-slate-200 px-2 py-1 rounded transition font-medium text-slate-700" data-doctor="Dr. Sharma" data-docid="DOC-SHARMA-01" data-hospid="HOSP-CITY-01" data-time="04:00 PM">04:00 PM</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Doctor Card 2 -->
-              <div class="border border-slate-200 rounded-xl p-3.5 hover:border-emerald-400 transition bg-slate-50/50 space-y-2.5">
-                <div class="flex items-start justify-between">
-                  <div class="flex items-center space-x-2.5">
-                    <div class="w-10 h-10 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center text-sm">DR</div>
-                    <div>
-                      <h4 class="font-bold text-xs text-slate-900">Dr. Rao</h4>
-                      <p class="text-[11px] text-slate-500">Orthopedic &amp; Sports</p>
-                    </div>
-                  </div>
-                  <span class="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full">Metro Health</span>
-                </div>
-                <div class="text-[11px] text-slate-600 flex justify-between">
-                  <span>Fee: <strong>$175</strong> (30 min)</span>
-                  <span>Rating: <i class="fa-solid fa-star text-amber-400"></i> 4.8 (94)</span>
-                </div>
-                <div class="space-y-1">
-                  <div class="text-[10px] font-bold text-slate-400 uppercase">Available Slots Tomorrow:</div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <button class="slot-btn text-xs bg-white hover:bg-emerald-600 hover:text-white border border-slate-200 px-2 py-1 rounded transition font-medium text-slate-700" data-doctor="Dr. Rao" data-docid="DOC-RAO-02" data-hospid="HOSP-METRO-02" data-time="11:30 AM">11:30 AM</button>
-                    <button class="slot-btn text-xs bg-white hover:bg-emerald-600 hover:text-white border border-slate-200 px-2 py-1 rounded transition font-medium text-slate-700" data-doctor="Dr. Rao" data-docid="DOC-RAO-02" data-hospid="HOSP-METRO-02" data-time="03:00 PM">03:00 PM</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Live Booking Confirmation & 5-Point Verification Box -->
-            <div id="booking-confirmation-box" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
-              <div class="flex justify-between items-start">
+        <!-- 2 Columns: AI Speech Console (Left) & Specialist Discovery/Booking (Right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Left: AI Conversational Voice Intake (5 cols) -->
+          <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-md">
+            <div class="space-y-3">
+              <div class="flex justify-between items-center pb-2 border-b border-slate-800">
                 <div class="flex items-center space-x-2">
-                  <div class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">
-                    <i class="fa-solid fa-check"></i>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <h3 class="font-bold text-sm text-white">AI Voice &amp; Chat Intake</h3>
+                </div>
+                <span id="pat-latency-tag" class="text-[10px] font-semibold bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Sub-2s Telephony</span>
+              </div>
+
+              <!-- Animated Waveform Strip -->
+              <div class="bg-slate-950 rounded-xl p-3.5 flex items-center justify-between border border-slate-800">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                    <i class="fa-solid fa-microphone-lines text-sm"></i>
                   </div>
                   <div>
-                    <h4 class="text-xs font-bold text-emerald-900" id="conf-title">Appointment Confirmed &amp; 5-Point Verified</h4>
-                    <p class="text-[11px] text-emerald-700" id="conf-subtitle">Internal APT-1024 synced with Epic EHR-88421</p>
+                    <div id="pat-audio-state" class="text-xs font-bold text-slate-200">Listening Channel Ready</div>
+                    <div class="text-[10px] text-slate-500">&lt;180ms Barge-In Interruption Enabled</div>
                   </div>
                 </div>
-                <span class="text-[10px] font-bold bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full uppercase">Verified</span>
+                <!-- Waveform Bars -->
+                <div class="flex items-center space-x-1 h-6" id="waveform-display">
+                  <div class="w-1 bg-emerald-500 rounded-full h-1"></div>
+                  <div class="w-1 bg-emerald-500 rounded-full h-3"></div>
+                  <div class="w-1 bg-emerald-500 rounded-full h-5"></div>
+                  <div class="w-1 bg-emerald-500 rounded-full h-2"></div>
+                  <div class="w-1 bg-emerald-500 rounded-full h-4"></div>
+                </div>
               </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-white/70 p-2.5 rounded-lg border border-emerald-100">
-                <div><span class="text-slate-400 text-[10px]">Doctor:</span> <div class="font-bold text-slate-800" id="conf-doc">Dr. Sharma</div></div>
-                <div><span class="text-slate-400 text-[10px]">Time:</span> <div class="font-bold text-slate-800" id="conf-time">Tomorrow 04:00 PM</div></div>
-                <div><span class="text-slate-400 text-[10px]">EHR ID:</span> <div class="font-bold text-emerald-700" id="conf-ehr">EHR-88421</div></div>
-                <div><span class="text-slate-400 text-[10px]">Sync Status:</span> <div class="font-bold text-emerald-700">CONFIRMED</div></div>
+
+              <!-- Quick Symptom Prompts -->
+              <div class="space-y-1">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Test Scenario Prompts:</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="pat-prompt-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition" data-text="I've been experiencing acute shoulder pain for a week, can I book an orthopedic doctor?">
+                    🦴 Shoulder Pain (Orthopedics)
+                  </button>
+                  <button class="pat-prompt-btn text-xs bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 px-2.5 py-1 rounded-lg border border-rose-800/60 transition" data-text="I have severe acute chest tightness and shortness of breath right now!">
+                    🚨 Chest Tightness (Emergency)
+                  </button>
+                  <button class="pat-prompt-btn text-xs bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 px-2.5 py-1 rounded-lg border border-sky-800/60 transition" data-text="I need a routine annual cardiology checkup.">
+                    🫀 Cardiology Consult
+                  </button>
+                </div>
               </div>
-              <div class="flex justify-between items-center pt-1">
-                <span class="text-[11px] text-emerald-800"><i class="fa-solid fa-bell text-xs mr-1"></i> T-24h SMS &amp; Pre-Visit Intake Triggered</span>
-                <button id="btn-open-questionnaire" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg transition shadow-sm">
-                  Complete Pre-Visit Intake &rarr;
-                </button>
+
+              <!-- Real Speech Output Card -->
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs min-h-[110px] flex flex-col justify-between">
+                <div>
+                  <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Clinical Agent Response:</div>
+                  <p id="pat-agent-response" class="text-slate-200 mt-1 font-medium leading-relaxed">
+                    "Hello Patient A, I can help you schedule an appointment or answer questions. Please tell me what symptoms you are experiencing."
+                  </p>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-slate-800/80 text-[11px]">
+                  <div class="flex items-center space-x-1.5">
+                    <span id="pat-intent-badge" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-2 py-0.5 rounded text-[10px]">GREETING</span>
+                    <span id="pat-specialty-badge" class="hidden bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold px-2 py-0.5 rounded text-[10px]"></span>
+                  </div>
+                  <button id="btn-pat-speak" class="text-slate-400 hover:text-emerald-400 transition" title="Speak Aloud">
+                    <i class="fa-solid fa-volume-high"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Pre-Visit Intake Interactive Form (Collapsible) -->
-            <div id="questionnaire-card" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 mt-3">
-              <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+            <!-- Input Controls -->
+            <div class="space-y-2 pt-2 border-t border-slate-800">
+              <div class="flex space-x-2">
+                <input id="pat-chat-input" type="text" placeholder="Type clinical complaint or question..." class="flex-1 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" value="I have had acute right shoulder pain for a week" />
+                <button id="btn-pat-send" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md">
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
+              </div>
+              <div class="flex justify-between items-center text-[11px] text-slate-500">
+                <button id="btn-pat-barge" class="text-rose-400 hover:text-rose-300 font-semibold flex items-center space-x-1">
+                  <i class="fa-solid fa-hand"></i>
+                  <span>Test Barge-In (&lt;180ms)</span>
+                </button>
+                <span>Caller: +1-555-SHOULDER</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Live Doctor Discovery & 5-Point Booking (7 cols) -->
+          <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-md">
+            <div class="space-y-3">
+              <div class="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800 gap-2">
+                <div>
+                  <h3 class="font-bold text-sm text-white">Specialist Discovery &amp; Slot Engine</h3>
+                  <p class="text-xs text-slate-400">Queries network availability honoring doctor working hours and blocked slots</p>
+                </div>
                 <div class="flex items-center space-x-2">
-                  <i class="fa-solid fa-clipboard-list text-slate-600"></i>
-                  <h4 class="text-xs font-bold text-slate-800">Orthopedic Pre-Visit Clinical Intake</h4>
-                </div>
-                <span class="text-[10px] font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">Dr. Sharma Approved</span>
-              </div>
-              <div class="space-y-2 text-xs">
-                <div>
-                  <label class="block text-slate-700 font-semibold mb-0.5">1. How long have you experienced this shoulder pain?</label>
-                  <input id="q-ans-duration" type="text" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="Approximately 7 days after lifting heavy objects" />
-                </div>
-                <div>
-                  <label class="block text-slate-700 font-semibold mb-0.5">2. Rate your pain severity on a scale of 1 to 10:</label>
-                  <select id="q-ans-severity" class="w-full border border-slate-300 rounded px-2 py-1 text-xs">
-                    <option value="6">6 - Moderate pain interfering with activities</option>
-                    <option value="7" selected>7 - Severe pain preventing arm lifting</option>
-                    <option value="8">8 - Very severe disabling pain</option>
+                  <select id="pat-specialty-select" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <option value="Orthopedics">Orthopedic Surgery</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Dermatology">Dermatology</option>
+                    <option value="Neurology">Neurology</option>
                   </select>
-                </div>
-                <div>
-                  <label class="block text-slate-700 font-semibold mb-0.5">3. Any prior joint surgeries or known medication allergies?</label>
-                  <input id="q-ans-allergies" type="text" class="w-full border border-slate-300 rounded px-2 py-1 text-xs" value="No prior surgeries. Allergic to Penicillin." />
+                  <button id="btn-pat-search-docs" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow-md">
+                    Find
+                  </button>
                 </div>
               </div>
-              <div class="flex justify-end pt-1">
-                <button id="btn-submit-questionnaire" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg transition">
-                  Submit Encrypted Intake Answers
-                </button>
+
+              <!-- Doctor Discovery Results Cards Container -->
+              <div id="pat-doctors-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- Dynamically Populated via JS -->
+              </div>
+
+              <!-- Live Verified Booking Confirmation Box -->
+              <div id="pat-booking-confirmed-box" class="hidden bg-emerald-950/40 border border-emerald-500/30 rounded-xl p-4 space-y-3">
+                <div class="flex justify-between items-start">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-sm font-black">
+                      <i class="fa-solid fa-check"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-emerald-300">Appointment Confirmed &amp; 5-Point Verified</h4>
+                      <p class="text-[11px] text-emerald-400/80">Local APT-1024 Authoritatively Synchronized with External EHR</p>
+                    </div>
+                  </div>
+                  <span class="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full uppercase">VERIFIED</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-slate-950/70 p-2.5 rounded-lg border border-slate-800">
+                  <div><span class="text-slate-500 text-[10px]">Doctor:</span><div class="font-bold text-slate-200" id="pat-conf-doc">Dr. Sharma</div></div>
+                  <div><span class="text-slate-500 text-[10px]">Time:</span><div class="font-bold text-slate-200" id="pat-conf-time">Tomorrow 04:00 PM</div></div>
+                  <div><span class="text-slate-500 text-[10px]">EHR ID:</span><div class="font-bold text-emerald-400" id="pat-conf-ehr">EHR-88421</div></div>
+                  <div><span class="text-slate-500 text-[10px]">Sync Status:</span><div class="font-bold text-emerald-400">CONFIRMED</div></div>
+                </div>
+                <div class="flex justify-between items-center pt-1 text-xs">
+                  <span class="text-slate-400"><i class="fa-solid fa-bell text-emerald-400 mr-1"></i> T-24h SMS alert registered</span>
+                  <button id="btn-pat-toggle-q" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg transition shadow">
+                    Complete Pre-Visit Intake &rarr;
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pre-Visit Intake Form Card (Collapsible) -->
+              <div id="pat-questionnaire-card" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                  <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-clipboard-list text-emerald-400"></i>
+                    <h4 class="text-xs font-bold text-white">Pre-Visit Clinical Intake Questionnaire</h4>
+                  </div>
+                  <span class="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Dr. Sharma Approved</span>
+                </div>
+                <div class="space-y-2 text-xs">
+                  <div>
+                    <label class="block text-slate-400 font-medium mb-0.5">1. How long have you experienced this shoulder pain?</label>
+                    <input id="q-val-duration" type="text" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 text-xs focus:ring-1 focus:ring-emerald-500" value="Approximately 7 days after lifting heavy objects" />
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 font-medium mb-0.5">2. Rate your pain severity on a scale of 1 to 10:</label>
+                    <select id="q-val-severity" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 text-xs">
+                      <option value="6">6 - Moderate pain interfering with activities</option>
+                      <option value="7" selected>7 - Severe pain preventing arm abduction</option>
+                      <option value="8">8 - Very severe disabling pain</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-slate-400 font-medium mb-0.5">3. Any prior surgeries or drug allergies?</label>
+                    <input id="q-val-allergies" type="text" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 text-xs" value="No prior surgeries. Allergic to Penicillin." />
+                  </div>
+                </div>
+                <div class="flex justify-end pt-1">
+                  <button id="btn-pat-submit-q" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow">
+                    Submit Encrypted Clinical Answers
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
 
-      </div>
-    </section>
-
-    <!-- ======================================================================= -->
-    <!-- PORTAL 2: DOCTOR CLINICAL WORKSPACE -->
-    <!-- ======================================================================= -->
-    <section id="portal-doctor" class="portal-pane hidden space-y-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-3">
-        <div class="flex items-center space-x-3">
-          <div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-lg">DS</div>
-          <div>
-            <h2 class="text-base font-bold text-slate-900">Dr. Sharma — Clinical Practice Dashboard</h2>
-            <p class="text-xs text-slate-500">Orthopedic Surgery &bull; City Memorial Hospital &bull; In-Person &amp; Video</p>
-          </div>
-        </div>
-        <div class="flex items-center space-x-2">
-          <span class="text-xs font-semibold text-slate-500">Switch Specialist:</span>
-          <select id="doctor-workspace-select" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium">
-            <option value="DOC-SHARMA-01">Dr. Sharma (Orthopedics)</option>
-            <option value="DOC-RAO-02">Dr. Rao (Cardiology)</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- KPI Cards Row -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Today's Schedule</div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-1">4 Consultations</div>
-          <div class="text-[11px] text-emerald-600 mt-1 font-semibold">&bull; 100% EHR Synchronized</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Pre-Visit Intakes</div>
-          <div class="text-2xl font-extrabold text-indigo-600 mt-1">3 Completed</div>
-          <div class="text-[11px] text-indigo-500 mt-1 font-semibold">&bull; Clinical briefs ready</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Slot Utilization</div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-1">87.5%</div>
-          <div class="text-[11px] text-slate-400 mt-1">7 of 8 working slots filled</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="text-xs text-slate-500 font-medium">Schedule Control</div>
-          <div class="flex items-center space-x-2 mt-2">
-            <button id="btn-toggle-working-hours" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded font-medium">Hours: 9am-5pm</button>
-            <button id="btn-block-doctor-slot" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded font-medium">Block Slot</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Patient Queue & Clinical Brief Grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Patient Queue Table (7 cols) -->
-        <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">Today's Patient Schedule</h3>
-            <span class="text-xs text-slate-500">Live EHR Sync</span>
+        <!-- My Scheduled Appointments Table (Dynamic from Backend) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+            <div>
+              <h3 class="font-bold text-sm text-white">My Scheduled Appointments</h3>
+              <p class="text-xs text-slate-400">Directly fetched from patient records via <code class="font-mono text-emerald-400 text-[11px]">GET /api/v1/patients/{patient_id}/appointments</code></p>
+            </div>
+            <button id="btn-pat-refresh-appts" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+              <i class="fa-solid fa-rotate text-xs mr-1"></i> Refresh
+            </button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
-              <thead class="text-[10px] uppercase text-slate-400 bg-slate-50 border-y border-slate-100">
+              <thead class="text-[10px] uppercase text-slate-500 bg-slate-950 border-y border-slate-800">
                 <tr>
-                  <th class="py-2 px-3">Time</th>
-                  <th class="py-2 px-3">Patient</th>
-                  <th class="py-2 px-3">Complaint</th>
-                  <th class="py-2 px-3">Pre-Visit Brief</th>
-                  <th class="py-2 px-3 text-right">EHR Status</th>
+                  <th class="py-2.5 px-3">Appointment ID</th>
+                  <th class="py-2.5 px-3">Doctor &amp; Specialty</th>
+                  <th class="py-2.5 px-3">Date &amp; Time</th>
+                  <th class="py-2.5 px-3">EHR ID</th>
+                  <th class="py-2.5 px-3">Verification</th>
+                  <th class="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100" id="doctor-appointments-tbody">
-                <tr class="hover:bg-slate-50/80 cursor-pointer">
-                  <td class="py-2.5 px-3 font-bold text-slate-800">10:00 AM</td>
-                  <td class="py-2.5 px-3 font-semibold">Patient A</td>
-                  <td class="py-2.5 px-3 text-slate-600">Right shoulder pain (1 wk)</td>
-                  <td class="py-2.5 px-3"><span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">Brief Ready</span></td>
-                  <td class="py-2.5 px-3 text-right"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">VERIFIED</span></td>
-                </tr>
-                <tr class="hover:bg-slate-50/80 cursor-pointer">
-                  <td class="py-2.5 px-3 font-bold text-slate-800">02:30 PM</td>
-                  <td class="py-2.5 px-3 font-semibold">John Doe</td>
-                  <td class="py-2.5 px-3 text-slate-600">Knee arthroscopy follow-up</td>
-                  <td class="py-2.5 px-3"><span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">Brief Ready</span></td>
-                  <td class="py-2.5 px-3 text-right"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">VERIFIED</span></td>
-                </tr>
-                <tr class="hover:bg-slate-50/80 cursor-pointer">
-                  <td class="py-2.5 px-3 font-bold text-slate-800">04:00 PM</td>
-                  <td class="py-2.5 px-3 font-semibold">Elena Rostova</td>
-                  <td class="py-2.5 px-3 text-slate-600">Post-op surgical check</td>
-                  <td class="py-2.5 px-3"><span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold">Pending</span></td>
-                  <td class="py-2.5 px-3 text-right"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">VERIFIED</span></td>
-                </tr>
+              <tbody id="pat-appts-tbody" class="divide-y divide-slate-800 font-medium">
+                <!-- Dynamically Populated -->
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Clinical Intake Brief Detail (5 cols) -->
-        <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">Pre-Visit Clinical Brief</h3>
-            <span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">AI Summarized</span>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
-            <div class="flex justify-between text-slate-600 border-b border-slate-200/60 pb-1.5">
-              <span>Patient: <strong>Patient A (+1-555-SHOULDER)</strong></span>
-              <span>MRN: <strong>MRN-88421</strong></span>
-            </div>
+      </section>
+
+      <!-- ===================================================================== -->
+      <!-- 2. DOCTOR WORKSPACE (Dynamic End-to-End) -->
+      <!-- ===================================================================== -->
+      <section id="portal-doctor" class="portal-view hidden space-y-6">
+        
+        <!-- Doctor Header Strip -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-12 h-12 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center font-black text-lg">DS</div>
             <div>
-              <div class="text-[10px] font-bold text-slate-400 uppercase">Primary Reported Symptoms:</div>
-              <p class="text-slate-800 font-medium mt-0.5">"Acute right anterior shoulder pain lasting ~7 days, aggravated by abduction and heavy lifting."</p>
-            </div>
-            <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-              <div class="bg-white p-2 rounded border border-slate-200">
-                <span class="text-slate-400">Pain Severity:</span>
-                <div class="font-bold text-rose-600">7 / 10 (Severe)</div>
-              </div>
-              <div class="bg-white p-2 rounded border border-slate-200">
-                <span class="text-slate-400">Known Allergies:</span>
-                <div class="font-bold text-slate-800">Penicillin</div>
-              </div>
-            </div>
-            <div class="pt-1">
-              <div class="text-[10px] font-bold text-slate-400 uppercase">AI Triage Guardrail Assessment:</div>
-              <div class="bg-emerald-50 text-emerald-800 p-2 rounded text-[11px] font-medium border border-emerald-200 mt-0.5">
-                ✓ Non-emergency complaint. Orthopedic evaluation appropriate. Zero diagnostic advice provided to patient.
-              </div>
+              <div class="text-xs font-bold text-sky-400 uppercase tracking-wider">Clinical Practice Dashboard</div>
+              <h2 class="text-xl font-extrabold text-white" id="doc-name-heading">Dr. Sharma — Orthopedic Surgery</h2>
+              <p class="text-xs text-slate-400 mt-0.5">City Memorial Hospital &bull; Consultation Duration: 30 Mins</p>
             </div>
           </div>
-          <div class="flex justify-end space-x-2 pt-1">
-            <button class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Print Intake</button>
-            <button class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-semibold transition">Mark Reviewed</button>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-400">Doctor Context:</span>
+            <select id="doc-context-select" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-sky-500">
+              <option value="DOC-SHARMA-01">Dr. Sharma (Orthopedics)</option>
+              <option value="DOC-RAO-02">Dr. Rao (Cardiology)</option>
+            </select>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ======================================================================= -->
-    <!-- PORTAL 3: HOSPITAL NETWORK ADMIN -->
-    <!-- ======================================================================= -->
-    <section id="portal-hospital" class="portal-pane hidden space-y-6">
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h2 class="text-base font-bold text-slate-900">Hospital Network &amp; Facility Administration</h2>
-          <p class="text-xs text-slate-500">Multi-Tenant Facility Lifecycle, Doctor Rostering &amp; EHR Interoperability Hub</p>
-        </div>
-        <button id="btn-open-new-hospital-modal" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition shadow-sm flex items-center space-x-1.5">
-          <i class="fa-solid fa-plus"></i>
-          <span>Register New Hospital</span>
-        </button>
-      </div>
-
-      <!-- 2 Columns: Facilities & Connectors -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Hospital Directory (6 cols) -->
-        <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <h3 class="font-bold text-sm text-slate-800 pb-2 border-b border-slate-100">Network Facilities Roster</h3>
-          <div class="space-y-2.5" id="hospitals-list-container">
-            <div class="border border-slate-200 rounded-xl p-3 flex justify-between items-center hover:bg-slate-50 transition">
-              <div>
-                <h4 class="font-bold text-xs text-slate-900">City Memorial Hospital</h4>
-                <p class="text-[11px] text-slate-500">Code: CMH-01 &bull; Contact: admin@citymemorial.org</p>
-                <div class="text-[10px] text-slate-400 mt-0.5">EHR Adapter: Epic MyChart (SMART-on-FHIR R4)</div>
-              </div>
-              <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">Approved &bull; Active</span>
-            </div>
-            <div class="border border-slate-200 rounded-xl p-3 flex justify-between items-center hover:bg-slate-50 transition">
-              <div>
-                <h4 class="font-bold text-xs text-slate-900">Metro Health Center</h4>
-                <p class="text-[11px] text-slate-500">Code: MHC-02 &bull; Contact: contact@metrohealth.org</p>
-                <div class="text-[10px] text-slate-400 mt-0.5">EHR Adapter: Cerner Millennium</div>
-              </div>
-              <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">Approved &bull; Active</span>
+        <!-- Doctor Stat KPIs Row -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="text-xs text-slate-400 font-medium">Today's Appointments</div>
+            <div class="text-2xl font-black text-white mt-1" id="doc-kpi-count">4 Patients</div>
+            <div class="text-[11px] text-emerald-400 font-semibold mt-0.5">&bull; 100% EHR Verified</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="text-xs text-slate-400 font-medium">Pre-Visit Intakes</div>
+            <div class="text-2xl font-black text-sky-400 mt-1" id="doc-kpi-intakes">3 Ready</div>
+            <div class="text-[11px] text-sky-400/80 font-medium mt-0.5">&bull; Structured answers saved</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="text-xs text-slate-400 font-medium">Schedule Utilization</div>
+            <div class="text-2xl font-black text-white mt-1">87.5%</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">7 of 8 working slots filled</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-1.5">
+            <div class="text-xs text-slate-400 font-medium">Calendar Control</div>
+            <div class="flex items-center space-x-1.5">
+              <button id="btn-doc-hours" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2 py-1 rounded font-medium">Hours: 9am-5pm</button>
+              <button id="btn-doc-block" class="text-xs bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 px-2 py-1 rounded font-medium">Block Slot</button>
             </div>
           </div>
         </div>
 
-        <!-- EHR & Healthcare System Connectors (6 cols) -->
-        <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">EHR Interoperability Hub</h3>
-            <span class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">5 Connectors Active</span>
+        <!-- 2 Columns: Patient Queue (Left) & Clinical Brief Detail (Right) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Patient Schedule Table (7 cols) -->
+          <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="font-bold text-sm text-white">Today's Patient Schedule</h3>
+              <span class="text-xs text-slate-400 font-mono">Live EHR Status</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="text-[10px] uppercase text-slate-500 bg-slate-950 border-y border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3">Time</th>
+                    <th class="py-2.5 px-3">Patient</th>
+                    <th class="py-2.5 px-3">Chief Complaint</th>
+                    <th class="py-2.5 px-3">Intake Brief</th>
+                    <th class="py-2.5 px-3 text-right">EHR Sync</th>
+                  </tr>
+                </thead>
+                <tbody id="doc-schedule-tbody" class="divide-y divide-slate-800 font-medium">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div class="space-y-3 text-xs">
-            <div>
-              <label class="block text-slate-700 font-semibold mb-1">Target Healthcare Protocol / EHR Connector:</label>
-              <select id="ehr-connector-type-select" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-emerald-500">
-                <option value="EPIC">Epic MyChart (SMART-on-FHIR R4)</option>
-                <option value="FHIR_R4">Standard HL7 FHIR R4</option>
-                <option value="CERNER">Cerner Millennium (Ignite API)</option>
-                <option value="HL7_V2">HL7 v2.x Message Broker</option>
-                <option value="MOCK" selected>Mock EHR Sandbox (Latency &amp; Failure Simulator)</option>
-              </select>
+
+          <!-- Clinical Intake Brief Card (5 cols) -->
+          <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md flex flex-col justify-between">
+            <div class="space-y-3">
+              <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <h3 class="font-bold text-sm text-white">Pre-Visit Clinical Brief</h3>
+                <span class="text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded">AI Summarized</span>
+              </div>
+              
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2.5 text-xs">
+                <div class="flex justify-between text-slate-400 border-b border-slate-800 pb-1.5 text-[11px]">
+                  <span>Patient: <strong class="text-white" id="brief-patient-name">Patient A</strong></span>
+                  <span>MRN: <strong class="text-slate-200" id="brief-mrn">MRN-88421</strong></span>
+                </div>
+                <div>
+                  <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reported Symptoms:</div>
+                  <p class="text-slate-200 font-medium mt-0.5 leading-relaxed" id="brief-symptoms">
+                    "Acute right anterior shoulder pain lasting ~7 days, aggravated by abduction and heavy lifting."
+                  </p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                  <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-500">Pain Severity:</span>
+                    <div class="font-bold text-rose-400" id="brief-severity">7 / 10 (Severe)</div>
+                  </div>
+                  <div class="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-500">Known Allergies:</span>
+                    <div class="font-bold text-slate-200" id="brief-allergies">Penicillin</div>
+                  </div>
+                </div>
+                <div class="pt-1">
+                  <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AI Safety Triage Assessment:</div>
+                  <div class="bg-emerald-950/40 border border-emerald-500/20 text-emerald-300 p-2 rounded-lg text-[11px] font-medium mt-0.5">
+                    ✓ Non-emergency complaint. Orthopedic evaluation appropriate. Zero medical diagnoses provided to patient.
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-slate-700 font-semibold mb-1">Base Endpoint URL:</label>
-              <input id="ehr-endpoint-url" type="text" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono" value="https://fhir.hospital-network.org/r4" />
-            </div>
-            <div class="flex justify-between items-center pt-2 border-t border-slate-100">
-              <span id="ehr-test-result" class="text-[11px] text-slate-500 font-medium">Status: Ready to probe</span>
-              <button id="btn-test-ehr-probe" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg transition flex items-center space-x-1.5">
-                <i class="fa-solid fa-satellite-dish"></i>
-                <span>Test Connection Probe</span>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-800">
+              <button id="btn-brief-reviewed" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow">
+                Mark Brief Reviewed
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- ======================================================================= -->
-    <!-- PORTAL 4: OPERATIONS & SRE (OBSERVABILITY, COSTS & AUDIT) -->
-    <!-- ======================================================================= -->
-    <section id="portal-ops" class="portal-pane hidden space-y-6">
-      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h2 class="text-base font-bold text-slate-900">Platform Operations, Observability &amp; SRE</h2>
-          <p class="text-xs text-slate-500">SRE 4 Golden Signals, Unit Economics Accounting, Circuit Breakers &amp; Zero-PHI Audit Trail</p>
-        </div>
-        <button id="btn-refresh-ops-telemetry" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center space-x-1">
-          <i class="fa-solid fa-rotate text-xs"></i>
-          <span>Refresh SRE Signals</span>
-        </button>
-      </div>
-
-      <!-- SRE 4 Golden Signals -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between text-xs text-slate-500"><span>1. Latency (p95)</span><i class="fa-solid fa-stopwatch text-emerald-500"></i></div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-1">142 ms</div>
-          <div class="text-[11px] text-emerald-600 font-medium mt-1">99.8% &lt; 2.0s Telephony Target</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between text-xs text-slate-500"><span>2. Traffic</span><i class="fa-solid fa-arrow-trend-up text-sky-500"></i></div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-1">42.5 req/s</div>
-          <div class="text-[11px] text-slate-500 font-medium mt-1">Simulated load capacity</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between text-xs text-slate-500"><span>3. Error Rate</span><i class="fa-solid fa-circle-exclamation text-rose-500"></i></div>
-          <div class="text-2xl font-extrabold text-emerald-600 mt-1">0.02%</div>
-          <div class="text-[11px] text-slate-400 font-medium mt-1">Circuit breaker healthy</div>
-        </div>
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between text-xs text-slate-500"><span>4. Saturation</span><i class="fa-solid fa-microchip text-indigo-500"></i></div>
-          <div class="text-2xl font-extrabold text-slate-900 mt-1">28% CPU</div>
-          <div class="text-[11px] text-slate-400 font-medium mt-1">Memory: 41% utilized</div>
-        </div>
-      </div>
-
-      <!-- 2 Columns: Financial Unit Economics & Discrepancy Reconciliation -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Unit Economics ROI Calculator (6 cols) -->
-        <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">Voice AI Unit Economics &amp; ROI</h3>
-            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">96.67% Cost Reduction</span>
-          </div>
-          <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-              <span class="text-[10px] font-bold text-emerald-800 uppercase">Autonomous Voice Agent</span>
-              <div class="text-xl font-black text-emerald-900 mt-1">$0.125 <span class="text-xs font-normal">/ call</span></div>
-              <div class="text-[10px] text-emerald-700 mt-1">LLM $0.0002 &bull; STT $0.019 &bull; TTS $0.018 &bull; SIP $0.041</div>
-            </div>
-            <div class="bg-slate-100 border border-slate-200 rounded-xl p-3">
-              <span class="text-[10px] font-bold text-slate-600 uppercase">Human Receptionist</span>
-              <div class="text-xl font-black text-slate-800 mt-1">$3.75 <span class="text-xs font-normal">/ call</span></div>
-              <div class="text-[10px] text-slate-500 mt-1">Average 5-min manual telephone booking</div>
-            </div>
-          </div>
-          <!-- Monthly Savings Projection -->
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-            <div class="flex justify-between text-xs">
-              <span class="font-semibold text-slate-700">Monthly Call Volume:</span>
-              <span class="font-bold text-slate-900" id="roi-calls-label">5,000 calls / mo</span>
-            </div>
-            <input id="roi-slider" type="range" min="1000" max="25000" step="1000" value="5000" class="w-full accent-emerald-600 cursor-pointer" />
-            <div class="flex justify-between text-xs pt-1 border-t border-slate-200/60">
-              <span class="text-slate-500">Projected Monthly Savings:</span>
-              <span class="font-black text-emerald-700 text-sm" id="roi-savings-label">$18,125.00 / month</span>
-            </div>
-          </div>
         </div>
 
-        <!-- EHR Circuit Breaker & Discrepancy Engine (6 cols) -->
-        <div class="lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">EHR Resilience &amp; Discrepancy Engine</h3>
-            <span id="circuit-breaker-badge" class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">CIRCUIT: CLOSED (HEALTHY)</span>
-          </div>
-          <div class="space-y-2.5 text-xs">
-            <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-              <div>
-                <div class="font-semibold text-slate-800">Anti-Double-Booking Scanner</div>
-                <div class="text-[10px] text-slate-500">Detects local appointments desynchronized from external EHR</div>
-              </div>
-              <button id="btn-scan-discrepancies" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-2.5 py-1.5 rounded transition">
-                Scan Discrepancies
-              </button>
-            </div>
-            <div id="discrepancy-status-box" class="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-600 max-h-[110px] overflow-y-auto">
-              ✓ All local bookings are 100% synchronized with external healthcare systems. Zero desynchronization detected.
-            </div>
-            <div class="flex justify-end pt-1">
-              <button id="btn-reset-circuit" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1 rounded transition">
-                Reset Circuit Breaker
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ======================================================================= -->
-    <!-- PORTAL 5: DEFINITION OF DONE & FINAL CHECKLIST (35, 39-42) -->
-    <!-- ======================================================================= -->
-    <section id="portal-dod" class="portal-pane hidden space-y-6">
-      
-      <!-- Top Action Bar -->
-      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 space-y-4">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <!-- ===================================================================== -->
+      <!-- 3. HOSPITAL NETWORK ADMIN WORKSPACE (Dynamic End-to-End) -->
+      <!-- ===================================================================== -->
+      <section id="portal-hospital" class="portal-view hidden space-y-6">
+        
+        <!-- Hospital Header -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg">
           <div>
-            <div class="inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/30 mb-1.5">
-              <i class="fa-solid fa-award text-amber-400"></i>
-              <span>Section 35 Definition of Done &amp; Section 41 Capstone</span>
-            </div>
-            <h2 class="text-2xl font-extrabold tracking-tight">Canonical Journey, Failure Recovery &amp; Audit</h2>
-            <p class="text-slate-300 text-xs sm:text-sm mt-0.5 max-w-2xl">
-              Execute the 27-stage canonical DoD pipeline, simulate self-healing failure recovery, and audit all 7 pillars and 76 submission requirements.
-            </p>
+            <div class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Hospital Administration &amp; Interoperability</div>
+            <h2 class="text-xl font-black text-white mt-0.5">City Memorial Hospital (CMH-01)</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Status: <span class="text-emerald-400 font-bold">APPROVED &amp; ACTIVE</span> &bull; Active Doctors: 8 &bull; EHR Adapter: Epic MyChart</p>
           </div>
-          <!-- Action Buttons -->
-          <div class="flex flex-wrap gap-2">
-            <button id="btn-dod-execute-journey" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5">
-              <i class="fa-solid fa-play"></i>
-              <span>Execute Canonical 27-Stage Journey</span>
-            </button>
-            <button id="btn-dod-transient-sim" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-semibold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5">
-              <i class="fa-solid fa-shield-halved text-emerald-400"></i>
-              <span>Simulate Self-Healing Retry</span>
-            </button>
-            <button id="btn-dod-escalation-sim" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-semibold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl transition flex items-center space-x-1.5">
-              <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
-              <span>Simulate Desync Escalation</span>
-            </button>
-            <button id="btn-run-full-audit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20 flex items-center space-x-1.5">
-              <i class="fa-solid fa-list-check"></i>
-              <span>Run 76-Item Audit</span>
-            </button>
-          </div>
+          <button id="btn-register-facility" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow flex items-center space-x-1.5">
+            <i class="fa-solid fa-plus"></i>
+            <span>Register Facility</span>
+          </button>
         </div>
 
-        <!-- Real-Time Metrics Strip -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800 text-center">
-          <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Canonical Stages</div>
-            <div class="text-xl font-extrabold text-emerald-400 mt-0.5" id="dod-stages-stat">27 / 27 Verified</div>
-          </div>
-          <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Submission Compliance</div>
-            <div class="text-xl font-extrabold text-emerald-400 mt-0.5" id="dod-compliance-stat">100.0%</div>
-          </div>
-          <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Submission Pillars</div>
-            <div class="text-xl font-extrabold text-cyan-400 mt-0.5">7 Pillars &bull; 76 Checks</div>
-          </div>
-          <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider">Beyond-Baseline Features</div>
-            <div class="text-xl font-extrabold text-amber-400 mt-0.5">10 Innovations</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Output Status Banner -->
-      <div id="dod-action-banner" class="hidden p-4 rounded-xl border text-xs font-semibold"></div>
-
-      <!-- 2-Column: 27 Stages Timeline + Multi-Role Perspectives -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- 27 Stages Timeline (7 cols) -->
-        <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-            <h3 class="font-bold text-sm text-slate-800">27 Canonical DoD Stages</h3>
-            <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">All 27 Complete</span>
-          </div>
-          <div id="dod-stages-list" class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-            <!-- Rendered dynamically by JS -->
-          </div>
-        </div>
-
-        <!-- Multi-Role Perspectives & Diagnostics (5 cols) -->
-        <div class="lg:col-span-5 space-y-6">
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
-            <h3 class="font-bold text-sm text-slate-800 pb-2 border-b border-slate-100">Multi-Role Synchronized Perspectives</h3>
-            <div id="dod-perspectives-box" class="space-y-2.5 text-xs">
-              <div class="bg-sky-50 border border-sky-100 p-3 rounded-lg">
-                <h4 class="font-bold text-sky-900 mb-0.5"><i class="fa-solid fa-user-doctor mr-1"></i> Doctor Perspective</h4>
-                <div class="text-sky-800" id="persp-doc">Upcoming orthopedic consult booked with structured pre-visit intake.</div>
+        <!-- 2 Columns: Facilities List & EHR Interoperability Hub -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Hospital Facilities Roster (6 cols) -->
+          <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <h3 class="font-bold text-sm text-white pb-2 border-b border-slate-800">Network Facilities Roster</h3>
+            <div class="space-y-2.5" id="hosp-facilities-list">
+              <!-- Dynamically populated -->
+              <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl flex justify-between items-center hover:border-slate-700 transition">
+                <div>
+                  <h4 class="font-bold text-xs text-white">City Memorial Hospital</h4>
+                  <p class="text-[11px] text-slate-400">Code: CMH-01 &bull; Contact: admin@citymemorial.org</p>
+                  <div class="text-[10px] text-slate-500 mt-0.5 font-mono">Adapter: EPIC_MYCHART (SMART-on-FHIR R4)</div>
+                </div>
+                <span class="text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase">Approved</span>
               </div>
-              <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-lg">
-                <h4 class="font-bold text-emerald-900 mb-0.5"><i class="fa-solid fa-hospital mr-1"></i> Hospital Admin Perspective</h4>
-                <div class="text-emerald-800" id="persp-hosp">Facility active, doctor schedule published, EHR synchronization confirmed.</div>
-              </div>
-              <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
-                <h4 class="font-bold text-indigo-900 mb-0.5"><i class="fa-solid fa-gear mr-1"></i> Platform Admin Perspective</h4>
-                <div class="text-indigo-800" id="persp-admin">16-step trace recorded, zero PHI audit written, SRE signals healthy.</div>
+              <div class="bg-slate-950 border border-slate-800 p-3.5 rounded-xl flex justify-between items-center hover:border-slate-700 transition">
+                <div>
+                  <h4 class="font-bold text-xs text-white">Metro Health Center</h4>
+                  <p class="text-[11px] text-slate-400">Code: MHC-02 &bull; Contact: admin@metrohealth.org</p>
+                  <div class="text-[10px] text-slate-500 mt-0.5 font-mono">Adapter: CERNER (Ignite API)</div>
+                </div>
+                <span class="text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase">Approved</span>
               </div>
             </div>
           </div>
 
-          <!-- Raw Diagnostic Log -->
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2">
-            <h3 class="font-bold text-sm text-slate-800">Diagnostics &amp; API Output</h3>
-            <pre id="dod-raw-output" class="bg-slate-900 text-slate-200 p-3 rounded-lg font-mono text-[11px] max-h-[220px] overflow-y-auto leading-relaxed">{ "status": "READY", "message": "Click 'Execute Canonical 27-Stage Journey' to start" }</pre>
+          <!-- EHR Healthcare System Connectors (6 cols) -->
+          <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="font-bold text-sm text-white">EHR Healthcare Interoperability Hub</h3>
+              <span class="text-[10px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">5 Protocols</span>
+            </div>
+            <div class="space-y-3 text-xs">
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Target Healthcare Protocol / EHR Connector:</label>
+                <select id="hosp-connector-select" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500">
+                  <option value="EPIC">Epic MyChart (SMART-on-FHIR R4)</option>
+                  <option value="FHIR_R4">Standard HL7 FHIR R4</option>
+                  <option value="CERNER">Cerner Millennium (Ignite API)</option>
+                  <option value="HL7_V2">HL7 v2.x Message Broker</option>
+                  <option value="MOCK" selected>Mock EHR Sandbox (Latency &amp; Fault Simulator)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-300 font-semibold mb-1">Base Endpoint URL:</label>
+                <input id="hosp-endpoint-url" type="text" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2.5 py-2 text-xs font-mono" value="https://fhir.hospital-network.org/r4" />
+              </div>
+              <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                <span id="hosp-probe-result" class="text-[11px] text-slate-400 font-medium">Status: Ready to probe</span>
+                <button id="btn-hosp-probe" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition shadow flex items-center space-x-1.5">
+                  <i class="fa-solid fa-satellite-dish text-xs"></i>
+                  <span>Execute Handshake Probe</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Beyond-Baseline Creative Innovations Grid -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
-        <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-          <div>
-            <h3 class="font-bold text-sm text-slate-900">Section 40: Creative Innovations Engineered Beyond Baseline</h3>
-            <p class="text-xs text-slate-500">10 distinct engineering extensions providing operational safety, resilience and business ROI</p>
-          </div>
-          <span class="text-[10px] font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full uppercase">10 Beyond-Baseline</span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-slate-900 text-[11px]">1. 4-Portal Workspace</div>
-            <p class="text-slate-600 text-[10px]">49 tailored views across Patient, Doctor, Admin, and SRE.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-rose-700 text-[11px]">2. Emergency Triage</div>
-            <p class="text-slate-600 text-[10px]">Autonomous red-flag symptom detection with immediate 911 redirection.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-emerald-700 text-[11px]">3. Barge-In Voice</div>
-            <p class="text-slate-600 text-[10px]">&lt;180ms buffer flush with conversational fillers under 200ms.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-indigo-700 text-[11px]">4. Pre-Visit Pipeline</div>
-            <p class="text-slate-600 text-[10px]">T-24h intake questionnaire &amp; T-2h check-in via SMS/Voice.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-amber-700 text-[11px]">5. Reconciliation Engine</div>
-            <p class="text-slate-600 text-[10px]">Anti-double-booking detection with 1-click administrative resolution.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-sky-700 text-[11px]">6. 5-Point EHR Verification</div>
-            <p class="text-slate-600 text-[10px]">5-dimension authoritative check before confirming appointments.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-emerald-800 text-[11px]">7. Unit Economics ROI</div>
-            <p class="text-slate-600 text-[10px]">$0.125 AI vs $3.75 human cost (96.67% operational savings).</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-slate-800 text-[11px]">8. Multi-Connector Hub</div>
-            <p class="text-slate-600 text-[10px]">FHIR R4, Epic MyChart, Cerner, HL7 v2, and Mock EHR.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-cyan-800 text-[11px]">9. High-Contrast Accessible</div>
-            <p class="text-slate-600 text-[10px]">Dual voice/keyboard interaction with live audio waveform.</p>
-          </div>
-          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-1">
-            <div class="font-bold text-purple-800 text-[11px]">10. 16-Step SRE Tracer</div>
-            <p class="text-slate-600 text-[10px]">Distributed request tree with SRE 4 Golden Signals.</p>
-          </div>
-        </div>
-      </div>
 
-    </section>
+      </section>
 
-  </main>
+      <!-- ===================================================================== -->
+      <!-- 4. PLATFORM SUPER-ADMIN & SRE WORKSPACE (Dynamic End-to-End) -->
+      <!-- ===================================================================== -->
+      <section id="portal-admin" class="portal-view hidden space-y-6">
+        
+        <!-- SRE 4 Golden Signals -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="flex justify-between text-xs text-slate-400"><span>1. Latency (p95)</span><i class="fa-solid fa-stopwatch text-emerald-400"></i></div>
+            <div class="text-2xl font-black text-white mt-1">142 ms</div>
+            <div class="text-[11px] text-emerald-400 font-semibold mt-0.5">99.8% &lt; 2.0s Telephony Target</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="flex justify-between text-xs text-slate-400"><span>2. Traffic</span><i class="fa-solid fa-arrow-trend-up text-sky-400"></i></div>
+            <div class="text-2xl font-black text-white mt-1">42.5 req/s</div>
+            <div class="text-[11px] text-slate-400 font-medium mt-0.5">Concurrent voice capacity</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="flex justify-between text-xs text-slate-400"><span>3. Error Rate</span><i class="fa-solid fa-circle-exclamation text-rose-400"></i></div>
+            <div class="text-2xl font-black text-emerald-400 mt-1">0.02%</div>
+            <div class="text-[11px] text-slate-400 font-medium mt-0.5">Circuit breaker healthy</div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+            <div class="flex justify-between text-xs text-slate-400"><span>4. Saturation</span><i class="fa-solid fa-microchip text-indigo-400"></i></div>
+            <div class="text-2xl font-black text-white mt-1">28% CPU</div>
+            <div class="text-[11px] text-slate-400 font-medium mt-0.5">Memory: 41% utilized</div>
+          </div>
+        </div>
 
-  <!-- ========================================================================= -->
-  <!-- MODAL: REGISTER NEW HOSPITAL -->
-  <!-- ========================================================================= -->
-  <div id="modal-new-hospital" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-        <h3 class="font-bold text-base text-slate-900">Register New Hospital Facility</h3>
-        <button id="btn-close-hospital-modal" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-      <form id="form-new-hospital" class="space-y-3 text-xs">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Hospital Name:</label>
-          <input id="new-hosp-name" type="text" required placeholder="e.g. St. Jude Medical Center" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+        <!-- Section 35 & 41 Verification Action Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div class="text-xs font-bold text-amber-400 uppercase tracking-wider">Section 35 Definition of Done &amp; Section 41 Capstone</div>
+              <h3 class="text-xl font-extrabold text-white mt-0.5">Canonical Journey Execution &amp; Compliance Audit</h3>
+              <p class="text-xs text-slate-400 mt-0.5">Execute the 27-stage canonical journey, simulate self-healing failure recovery, and audit all 76 requirements.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="btn-admin-run-journey" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5">
+                <i class="fa-solid fa-play"></i>
+                <span>Execute Canonical 27-Stage Journey</span>
+              </button>
+              <button id="btn-admin-sim-retry" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition">
+                Simulate Transient Recovery
+              </button>
+              <button id="btn-admin-sim-escalation" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition">
+                Simulate Desync Escalation
+              </button>
+              <button id="btn-admin-run-audit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition shadow">
+                Run 76-Item Audit
+              </button>
+            </div>
+          </div>
+
+          <div id="admin-action-banner" class="hidden p-3.5 rounded-xl border text-xs font-semibold"></div>
+
+          <!-- 27 Stages Timeline Card -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <span class="text-xs font-bold text-slate-300">27 Canonical Definition of Done Stages</span>
+              <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">All 27 Complete</span>
+            </div>
+            <div id="admin-stages-list" class="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+              <!-- Populated dynamically via JS -->
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Facility Code:</label>
-          <input id="new-hosp-code" type="text" required placeholder="e.g. SJMC-03" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
+
+        <!-- 2 Columns: Financial ROI & Discrepancy Scanner -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Voice AI Unit Economics (6 cols) -->
+          <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="font-bold text-sm text-white">Voice AI Unit Economics &amp; ROI</h3>
+              <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">96.67% Savings</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                <span class="text-[10px] font-bold text-emerald-400 uppercase">AI Voice Telephony</span>
+                <div class="text-xl font-black text-white mt-1">$0.125 <span class="text-xs font-normal text-slate-400">/ call</span></div>
+                <div class="text-[10px] text-slate-500 mt-1">LLM $0.0002 &bull; Voice $0.037 &bull; SIP $0.087</div>
+              </div>
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                <span class="text-[10px] font-bold text-slate-400 uppercase">Human Receptionist</span>
+                <div class="text-xl font-black text-slate-300 mt-1">$3.75 <span class="text-xs font-normal text-slate-400">/ call</span></div>
+                <div class="text-[10px] text-slate-500 mt-1">Average 5-min manual phone intake</div>
+              </div>
+            </div>
+            <!-- Slider -->
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex justify-between text-xs">
+                <span class="font-medium text-slate-300">Monthly Call Volume:</span>
+                <span class="font-bold text-emerald-400" id="admin-roi-calls">5,000 calls / mo</span>
+              </div>
+              <input id="admin-roi-slider" type="range" min="1000" max="25000" step="1000" value="5000" class="w-full accent-emerald-500 cursor-pointer" />
+              <div class="flex justify-between text-xs pt-1 border-t border-slate-800">
+                <span class="text-slate-400">Projected Monthly Savings:</span>
+                <span class="font-extrabold text-emerald-400 text-sm" id="admin-roi-savings">$18,125.00 / month</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Anti-Double-Booking Discrepancy Engine (6 cols) -->
+          <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="font-bold text-sm text-white">EHR Discrepancy Reconciliation Engine</h3>
+              <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">CIRCUIT: CLOSED</span>
+            </div>
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                <div>
+                  <div class="font-semibold text-white">Anti-Double-Booking Scanner</div>
+                  <div class="text-[10px] text-slate-500">Detects local appointments desynchronized from external EHR</div>
+                </div>
+                <button id="btn-admin-scan-desync" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs px-2.5 py-1.5 rounded transition">
+                  Scan Discrepancies
+                </button>
+              </div>
+              <div id="admin-desync-status" class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs text-slate-400 max-h-[110px] overflow-y-auto font-mono">
+                ✓ All internal bookings are 100% synchronized with external healthcare systems. Zero desynchronization detected.
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Contact Email:</label>
-          <input id="new-hosp-email" type="email" required placeholder="admin@stjude.org" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
-        </div>
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Initial Administrator Name:</label>
-          <input id="new-hosp-admin" type="text" required placeholder="Dr. James Wilson" class="w-full border border-slate-300 rounded-lg px-3 py-2" />
-        </div>
-        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-          <button type="button" id="btn-cancel-hospital-modal" class="px-3.5 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Submit Draft Registration</button>
-        </div>
-      </form>
-    </div>
+
+      </section>
+
+    </main>
+
   </div>
 
   <!-- Application Logic -->

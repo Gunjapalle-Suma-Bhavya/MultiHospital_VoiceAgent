@@ -83,8 +83,8 @@ def setup_dashboard_data(db_session):
         calendar_id=cal2.id,
         patient_name="Sarah Connor",
         patient_phone="+15553334444",
-        start_datetime=now + timedelta(days=2, hours=10),
-        end_datetime=now + timedelta(days=2, hours=10, minutes=30),
+        start_datetime=now + timedelta(days=1, hours=2),
+        end_datetime=now + timedelta(days=1, hours=2, minutes=30),
         status=AppointmentStatus.SCHEDULED,
         is_ehr_verified=False
     )
