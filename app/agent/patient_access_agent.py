@@ -214,7 +214,30 @@ class AIPatientAccessAgent:
 
         else:
             capabilities_invoked.append("GENERAL_CONVERSATION")
-            agent_response = f"Hello! I am your AI Patient Access Assistant. How can I help you schedule or manage doctor appointments today?"
+            from app.voice.llm_client import live_llm_client
+            if live_llm_client.is_configured():
+                llm_reply = live_llm_client.chat_completion(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are an AI Healthcare Administrative & Scheduling Assistant for a multi-hospital health network. "
+                                "Keep your response concise, polite, and under 2 sentences so it sounds natural over voice. "
+                                "Never provide medical diagnosis or prescribe treatments. Focus on helping the patient navigate "
+                                "doctors, schedules, clinic preparation, and hospital visits."
+                            )
+                        },
+                        {"role": "user", "content": user_utterance}
+                    ],
+                    max_tokens=60,
+                    timeout_sec=4.0
+                )
+                if llm_reply:
+                    agent_response = llm_reply
+                else:
+                    agent_response = "Hello! I am your AI Patient Access Assistant. How can I help you schedule or manage doctor appointments today?"
+            else:
+                agent_response = "Hello! I am your AI Patient Access Assistant. How can I help you schedule or manage doctor appointments today?"
 
         return {
             "status": "SUCCESS",
