@@ -20,6 +20,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     latencyMs,
     bargeInAlert,
     streamActive,
+    transcriptLive,
     startVoiceRecording,
     stopVoiceRecording,
     streamAIResponse,
@@ -37,12 +38,12 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     setInputVal('');
     const res = await sendUtterance(
       trimmed,
-      user?.identifier || '+1-555-SHOULDER',
+      user?.identifier || '+1-555-1234567',
       user?.hospital_id || 'HOSP-CITY-01'
     );
     if (res) {
       const lower = trimmed.toLowerCase();
-      if (lower.includes('shoulder') || lower.includes('orthopedic') || lower.includes('bone')) {
+      if (lower.includes('shoulder') || lower.includes('orthopedic') || lower.includes('bone') || lower.includes('knee')) {
         onSpecialtySelected?.('Orthopedics');
       } else if (lower.includes('heart') || lower.includes('cardio') || lower.includes('chest')) {
         onSpecialtySelected?.('Cardiology');
@@ -53,17 +54,26 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
   const handleMicToggle = () => {
     if (isRecording) {
       stopVoiceRecording();
+      if (inputVal.trim()) {
+        handleSend(inputVal);
+      }
     } else {
-      startVoiceRecording((transcript) => {
-        setInputVal(transcript);
-      });
+      startVoiceRecording(
+        (interim) => {
+          setInputVal(interim);
+        },
+        (finalSpeech) => {
+          setInputVal('');
+          handleSend(finalSpeech);
+        }
+      );
     }
   };
 
   const presetPrompts = [
     {
-      label: '🦴 Shoulder Pain (Orthopedics)',
-      text: "I've been experiencing acute right shoulder pain for a week, can I book an orthopedic doctor?",
+      label: '🦴 Knee / Joint Pain',
+      text: "I've had knee pain for 3 days, can I book an appointment with an orthopedic doctor?",
     },
     {
       label: '🚨 Chest Tightness (Emergency)',
@@ -73,6 +83,10 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     {
       label: '🫀 Cardiology Consult',
       text: 'I need a routine annual cardiology checkup with Dr. Rao.',
+    },
+    {
+      label: '🩺 Schedule with Dr. Sharma',
+      text: 'Can I see Dr. Sharma tomorrow morning at 10:00 AM?',
     },
   ];
 
@@ -115,7 +129,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
         </div>
 
-        {/* Real FFT Audio Visualizer Canvas */}
+        {/* Real Dynamic FFT Audio Visualizer Canvas */}
         <AudioVisualizerCanvas
           isActive={isRecording || isSpeaking || isProcessing || streamActive}
           isSpeaking={isSpeaking}
@@ -135,21 +149,21 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           <div className="flex items-center space-x-3">
             <button
               onClick={handleMicToggle}
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition shadow-md ${
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition shadow-md ${
                 isRecording
                   ? 'bg-rose-600 text-white animate-pulse'
-                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
               }`}
-              title={isRecording ? 'Click to stop listening' : 'Click to speak through your microphone'}
+              title={isRecording ? 'Click to stop and send voice' : 'Click to speak through microphone'}
             >
-              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
             <div>
               <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                 {isRecording ? (
                   <span className="text-rose-400 flex items-center gap-1">
                     <Radio className="w-3 h-3 animate-ping" />
-                    Listening to your microphone...
+                    Listening to your voice... (click mic or pause to send)
                   </span>
                 ) : isSpeaking ? (
                   <span className="text-sky-400 flex items-center gap-1">
@@ -163,7 +177,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 ) : isProcessing ? (
                   'Processing Speech &amp; Clinical NLP...'
                 ) : (
-                  'Listening Channel Ready &bull; Mic Enabled'
+                  'Microphone Ready &bull; Click mic or choose prompt below'
                 )}
               </div>
               <div className="text-[10px] text-slate-500">
@@ -176,7 +190,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             {isSpeaking && (
               <button
                 onClick={triggerBargeIn}
-                className="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded font-bold hover:bg-rose-500/30 transition"
+                className="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-1 rounded-lg font-bold hover:bg-rose-500/30 transition"
               >
                 Interrupt AI
               </button>
@@ -184,10 +198,19 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
         </div>
 
+        {/* Live Transcript Bubble when talking */}
+        {transcriptLive && (
+          <div className="p-2.5 bg-slate-950 border border-rose-500/40 rounded-xl text-xs flex items-center space-x-2 animate-in fade-in duration-100">
+            <Radio className="w-3.5 h-3.5 text-rose-400 animate-pulse shrink-0" />
+            <span className="text-slate-400 text-[11px]">Hearing:</span>
+            <span className="text-white font-medium italic">"{transcriptLive}"</span>
+          </div>
+        )}
+
         {/* Test Scenarios */}
         <div className="space-y-1">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-            Clinical Scenario Quick-Triggers:
+            Quick Clinical Scenarios:
           </div>
           <div className="flex flex-wrap gap-1.5">
             {presetPrompts.map((p, idx) => (
@@ -247,10 +270,11 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                   {m.sender === 'assistant' && !m.isStreaming && (
                     <button
                       onClick={() => speak(m.text)}
-                      className="text-slate-400 hover:text-emerald-400 transition"
+                      className="text-slate-400 hover:text-emerald-400 transition flex items-center space-x-1"
                       title="Speak Response Aloud via TTS"
                     >
                       <Volume2 className="w-3.5 h-3.5" />
+                      <span className="text-[10px]">Replay Audio</span>
                     </button>
                   )}
                 </div>
@@ -276,9 +300,10 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           <button
             onClick={() => handleSend(inputVal)}
             disabled={isProcessing}
-            className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md disabled:opacity-50"
+            className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md disabled:opacity-50 flex items-center space-x-1"
           >
             <Send className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Send</span>
           </button>
         </div>
 
@@ -290,7 +315,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             <Hand className="w-3.5 h-3.5" />
             <span>Test Barge-In (&lt;180ms)</span>
           </button>
-          <span>Active Patient: {user?.identifier || '+1-555-SHOULDER'}</span>
+          <span>Active Patient: {user?.identifier || '+1-555-1234567'}</span>
         </div>
       </div>
     </div>

@@ -11,6 +11,9 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
+// Global active utterance reference to prevent Chrome garbage collection bug
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+
 export function useVoiceAgent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -20,6 +23,7 @@ export function useVoiceAgent() {
   const [detectedIntent, setDetectedIntent] = useState<string>('GREETING');
   const [bargeInAlert, setBargeInAlert] = useState<boolean>(false);
   const [streamActive, setStreamActive] = useState<boolean>(false);
+  const [transcriptLive, setTranscriptLive] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init',
@@ -32,10 +36,15 @@ export function useVoiceAgent() {
 
   const recognitionRef = useRef<any>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const lastTranscriptRef = useRef<string>('');
+  const onAutoSendRef = useRef<((text: string) => void) | null>(null);
 
   const stopSpeaking = useCallback(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+      activeUtterance = null;
       setIsSpeaking(false);
     }
   }, []);
@@ -60,62 +69,115 @@ export function useVoiceAgent() {
 
       stopSpeaking();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(
-        (v) =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Natural') ||
-            v.name.includes('Google') ||
-            v.name.includes('Samantha') ||
-            v.name.includes('Zira') ||
-            v.name.includes('David'))
-      ) || voices.find((v) => v.lang.startsWith('en'));
+      try {
+        window.speechSynthesis.resume();
+      } catch {}
 
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-      utterance.rate = 1.02;
-      utterance.pitch = 1.0;
+      // Short delay after cancel to allow Chrome audio queue to reset cleanly
+      setTimeout(() => {
+        try {
+          const utterance = new SpeechSynthesisUtterance(text);
+          activeUtterance = utterance;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice =
+            voices.find(
+              (v) =>
+                v.lang.startsWith('en') &&
+                (v.name.includes('Natural') ||
+                  v.name.includes('Google') ||
+                  v.name.includes('Samantha') ||
+                  v.name.includes('Zira') ||
+                  v.name.includes('David') ||
+                  v.name.includes('Jenny'))
+            ) || voices.find((v) => v.lang.startsWith('en')) || voices[0];
 
-      window.speechSynthesis.speak(utterance);
+          if (preferredVoice) {
+            utterance.voice = preferredVoice;
+          }
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+
+          utterance.onstart = () => {
+            setIsSpeaking(true);
+          };
+
+          utterance.onend = () => {
+            activeUtterance = null;
+            setIsSpeaking(false);
+          };
+
+          utterance.onerror = (e) => {
+            console.warn('Speech synthesis utterance error:', e);
+            activeUtterance = null;
+            setIsSpeaking(false);
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          console.warn('speak exception:', err);
+          setIsSpeaking(false);
+        }
+      }, 50);
     },
     [isMuted, stopSpeaking]
   );
 
-  // Initialize Speech Recognition if supported in browser
+  // Initialize Speech Recognition
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
     if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
 
-      recognition.onspeechstart = () => {
-        // True barge-in: cancel AI speech the moment patient voice begins
-        triggerBargeIn();
+        recognition.onspeechstart = () => {
+          triggerBargeIn();
+        };
+
+        recognition.onstart = () => {
+          setIsRecording(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          let current = '';
+          for (let i = 0; i < event.results.length; i++) {
+            current += event.results[i][0].transcript;
+          }
+          lastTranscriptRef.current = current;
+          setTranscriptLive(current);
+        };
+
+        recognition.onend = () => {
+          setIsRecording(false);
+          const finalVal = lastTranscriptRef.current.trim();
+          if (finalVal && onAutoSendRef.current) {
+            onAutoSendRef.current(finalVal);
+            lastTranscriptRef.current = '';
+            setTranscriptLive('');
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          console.warn('Speech recognition status:', e.error);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current = recognition;
+      } catch (err) {
+        console.warn('Speech recognition init failed:', err);
+      }
+    }
+
+    // Chrome voices changed listener
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
       };
-
-      recognition.onstart = () => {
-        setIsRecording(true);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognition.onerror = (e: any) => {
-        console.warn('Speech recognition error:', e);
-        setIsRecording(false);
-      };
-
-      recognitionRef.current = recognition;
     }
 
     return () => {
@@ -131,30 +193,38 @@ export function useVoiceAgent() {
     };
   }, [triggerBargeIn, stopSpeaking]);
 
-  const startVoiceRecording = (onTranscript: (text: string) => void) => {
-    // Interruption on click
+  const startVoiceRecording = (
+    onInterim?: (text: string) => void,
+    onFinalSubmit?: (text: string) => void
+  ) => {
     triggerBargeIn();
 
     if (!recognitionRef.current) {
-      alert('Speech Recognition is not supported by your browser. You can type or click preset prompt buttons.');
+      alert('Speech Recognition is not supported by this browser. You can type your request or click preset prompts.');
       return;
     }
 
+    if (onFinalSubmit) {
+      onAutoSendRef.current = onFinalSubmit;
+    }
+
     try {
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((res: any) => res[0].transcript)
-          .join('');
-        onTranscript(transcript);
-      };
+      lastTranscriptRef.current = '';
+      setTranscriptLive('');
       recognitionRef.current.start();
     } catch (err) {
-      console.warn('Recognition start failed:', err);
+      console.warn('Recognition start caught error:', err);
+      try {
+        recognitionRef.current.stop();
+        setTimeout(() => {
+          recognitionRef.current.start();
+        }, 100);
+      } catch {}
     }
   };
 
   const stopVoiceRecording = () => {
-    if (recognitionRef.current && isRecording) {
+    if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch {}
@@ -205,7 +275,6 @@ export function useVoiceAgent() {
           }
         }
       } catch {
-        // Raw token text
         accumulated += ' ' + e.data;
         setMessages((prev) =>
           prev.map((m) => (m.id === streamMsgId ? { ...m, text: accumulated } : m))
@@ -221,7 +290,7 @@ export function useVoiceAgent() {
 
   const sendUtterance = async (
     text: string,
-    patientPhone = '+1-555-SHOULDER',
+    patientPhone = '+1-555-1234567',
     hospitalId = 'HOSP-CITY-01'
   ) => {
     if (!text.trim()) return null;
@@ -253,14 +322,20 @@ export function useVoiceAgent() {
       setLatencyMs(elapsed);
 
       let replyText = 'I have received your inquiry.';
-      let intent = 'CLINICAL_INTAKE';
+      let intent = 'GENERAL_INQUIRY';
       let isEmergency = false;
 
       if (res.ok && res.data) {
         replyText =
-          res.data.speech_response || res.data.response_text || res.data.message || replyText;
-        intent = res.data.detected_intent || intent;
+          res.data.speech_response ||
+          res.data.agent_response ||
+          res.data.response_text ||
+          res.data.message ||
+          replyText;
+        intent = res.data.detected_intent || res.data.intent_detected || intent;
         isEmergency = !!res.data.escalation_triggered || intent.includes('EMERGENCY');
+      } else if (res.error) {
+        replyText = `We encountered a momentary issue: ${res.error}`;
       }
 
       setDetectedIntent(intent);
@@ -308,6 +383,7 @@ export function useVoiceAgent() {
     detectedIntent,
     bargeInAlert,
     streamActive,
+    transcriptLive,
     startVoiceRecording,
     stopVoiceRecording,
     streamAIResponse,
