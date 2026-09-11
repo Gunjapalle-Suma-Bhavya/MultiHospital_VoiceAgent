@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Stethoscope, Users, FileText, Activity } from 'lucide-react';
 import { CalendarView } from './CalendarView';
 import { AppointmentDetail } from './AppointmentDetail';
 import { DoctorControls } from './DoctorControls';
+import { TriageDesk } from './TriageDesk';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -125,6 +125,7 @@ export const DoctorPortal: React.FC = () => {
             appointments={appointments}
             selectedAppointmentId={selectedAppt?.id || selectedAppt?.appointment_id}
             onSelectAppointment={(a) => setSelectedAppt(a)}
+            doctorId={doctorId}
           />
         </div>
 
@@ -132,6 +133,9 @@ export const DoctorPortal: React.FC = () => {
           <AppointmentDetail appointment={selectedAppt} />
         </div>
       </div>
+
+      {/* Live Human Triage & Escalation Desk */}
+      <TriageDesk />
     </div>
   );
 };

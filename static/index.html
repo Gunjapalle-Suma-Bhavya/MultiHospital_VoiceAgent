@@ -258,17 +258,23 @@
                   <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <h3 class="font-bold text-sm text-white">AI Voice &amp; Chat Intake</h3>
                 </div>
-                <span id="pat-latency-tag" class="text-[10px] font-semibold bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Sub-2s Telephony</span>
+                <div class="flex items-center space-x-1.5">
+                  <button id="btn-pat-sse" class="text-[10px] font-bold bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 px-2 py-0.5 rounded transition flex items-center space-x-1" title="Stream real-time tokens via SSE">
+                    <i class="fa-solid fa-bolt text-indigo-400 text-[10px]"></i>
+                    <span>Test SSE Stream</span>
+                  </button>
+                  <span id="pat-latency-tag" class="text-[10px] font-semibold bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Sub-2s Telephony</span>
+                </div>
               </div>
 
-              <!-- Animated Waveform Strip -->
+              <!-- Animated Waveform Strip & Mic Toggle -->
               <div class="bg-slate-950 rounded-xl p-3.5 flex items-center justify-between border border-slate-800">
                 <div class="flex items-center space-x-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                    <i class="fa-solid fa-microphone-lines text-sm"></i>
-                  </div>
+                  <button id="btn-pat-mic" class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 flex items-center justify-center transition shadow cursor-pointer" title="Click to speak aloud into microphone">
+                    <i class="fa-solid fa-microphone text-sm"></i>
+                  </button>
                   <div>
-                    <div id="pat-audio-state" class="text-xs font-bold text-slate-200">Listening Channel Ready</div>
+                    <div id="pat-audio-state" class="text-xs font-bold text-slate-200">Listening Channel Ready &bull; Mic Enabled</div>
                     <div class="text-[10px] text-slate-500">&lt;180ms Barge-In Interruption Enabled</div>
                   </div>
                 </div>
@@ -341,19 +347,42 @@
             <div class="space-y-3">
               <div class="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800 gap-2">
                 <div>
-                  <h3 class="font-bold text-sm text-white">Specialist Discovery &amp; Slot Engine</h3>
-                  <p class="text-xs text-slate-400">Queries network availability honoring doctor working hours and blocked slots</p>
+                  <h3 class="font-bold text-sm text-white">Multi-Parameter Specialist Discovery &amp; Slot Engine</h3>
+                  <p class="text-xs text-slate-400">Queries network availability honoring doctor working hours, blocked slots &amp; modalities</p>
                 </div>
-                <div class="flex items-center space-x-2">
-                  <select id="pat-specialty-select" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                <button id="btn-pat-search-docs" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-md flex items-center space-x-1">
+                  <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                  <span>Search Providers</span>
+                </button>
+              </div>
+
+              <!-- Multi-Parameter Filters -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div>
+                  <label class="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Specialty:</label>
+                  <select id="pat-specialty-select" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
                     <option value="Orthopedics">Orthopedic Surgery</option>
                     <option value="Cardiology">Cardiology</option>
                     <option value="Dermatology">Dermatology</option>
                     <option value="Neurology">Neurology</option>
                   </select>
-                  <button id="btn-pat-search-docs" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow-md">
-                    Find
-                  </button>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Consultation Mode:</label>
+                  <select id="pat-mode-select" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <option value="IN_PERSON">🏥 In-Person Consultation</option>
+                    <option value="VIDEO_TELEHEALTH">💻 Video Telehealth</option>
+                    <option value="PHONE">📞 Phone Consultation</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Time Window:</label>
+                  <select id="pat-window-select" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                    <option value="ANYTIME">Anytime (Full Day)</option>
+                    <option value="MORNING">Morning (09:00 - 12:00)</option>
+                    <option value="AFTERNOON">Afternoon (12:00 - 17:00)</option>
+                    <option value="EVENING">Evening (17:00 - 20:00)</option>
+                  </select>
                 </div>
               </div>
 
@@ -514,11 +543,25 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           <!-- Patient Schedule Table (7 cols) -->
-          <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+          <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
             <div class="flex justify-between items-center pb-2 border-b border-slate-800">
-              <h3 class="font-bold text-sm text-white">Today's Patient Schedule</h3>
+              <div>
+                <h3 class="font-bold text-sm text-white">Today's Patient Schedule Queue</h3>
+                <p class="text-xs text-slate-400">Click any patient to inspect clinical briefs, or toggle hourly slots below</p>
+              </div>
               <span class="text-xs text-slate-400 font-mono">Live EHR Status</span>
             </div>
+
+            <!-- Visual Hourly Consultation Grid -->
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Visual Hourly Consultation Grid (Click slot to block / unblock):
+              </div>
+              <div id="doc-slots-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-2 text-xs">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs">
                 <thead class="text-[10px] uppercase text-slate-500 bg-slate-950 border-y border-slate-800">
@@ -582,6 +625,41 @@
             </div>
           </div>
 
+        </div>
+
+        <!-- Live Clinical Triage & Human Escalation Desk (Section 33 & 34) -->
+        <div id="doc-triage-desk" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-slate-800">
+            <div>
+              <div class="flex items-center space-x-2">
+                <h3 class="font-bold text-sm text-white">Live Clinical Triage &amp; Human Escalation Desk</h3>
+                <span id="doc-triage-count-badge" class="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Loading tickets...
+                </span>
+              </div>
+              <p class="text-xs text-slate-400">Directly synchronized with <code class="font-mono text-sky-400 text-[11px]">GET /api/v1/should-have/escalations</code> for 1-click clinical nurse resolution</p>
+            </div>
+            <button id="btn-refresh-escalations" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+              <i class="fa-solid fa-rotate text-xs mr-1"></i> Refresh Queue
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="text-[10px] uppercase text-slate-500 bg-slate-950 border-y border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">Ticket ID</th>
+                  <th class="py-2.5 px-3">Severity &amp; Status</th>
+                  <th class="py-2.5 px-3">Patient</th>
+                  <th class="py-2.5 px-3">Reason / Clinical Context</th>
+                  <th class="py-2.5 px-3 text-right">Nurse Intervention</th>
+                </tr>
+              </thead>
+              <tbody id="doc-triage-tbody" class="divide-y divide-slate-800 font-medium">
+                <!-- Populated dynamically via JS -->
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </section>
@@ -692,6 +770,31 @@
             <div class="flex justify-between text-xs text-slate-400"><span>4. Saturation</span><i class="fa-solid fa-microchip text-indigo-400"></i></div>
             <div class="text-2xl font-black text-white mt-1">28% CPU</div>
             <div class="text-[11px] text-slate-400 font-medium mt-0.5">Memory: 41% utilized</div>
+          </div>
+        </div>
+
+        <!-- 16-Step Canonical Execution Trace Waterfall (Real-time P95 Telephony Breakdown) -->
+        <div id="admin-waterfall-card" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-slate-800">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-sky-400 uppercase tracking-wider">Telephony Observability Tracer</span>
+                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black px-2 py-0.5 rounded">
+                  P95: 555ms &lt; 2.0s SLA
+                </span>
+              </div>
+              <h3 class="text-lg font-extrabold text-white mt-0.5">16-Step Canonical Lifecycle Execution Trace</h3>
+              <p class="text-xs text-slate-400">Step-by-step latency profiling through SIP trunking, LLM clinical extraction, EHR adapters, and multi-channel notifications</p>
+            </div>
+            <button id="btn-admin-benchmark-trace" class="bg-sky-600 hover:bg-sky-500 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-xl transition shadow flex items-center space-x-1.5">
+              <i class="fa-solid fa-bolt text-xs"></i>
+              <span>Run Telephony Benchmark</span>
+            </button>
+          </div>
+
+          <!-- Trace Progress Steps Waterfall Container -->
+          <div id="admin-waterfall-steps" class="space-y-2 text-xs">
+            <!-- Populated via JS -->
           </div>
         </div>
 

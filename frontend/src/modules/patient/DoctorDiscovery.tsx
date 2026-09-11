@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Clock, Check, Calendar, Stethoscope } from 'lucide-react';
+import { Search, Clock, Check, Stethoscope, Video, Phone, UserCheck } from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -25,6 +25,8 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
 }) => {
   const { user } = useAuth();
   const [specialty, setSpecialty] = useState(initialSpecialty);
+  const [consultationMode, setConsultationMode] = useState('IN_PERSON');
+  const [timeWindow, setTimeWindow] = useState('ANYTIME');
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
@@ -33,11 +35,11 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   useEffect(() => {
     if (initialSpecialty) {
       setSpecialty(initialSpecialty);
-      searchSlots(initialSpecialty);
+      searchSlots(initialSpecialty, consultationMode, timeWindow);
     }
   }, [initialSpecialty]);
 
-  const searchSlots = async (targetSpecialty: string) => {
+  const searchSlots = async (targetSpecialty: string, mode: string, windowVal: string) => {
     setIsLoading(true);
     try {
       const res = await apiCall('/api/v1/discovery/search', {
@@ -45,6 +47,8 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
         body: JSON.stringify({
           specialty: targetSpecialty,
           query_text: targetSpecialty,
+          appointment_category: mode,
+          time_window: windowVal,
         }),
       });
 
@@ -62,7 +66,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
             specialty: targetSpecialty || 'Orthopedics',
             hospital_id: 'HOSP-CITY-01',
             hospital_name: 'City Memorial Hospital',
-            start_time: 'Tomorrow 04:00 PM',
+            start_time: mode === 'VIDEO_TELEHEALTH' ? 'Tomorrow 03:00 PM (Telehealth)' : 'Tomorrow 04:00 PM (In-Person)',
             raw_start: new Date(Date.now() + 86400000).toISOString(),
           },
           {
@@ -100,7 +104,7 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
             patient_name: user?.name || 'Patient A',
             patient_phone: user?.identifier || '+1-555-SHOULDER',
             start_datetime: slot.raw_start || new Date(Date.now() + 86400000).toISOString(),
-            reason_for_visit: 'Clinical evaluation & pre-visit intake',
+            reason_for_visit: `${consultationMode} clinical consult & intake`,
           },
         }),
       });
@@ -124,39 +128,78 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
       {/* Search Header */}
-      <div className="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800 gap-2">
-        <div>
-          <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
-            <Stethoscope className="w-4 h-4 text-emerald-400" />
-            <span>Specialist Discovery &amp; Slot Engine</span>
-          </h3>
-          <p className="text-xs text-slate-400">
-            Queries network availability honoring doctor working hours and blocked slots
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <select
-            value={specialty}
-            onChange={(e) => {
-              setSpecialty(e.target.value);
-              searchSlots(e.target.value);
-            }}
-            className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            <option value="Orthopedics">Orthopedic Surgery</option>
-            <option value="Cardiology">Cardiology</option>
-            <option value="Dermatology">Dermatology</option>
-            <option value="Neurology">Neurology</option>
-          </select>
+      <div className="space-y-3 pb-2 border-b border-slate-800">
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div>
+            <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
+              <Stethoscope className="w-4 h-4 text-emerald-400" />
+              <span>Multi-Parameter Specialist Discovery &amp; Slot Engine</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Cross-hospital doctor search honoring availability, modality, and calendar blocks
+            </p>
+          </div>
 
           <button
-            onClick={() => searchSlots(specialty)}
+            onClick={() => searchSlots(specialty, consultationMode, timeWindow)}
             className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow-md flex items-center gap-1"
           >
             <Search className="w-3.5 h-3.5" />
-            <span>Find</span>
+            <span>Search Providers</span>
           </button>
+        </div>
+
+        {/* 3 Filters Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Specialty:</label>
+            <select
+              value={specialty}
+              onChange={(e) => {
+                setSpecialty(e.target.value);
+                searchSlots(e.target.value, consultationMode, timeWindow);
+              }}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="Orthopedics">Orthopedic Surgery</option>
+              <option value="Cardiology">Cardiology</option>
+              <option value="Dermatology">Dermatology</option>
+              <option value="Neurology">Neurology</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Consultation Mode:</label>
+            <select
+              value={consultationMode}
+              onChange={(e) => {
+                setConsultationMode(e.target.value);
+                searchSlots(specialty, e.target.value, timeWindow);
+              }}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="IN_PERSON">🏥 In-Person Consultation</option>
+              <option value="VIDEO_TELEHEALTH">💻 Video Telehealth</option>
+              <option value="PHONE">📞 Phone Consultation</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] uppercase font-bold text-slate-400 mb-0.5">Time Window:</label>
+            <select
+              value={timeWindow}
+              onChange={(e) => {
+                setTimeWindow(e.target.value);
+                searchSlots(specialty, consultationMode, e.target.value);
+              }}
+              className="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="ANYTIME">Anytime (Full Day)</option>
+              <option value="MORNING">Morning (09:00 - 12:00)</option>
+              <option value="AFTERNOON">Afternoon (12:00 - 17:00)</option>
+              <option value="EVENING">Evening (17:00 - 20:00)</option>
+            </select>
+          </div>
         </div>
       </div>
 
