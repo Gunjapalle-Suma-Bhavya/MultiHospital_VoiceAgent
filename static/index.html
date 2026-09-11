@@ -193,24 +193,42 @@
           <div id="pat-output" class="status-box" style="display:none;"></div>
         </div>
 
-        <div class="card">
-          <h2>Pre-Visit Questionnaire Submission (5.8)</h2>
-          <form id="form-submit-questionnaire">
-            <div class="form-group">
-              <label>Patient ID</label>
-              <input type="text" id="quest-pat-id" placeholder="Patient UUID" required>
+        <div class="card" style="grid-column: span 2;">
+          <h2>Doctor-Configured Pre-Visit Questionnaire & Safety Console (5.23 - 5.27)</h2>
+          <form id="form-doctor-questionnaire">
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="form-group">
+                <label>Doctor ID / Specialty Lookup</label>
+                <input type="text" id="quest-doc-id" placeholder="Doctor UUID or Specialty (e.g. Cardiology)" required>
+              </div>
+              <div class="form-group">
+                <label>Patient Conversational Response</label>
+                <input type="text" id="quest-patient-utterance" placeholder='e.g. "Yes, I felt chest pain 2 weeks ago during exercise"'>
+              </div>
             </div>
-            <div class="form-group">
-              <label>Questionnaire ID</label>
-              <input type="text" id="quest-id" placeholder="Questionnaire UUID" required>
+            <div style="display:flex; gap:1rem;">
+              <button type="button" id="btn-get-approved-questions" class="btn btn-secondary">Get Doctor Approved Questions</button>
+              <button type="submit" class="btn">Parse & Check Safety Guardrails</button>
             </div>
-            <div class="form-group">
-              <label>Responses (JSON)</label>
-              <textarea id="quest-answers" rows="3" placeholder='{"allergies": "Penicillin", "medications": "None"}'></textarea>
-            </div>
-            <button type="submit" class="btn">Submit Questionnaire</button>
           </form>
-          <div id="quest-output" class="status-box" style="display:none;"></div>
+          <div id="doctor-quest-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Background Workflow Engine & Async Lifecycle Console (5.28)</h2>
+          <form id="form-background-workflows">
+            <div class="form-group">
+              <label>Appointment ID</label>
+              <input type="text" id="wf-appt-id" placeholder="Appointment UUID" required>
+            </div>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+              <button type="button" id="btn-wf-start-reminder" class="btn">Start Reminder Workflow</button>
+              <button type="button" id="btn-wf-start-post-booking" class="btn">Start 6-Step Post-Booking Workflow</button>
+              <button type="button" id="btn-wf-execute-due" class="btn btn-success">Execute Due Scheduled Workflows</button>
+              <button type="button" id="btn-wf-get-history" class="btn btn-secondary">View Workflow Logs & History</button>
+            </div>
+          </form>
+          <div id="wf-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
       </div>
     </section>

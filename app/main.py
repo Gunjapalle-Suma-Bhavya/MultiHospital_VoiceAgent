@@ -20,7 +20,8 @@ import os
 from app.database.config import init_db
 from app.routers import (
     onboarding_router, admin_router, doctors_router, patients_router,
-    discovery_router, voice_router, context_router, ehr_router
+    discovery_router, voice_router, context_router, ehr_router,
+    questionnaires_router, workflows_router
 )
 
 app = FastAPI(
@@ -50,6 +51,8 @@ app.include_router(discovery_router)
 app.include_router(voice_router)
 app.include_router(context_router)
 app.include_router(ehr_router)
+app.include_router(questionnaires_router)
+app.include_router(workflows_router)
 
 # Mount Static Assets & Web Frontend UI
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")

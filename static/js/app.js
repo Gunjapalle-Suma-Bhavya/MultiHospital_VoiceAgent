@@ -6,7 +6,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDoctorForms();
   setupPatientForms();
   setupVoiceConsole();
+  setupQuestionnaireEngineForm();
+  setupBackgroundWorkflowForm();
 });
+
 
 // Navigation Tab Handler
 function setupTabs() {
@@ -519,6 +522,132 @@ function setupEHRReconciliationForm() {
     }
   }
 }
+
+function setupQuestionnaireEngineForm() {
+  const formQuest = document.getElementById("form-doctor-questionnaire");
+  const questOutput = document.getElementById("doctor-quest-output");
+  const btnApproved = document.getElementById("btn-get-approved-questions");
+
+  if (btnApproved) {
+    btnApproved.addEventListener("click", async () => {
+      const docId = document.getElementById("quest-doc-id").value || "Dr. Rao";
+      try {
+        const res = await fetch(`/api/v1/questionnaires/doctor/${docId}`);
+        const data = await res.json();
+        questOutput.style.display = "block";
+        questOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        questOutput.style.display = "block";
+        questOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  if (formQuest) {
+    formQuest.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const docId = document.getElementById("quest-doc-id").value;
+      const utterance = document.getElementById("quest-patient-utterance").value;
+
+      try {
+        const res = await fetch("/api/v1/questionnaires/parse-answer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question_id: "Q-CARD-01",
+            user_utterance: utterance,
+            doctor_id: docId
+          })
+        });
+        const data = await res.json();
+        questOutput.style.display = "block";
+        questOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        questOutput.style.display = "block";
+        questOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
+function setupBackgroundWorkflowForm() {
+  const wfOutput = document.getElementById("wf-output");
+
+  const btnStartReminder = document.getElementById("btn-wf-start-reminder");
+  if (btnStartReminder) {
+    btnStartReminder.addEventListener("click", async () => {
+      const apptId = document.getElementById("wf-appt-id").value;
+      if (!apptId) return alert("Please enter an Appointment ID");
+      try {
+        const res = await fetch("/api/v1/workflows/start-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: apptId, delay_minutes: 1440 })
+        });
+        const data = await res.json();
+        wfOutput.style.display = "block";
+        wfOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        wfOutput.style.display = "block";
+        wfOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnStartPost = document.getElementById("btn-wf-start-post-booking");
+  if (btnStartPost) {
+    btnStartPost.addEventListener("click", async () => {
+      const apptId = document.getElementById("wf-appt-id").value;
+      if (!apptId) return alert("Please enter an Appointment ID");
+      try {
+        const res = await fetch("/api/v1/workflows/start-post-booking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: apptId })
+        });
+        const data = await res.json();
+        wfOutput.style.display = "block";
+        wfOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        wfOutput.style.display = "block";
+        wfOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnExecDue = document.getElementById("btn-wf-execute-due");
+  if (btnExecDue) {
+    btnExecDue.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/workflows/execute-due", { method: "POST" });
+        const data = await res.json();
+        wfOutput.style.display = "block";
+        wfOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        wfOutput.style.display = "block";
+        wfOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHistory = document.getElementById("btn-wf-get-history");
+  if (btnHistory) {
+    btnHistory.addEventListener("click", async () => {
+      const apptId = document.getElementById("wf-appt-id").value;
+      if (!apptId) return alert("Please enter an Appointment ID");
+      try {
+        const res = await fetch(`/api/v1/workflows/history/${apptId}`);
+        const data = await res.json();
+        wfOutput.style.display = "block";
+        wfOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        wfOutput.style.display = "block";
+        wfOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 
