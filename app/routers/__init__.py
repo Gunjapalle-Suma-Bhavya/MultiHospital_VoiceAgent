@@ -29,6 +29,7 @@ from app.routers.platform_architecture import router as architecture_router
 from app.routers.dashboard_pages import router as dashboard_pages_router
 from app.routers.dashboard_analytics import router as dashboard_analytics_router
 from app.routers.operational_monitoring import router as operational_monitoring_router
+from app.routers.reliability import router as reliability_router
 
 __all__ = [
     "onboarding_router",
@@ -59,6 +60,7 @@ __all__ = [
     "dashboard_pages_router",
     "dashboard_analytics_router",
     "operational_monitoring_router",
+    "reliability_router",
 ]
 
 

@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupDashboardPagesUI();
   setupDashboardAnalyticsUI();
   setupOperationalMonitoringUI();
+  setupReliabilityUI();
 });
 
 
@@ -3055,6 +3056,201 @@ function setupOperationalMonitoringUI() {
   // Initial load
   loadOperationalMonitoring();
 }
+
+/**
+ * Section 15: Reliability & Failure Handling UI
+ */
+function setupReliabilityUI() {
+  const formClassify = document.getElementById("form-classify-failure");
+  const planOutput = document.getElementById("failure-plan-output");
+  const domainSelect = document.getElementById("fail-domain");
+  const typeSelect = document.getElementById("fail-type");
+
+  // Dynamic type options depending on domain
+  const domainOptions = {
+    VOICE: [
+      { val: "NOISY_AUDIO", text: "Noisy Audio" },
+      { val: "PATIENT_INTERRUPTION", text: "Patient Interruption (Barge-in)" },
+      { val: "SILENCE", text: "Silence / No Audio Detected" },
+      { val: "UNCLEAR_SPEECH", text: "Unclear Speech / Low Confidence" },
+      { val: "CALL_DROP", text: "Call Drop / WebRTC Disconnect" }
+    ],
+    AGENT: [
+      { val: "CAPABILITY_FAILURE", text: "Capability Execution Failure" },
+      { val: "MISSING_INFORMATION", text: "Missing Slot Information" },
+      { val: "AMBIGUOUS_REQUEST", text: "Ambiguous Patient Request" },
+      { val: "UNSUPPORTED_REQUEST", text: "Unsupported Request / Clinical Triage" },
+      { val: "LONG_RUNNING_OPERATION", text: "Long-Running Operation Timeout" },
+      { val: "CONTEXT_RESOLUTION_FAILURE", text: "Context Resolution Failure" }
+    ],
+    SCHEDULING: [
+      { val: "SLOT_BECOMES_UNAVAILABLE", text: "Slot Becomes Unavailable" },
+      { val: "DOUBLE_BOOKING_ATTEMPT", text: "Double-Booking Attempt" },
+      { val: "CALENDAR_CONFLICT", text: "Calendar Conflict Detected" },
+      { val: "DOCTOR_BECOMES_UNAVAILABLE", text: "Doctor On Emergency / Unavailable" }
+    ],
+    EHR_INTEGRATION: [
+      { val: "API_TIMEOUT", text: "API Timeout (Retryable)" },
+      { val: "AUTHENTICATION_FAILURE", text: "Authentication Failure (Escalate)" },
+      { val: "AUTHORIZATION_FAILURE", text: "Authorization Failure" },
+      { val: "EXPIRED_CREDENTIALS", text: "Expired Credentials" },
+      { val: "RATE_LIMIT", text: "Rate Limit / 429 Backoff" },
+      { val: "NETWORK_ERROR", text: "Network Error / Connection Reset" },
+      { val: "EHR_UNAVAILABLE", text: "EHR Unavailable / Maintenance" },
+      { val: "SCHEMA_MISMATCH", text: "Schema Mismatch / Parsing Failure" },
+      { val: "MAPPING_FAILURE", text: "Mapping Failure" },
+      { val: "PATIENT_NOT_FOUND", text: "Patient Not Found in EHR" },
+      { val: "PROVIDER_NOT_FOUND", text: "Provider Not Found in EHR" },
+      { val: "APPOINTMENT_CONFLICT", text: "Appointment Conflict in External EHR" },
+      { val: "DUPLICATE_REQUEST", text: "Duplicate Request" },
+      { val: "PARTIAL_SUCCESS", text: "Partial Success" },
+      { val: "UNKNOWN_EXTERNAL_RESULT", text: "Unknown External Result (Query State)" },
+      { val: "STATE_INCONSISTENCY", text: "State Inconsistency" }
+    ],
+    WORKFLOW: [
+      { val: "EXECUTION_TIMEOUT", text: "Execution Timeout" },
+      { val: "EXTERNAL_SERVICE_FAILURE", text: "External Service Failure" },
+      { val: "NOTIFICATION_FAILURE", text: "Notification Dispatch Failure" },
+      { val: "DEPENDENCY_UNAVAILABLE", text: "Dependency Unavailable" },
+      { val: "INVALID_STATE_TRANSITION", text: "Invalid State Transition" },
+      { val: "STUCK_WORKFLOW", text: "Stuck Workflow Execution" }
+    ]
+  };
+
+  if (domainSelect && typeSelect) {
+    domainSelect.addEventListener("change", () => {
+      const opts = domainOptions[domainSelect.value] || [];
+      typeSelect.innerHTML = "";
+      opts.forEach(o => {
+        const optEl = document.createElement("option");
+        optEl.value = o.val;
+        optEl.textContent = o.text;
+        typeSelect.appendChild(optEl);
+      });
+    });
+  }
+
+  // 1. Classify failure
+  if (formClassify) {
+    formClassify.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const payload = {
+          domain: domainSelect.value,
+          failure_type: typeSelect.value,
+          error_message: `Simulated error for ${typeSelect.value} in domain ${domainSelect.value}`,
+          context: { trigger: "UI_DEMO" }
+        };
+        const res = await fetch("/api/v1/reliability/classify-failure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        planOutput.style.display = "block";
+        planOutput.textContent = "[Section 15 Failure Plan Resolved]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        planOutput.style.display = "block";
+        planOutput.textContent = "Error classifying failure: " + err.message;
+      }
+    });
+  }
+
+  // 2. Idempotency test & replay
+  const formIdemp = document.getElementById("form-idempotency-test");
+  const btnReplay = document.getElementById("btn-replay-idemp");
+  const idempOutput = document.getElementById("idemp-output");
+  const idempKeyInput = document.getElementById("idemp-key-input");
+  const idempOpSelect = document.getElementById("idemp-op-select");
+
+  const runIdempotencyCall = async () => {
+    try {
+      const payload = {
+        idempotency_key: idempKeyInput.value,
+        operation_name: idempOpSelect.value,
+        parameters: {
+          timestamp: new Date().toISOString(),
+          requested_by: "Demo Patient"
+        }
+      };
+      const res = await fetch("/api/v1/reliability/idempotent-execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      idempOutput.style.display = "block";
+      idempOutput.textContent = "[Section 15.2 Idempotency Execution Result]\n\n" + JSON.stringify(data, null, 2);
+    } catch (err) {
+      idempOutput.style.display = "block";
+      idempOutput.textContent = "Error executing idempotency operation: " + err.message;
+    }
+  };
+
+  if (formIdemp) {
+    formIdemp.addEventListener("submit", (e) => {
+      e.preventDefault();
+      runIdempotencyCall();
+    });
+  }
+  if (btnReplay) {
+    btnReplay.addEventListener("click", () => {
+      runIdempotencyCall();
+    });
+  }
+
+  // 3. Strict Booking Verification Speech
+  const btnEvalSpeech = document.getElementById("btn-eval-verif-speech");
+  const verifApptInput = document.getElementById("verif-rule-appt-id");
+  const verifOutput = document.getElementById("verif-rule-output");
+
+  if (btnEvalSpeech) {
+    btnEvalSpeech.addEventListener("click", async () => {
+      let apptId = verifApptInput.value.trim();
+      if (!apptId) {
+        apptId = "00000000-0000-0000-0000-000000000001";
+        verifApptInput.value = apptId;
+      }
+      try {
+        const res = await fetch(`/api/v1/reliability/booking-verification/${apptId}`);
+        const data = await res.json();
+        verifOutput.style.display = "block";
+        verifOutput.textContent = "[Section 15.3 Booking Verification Evaluation]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        verifOutput.style.display = "block";
+        verifOutput.textContent = "Error evaluating booking verification: " + err.message;
+      }
+    });
+  }
+
+  // 4. Controlled Retry Test (15.1)
+  const btnRetryFlow = document.getElementById("btn-eval-retry-flow");
+  if (btnRetryFlow) {
+    btnRetryFlow.addEventListener("click", async () => {
+      try {
+        const payload = {
+          operation_name: "EHR_APPOINTMENT_POST",
+          failure_domain: "EHR_INTEGRATION",
+          failure_type: "API_TIMEOUT",
+          max_attempts: 3,
+          simulated_succeeds_on_attempt: 2
+        };
+        const res = await fetch("/api/v1/reliability/execute-retry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        verifOutput.style.display = "block";
+        verifOutput.textContent = "[Section 15.1 Controlled Retry Flow Result]\n\n" + JSON.stringify(data, null, 2);
+      } catch (err) {
+        verifOutput.style.display = "block";
+        verifOutput.textContent = "Error executing retry flow: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 

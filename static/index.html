@@ -27,6 +27,7 @@
     <button class="tab-btn" data-tab="tab-dashboards-step11">Dashboards — 49 Pages (Step 11)</button>
     <button class="tab-btn" data-tab="tab-analytics-step12">Dashboard Analytics (Step 12)</button>
     <button class="tab-btn" data-tab="tab-operational-monitoring-step13">Operational Monitoring (Step 13)</button>
+    <button class="tab-btn" data-tab="tab-reliability-step15">Reliability & Failure Handling (15)</button>
   </nav>
 
   <main class="container">
@@ -1803,6 +1804,106 @@
           <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; background: #fffbeb; padding: 0.6rem; border-radius: 4px; border-left: 3px solid #f59e0b;">
             <strong>Queue Depths:</strong> WF Queue: <span id="opmon-q-wf">0</span> | Notifications: <span id="opmon-q-notif">0</span> | EHR Syncs: <span id="opmon-q-ehr">0</span>
           </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL: RELIABILITY & FAILURE HANDLING (SECTION 15) -->
+    <section id="tab-reliability-step15" class="tab-content">
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #fff; border: none;">
+        <h2 style="margin: 0; color: #fff; font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚡</span> Section 15: Reliability & Failure Handling
+        </h2>
+        <p style="margin: 0.35rem 0 0 0; color: #c7d2fe; font-size: 0.9rem;">
+          Real-World Failure Handling across Voice, Agent, Scheduling, EHR Integrations, and Workflows with Controlled Retries (15.1), Idempotency (15.2), and Strict Booking Verification (15.3).
+        </p>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+
+        <!-- CARD 1: REAL-WORLD FAILURE CLASSIFIER -->
+        <div class="card">
+          <h3 style="margin-top: 0; color: #4338ca;">🔍 Real-World Failure Simulator</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Classify failures and resolve deterministic recovery plans with anti-duplicate guarantees.
+          </p>
+          <form id="form-classify-failure">
+            <div class="form-group">
+              <label>Failure Domain</label>
+              <select id="fail-domain">
+                <option value="VOICE">Voice Failures</option>
+                <option value="AGENT">Agent Failures</option>
+                <option value="SCHEDULING">Scheduling Failures</option>
+                <option value="EHR_INTEGRATION" selected>EHR / External Integration Failures</option>
+                <option value="WORKFLOW">Workflow Failures</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Failure Type</label>
+              <select id="fail-type">
+                <option value="API_TIMEOUT">API Timeout (Retryable)</option>
+                <option value="AUTHENTICATION_FAILURE">Authentication Failure (Escalate)</option>
+                <option value="PATIENT_NOT_FOUND">Patient Not Found (Reconciliation)</option>
+                <option value="UNKNOWN_EXTERNAL_RESULT">Unknown External Result (Query State)</option>
+                <option value="DOUBLE_BOOKING_ATTEMPT">Double-Booking Attempt (Alternative Slot)</option>
+                <option value="NOISY_AUDIO">Noisy Audio (Clarify Speech)</option>
+                <option value="PATIENT_INTERRUPTION">Patient Interruption (Barge-in)</option>
+                <option value="UNSUPPORTED_REQUEST">Unsupported Request (Human Escalate)</option>
+              </select>
+            </div>
+            <button type="submit" class="btn" style="background: #4338ca;">Classify &amp; Resolve Strategy</button>
+          </form>
+          <div id="failure-plan-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: SECTION 15.2 IDEMPOTENCY ENFORCER -->
+        <div class="card">
+          <h3 style="margin-top: 0; color: #059669;">🛡️ 15.2 Idempotency Enforcer</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Guarantees repeated requests produce zero duplicate bookings, cancellations, notifications, or workflows.
+          </p>
+          <form id="form-idempotency-test">
+            <div class="form-group">
+              <label>Idempotency Key</label>
+              <input type="text" id="idemp-key-input" value="IDEMP-DEMO-KEY-8822" required>
+            </div>
+            <div class="form-group">
+              <label>Critical Operation</label>
+              <select id="idemp-op-select">
+                <option value="APPOINTMENT_CREATION">Appointment Creation</option>
+                <option value="APPOINTMENT_CANCELLATION">Appointment Cancellation</option>
+                <option value="APPOINTMENT_RESCHEDULING">Appointment Rescheduling</option>
+                <option value="NOTIFICATION_DISPATCH">Notification Dispatch</option>
+                <option value="WORKFLOW_TRIGGER">Workflow Trigger</option>
+                <option value="EHR_INTEGRATION_SYNC">EHR Integration Operation</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="submit" class="btn" style="background: #059669; flex: 1;">Execute Operation</button>
+              <button type="button" id="btn-replay-idemp" class="btn btn-secondary" style="flex: 1;">Replay (Idempotency Test)</button>
+            </div>
+          </form>
+          <div id="idemp-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 3: SECTION 15.3 STRICT BOOKING VERIFICATION -->
+        <div class="card" style="grid-column: span 2;">
+          <h3 style="margin-top: 0; color: #0284c7;">🔒 15.3 Strict Booking Verification Rule</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Strict rule: The platform must <strong>never</strong> state <em>"Your appointment is booked"</em> until authoritative external verification confirms the appointment.
+          </p>
+          <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 1rem; align-items: end;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>Appointment UUID</label>
+              <input type="text" id="verif-rule-appt-id" placeholder="Enter Appointment ID or click sample below">
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="btn-eval-verif-speech" class="btn" style="background: #0284c7; flex: 1;">Evaluate Confirmation Speech</button>
+              <button type="button" id="btn-eval-retry-flow" class="btn btn-warning" style="flex: 1;">15.1 Controlled Retry Test</button>
+            </div>
+          </div>
+          <div id="verif-rule-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
 
       </div>
