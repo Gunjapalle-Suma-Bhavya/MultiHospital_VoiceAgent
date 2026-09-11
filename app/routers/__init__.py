@@ -11,6 +11,8 @@ from app.routers.context import router as context_router
 from app.routers.ehr import router as ehr_router
 from app.routers.questionnaires import router as questionnaires_router
 from app.routers.workflows import router as workflows_router
+from app.routers.events import router as events_router
+from app.routers.notifications import router as notifications_router
 
 __all__ = [
     "onboarding_router",
@@ -22,5 +24,8 @@ __all__ = [
     "context_router",
     "ehr_router",
     "questionnaires_router",
-    "workflows_router"
+    "workflows_router",
+    "events_router",
+    "notifications_router"
 ]
+

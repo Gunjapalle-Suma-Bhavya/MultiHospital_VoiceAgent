@@ -228,7 +228,71 @@
               <button type="button" id="btn-wf-get-history" class="btn btn-secondary">View Workflow Logs & History</button>
             </div>
           </form>
-          <div id="wf-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        <div class="card" style="grid-column: span 2;">
+          <h2>Event-Driven Architecture Console (5.29)</h2>
+          <form id="form-publish-event">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div class="form-group">
+                <label>Event Type</label>
+                <select id="evt-type">
+                  <option value="APPOINTMENT_BOOKED">APPOINTMENT_BOOKED</option>
+                  <option value="HOSPITAL_APPROVED">HOSPITAL_APPROVED</option>
+                  <option value="DOCTOR_CREATED">DOCTOR_CREATED</option>
+                  <option value="APPOINTMENT_CANCELLED">APPOINTMENT_CANCELLED</option>
+                  <option value="QUESTIONNAIRE_COMPLETED">QUESTIONNAIRE_COMPLETED</option>
+                  <option value="EHR_INTEGRATION_FAILED">EHR_INTEGRATION_FAILED</option>
+                  <option value="HUMAN_ESCALATION_TRIGGERED">HUMAN_ESCALATION_TRIGGERED</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Aggregate ID</label>
+                <input type="text" id="evt-aggregate-id" placeholder="e.g. APPT-101 or HOSP-55" required>
+              </div>
+              <div class="form-group">
+                <label>Event Source</label>
+                <input type="text" id="evt-source" value="WEB_CONSOLE" required>
+              </div>
+            </div>
+            <div style="display:flex; gap:1rem;">
+              <button type="submit" class="btn">Publish System Event</button>
+              <button type="button" id="btn-get-event-history" class="btn btn-secondary">Query Event History</button>
+              <button type="button" id="btn-get-subscribers" class="btn btn-secondary">List Active Consumers</button>
+            </div>
+          </form>
+          <div id="evt-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>Multi-Role Notification Center (5.30)</h2>
+          <form id="form-send-notification">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div class="form-group">
+                <label>Recipient Role</label>
+                <select id="notif-role">
+                  <option value="PATIENT">PATIENT</option>
+                  <option value="DOCTOR">DOCTOR</option>
+                  <option value="HOSPITAL">HOSPITAL</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Recipient ID / Phone</label>
+                <input type="text" id="notif-recipient-id" placeholder="e.g. +15551234567 or DOC-001" required>
+              </div>
+              <div class="form-group">
+                <label>Notification Type</label>
+                <input type="text" id="notif-type" value="APPOINTMENT_CONFIRMATION" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Message Body</label>
+              <input type="text" id="notif-body" placeholder="e.g. Your appointment with Dr. House is confirmed for Friday at 10 AM." required>
+            </div>
+            <div style="display:flex; gap:1rem;">
+              <button type="submit" class="btn">Send Notification</button>
+              <button type="button" id="btn-get-notif-history" class="btn btn-secondary">Get Recipient History</button>
+            </div>
+          </form>
+          <div id="notif-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
       </div>
     </section>

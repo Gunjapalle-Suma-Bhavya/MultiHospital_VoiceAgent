@@ -8,7 +8,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupVoiceConsole();
   setupQuestionnaireEngineForm();
   setupBackgroundWorkflowForm();
+  setupEventBusForm();
+  setupNotificationCenterForm();
 });
+
 
 
 // Navigation Tab Handler
@@ -647,6 +650,114 @@ function setupBackgroundWorkflowForm() {
     });
   }
 }
+
+function setupEventBusForm() {
+  const formEvt = document.getElementById("form-publish-event");
+  const evtOutput = document.getElementById("evt-output");
+
+  if (formEvt) {
+    formEvt.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        event_type: document.getElementById("evt-type").value,
+        aggregate_id: document.getElementById("evt-aggregate-id").value,
+        source: document.getElementById("evt-source").value
+      };
+      try {
+        const res = await fetch("/api/v1/events/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        evtOutput.style.display = "block";
+        evtOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        evtOutput.style.display = "block";
+        evtOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHistory = document.getElementById("btn-get-event-history");
+  if (btnHistory) {
+    btnHistory.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/events/history");
+        const data = await res.json();
+        evtOutput.style.display = "block";
+        evtOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        evtOutput.style.display = "block";
+        evtOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnSubs = document.getElementById("btn-get-subscribers");
+  if (btnSubs) {
+    btnSubs.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/events/subscribers");
+        const data = await res.json();
+        evtOutput.style.display = "block";
+        evtOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        evtOutput.style.display = "block";
+        evtOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
+function setupNotificationCenterForm() {
+  const formNotif = document.getElementById("form-send-notification");
+  const notifOutput = document.getElementById("notif-output");
+
+  if (formNotif) {
+    formNotif.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        recipient_role: document.getElementById("notif-role").value,
+        recipient_id: document.getElementById("notif-recipient-id").value,
+        notification_type: document.getElementById("notif-type").value,
+        body: document.getElementById("notif-body").value
+      };
+      try {
+        const res = await fetch("/api/v1/notifications/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        notifOutput.style.display = "block";
+        notifOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        notifOutput.style.display = "block";
+        notifOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHistory = document.getElementById("btn-get-notif-history");
+  if (btnHistory) {
+    btnHistory.addEventListener("click", async () => {
+      const role = document.getElementById("notif-role").value;
+      const recipientId = document.getElementById("notif-recipient-id").value;
+      if (!recipientId) return alert("Please enter a Recipient ID");
+      try {
+        const res = await fetch(`/api/v1/notifications/recipient/${role}/${recipientId}`);
+        const data = await res.json();
+        notifOutput.style.display = "block";
+        notifOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        notifOutput.style.display = "block";
+        notifOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 

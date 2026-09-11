@@ -507,3 +507,81 @@ class AuditLog(Base):
     payload_json = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
+
+class EventType(str, Enum):
+    HOSPITAL_APPROVED = "HOSPITAL_APPROVED"
+    DOCTOR_CREATED = "DOCTOR_CREATED"
+    APPOINTMENT_REQUESTED = "APPOINTMENT_REQUESTED"
+    APPOINTMENT_BOOKED = "APPOINTMENT_BOOKED"
+    APPOINTMENT_CANCELLED = "APPOINTMENT_CANCELLED"
+    APPOINTMENT_RESCHEDULED = "APPOINTMENT_RESCHEDULED"
+    QUESTIONNAIRE_ASSIGNED = "QUESTIONNAIRE_ASSIGNED"
+    QUESTIONNAIRE_COMPLETED = "QUESTIONNAIRE_COMPLETED"
+    AI_CONVERSATION_STARTED = "AI_CONVERSATION_STARTED"
+    AI_TOOL_EXECUTED = "AI_TOOL_EXECUTED"
+    EHR_INTEGRATION_STARTED = "EHR_INTEGRATION_STARTED"
+    EHR_INTEGRATION_COMPLETED = "EHR_INTEGRATION_COMPLETED"
+    EHR_INTEGRATION_FAILED = "EHR_INTEGRATION_FAILED"
+    EHR_SYNC_VERIFIED = "EHR_SYNC_VERIFIED"
+    EHR_RECONCILIATION_REQUIRED = "EHR_RECONCILIATION_REQUIRED"
+    WORKFLOW_STARTED = "WORKFLOW_STARTED"
+    WORKFLOW_COMPLETED = "WORKFLOW_COMPLETED"
+    WORKFLOW_FAILED = "WORKFLOW_FAILED"
+    HUMAN_ESCALATION_TRIGGERED = "HUMAN_ESCALATION_TRIGGERED"
+
+
+class NotificationRecipientRole(str, Enum):
+    PATIENT = "PATIENT"
+    DOCTOR = "DOCTOR"
+    HOSPITAL = "HOSPITAL"
+
+
+class NotificationChannel(str, Enum):
+    SMS = "SMS"
+    EMAIL = "EMAIL"
+    IN_APP = "IN_APP"
+    VOICE_CALL = "VOICE_CALL"
+    WEBHOOK = "WEBHOOK"
+
+
+class NotificationStatus(str, Enum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
+
+
+class PlatformEventRecord(Base):
+    """
+    Structured System Event Persistence (Section 5.29).
+    Stores published platform events for decoupled analytics, workflows, audit, and monitoring consumers.
+    """
+    __tablename__ = "platform_event_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_type = Column(String(100), nullable=False, index=True)
+    source = Column(String(100), nullable=False)
+    aggregate_id = Column(String(255), nullable=True, index=True)
+    payload_json = Column(Text, nullable=True)
+    published_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class NotificationRecord(Base):
+    """
+    Multi-Role Notification Log (Section 5.30).
+    Stores notifications dispatched to Patients, Doctors, and Hospitals.
+    """
+    __tablename__ = "notification_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    recipient_role = Column(String(50), nullable=False, index=True)
+    recipient_id = Column(String(255), nullable=False, index=True)
+    notification_type = Column(String(100), nullable=False)
+    channel = Column(String(50), default="SMS")
+    subject = Column(String(255), nullable=True)
+    body = Column(Text, nullable=False)
+    status = Column(String(50), default="SENT")
+    metadata_json = Column(Text, nullable=True)
+    sent_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
