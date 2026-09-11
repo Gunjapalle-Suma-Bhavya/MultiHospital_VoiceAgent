@@ -131,6 +131,20 @@
           </form>
           <div id="observability-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>AI Usage Economics & Internal Evaluation Suite (5.36 & 5.37)</h2>
+          <form id="form-ai-analytics">
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+              <button type="button" id="btn-get-ai-summary" class="btn">Query Platform AI Usage Summary</button>
+              <button type="button" id="btn-get-cost-hosp" class="btn btn-secondary">Cost Breakdown by Hospital</button>
+              <button type="button" id="btn-get-cost-feat" class="btn btn-secondary">Cost Breakdown by Feature</button>
+              <button type="button" id="btn-run-ai-eval" class="btn btn-success">Run 4-Domain Evaluation Suite</button>
+              <button type="button" id="btn-get-eval-history" class="btn btn-secondary">Query Benchmark History</button>
+            </div>
+          </form>
+          <div id="ai-analytics-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
       </div>
     </section>
 

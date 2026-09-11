@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupHospitalDashboardForm();
   setupPlatformAdminDashboardForm();
   setupObservabilityForm();
+  setupAIAnalyticsForm();
 });
 
 
@@ -941,6 +942,88 @@ function setupObservabilityForm() {
       } catch (err) {
         obsOutput.style.display = "block";
         obsOutput.textContent = "Error: " + err.message;
+      }
+    });
+}
+
+function setupAIAnalyticsForm() {
+  const aiOutput = document.getElementById("ai-analytics-output");
+
+  const btnSummary = document.getElementById("btn-get-ai-summary");
+  if (btnSummary) {
+    btnSummary.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/ai/usage/summary");
+        const data = await res.json();
+        aiOutput.style.display = "block";
+        aiOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        aiOutput.style.display = "block";
+        aiOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHosp = document.getElementById("btn-get-cost-hosp");
+  if (btnHosp) {
+    btnHosp.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/ai/usage/by-hospital");
+        const data = await res.json();
+        aiOutput.style.display = "block";
+        aiOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        aiOutput.style.display = "block";
+        aiOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnFeat = document.getElementById("btn-get-cost-feat");
+  if (btnFeat) {
+    btnFeat.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/ai/usage/by-feature");
+        const data = await res.json();
+        aiOutput.style.display = "block";
+        aiOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        aiOutput.style.display = "block";
+        aiOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnRunEval = document.getElementById("btn-run-ai-eval");
+  if (btnRunEval) {
+    btnRunEval.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/ai/evaluations/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        aiOutput.style.display = "block";
+        aiOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        aiOutput.style.display = "block";
+        aiOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnHistory = document.getElementById("btn-get-eval-history");
+  if (btnHistory) {
+    btnHistory.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/v1/ai/evaluations/results");
+        const data = await res.json();
+        aiOutput.style.display = "block";
+        aiOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        aiOutput.style.display = "block";
+        aiOutput.textContent = "Error: " + err.message;
       }
     });
   }

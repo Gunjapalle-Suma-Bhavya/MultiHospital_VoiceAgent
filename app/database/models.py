@@ -657,4 +657,49 @@ class OperationTraceStep(Base):
     trace = relationship("OperationTrace", back_populates="steps")
 
 
+class AIUsageRecord(Base):
+    """
+    AI Usage & Cost Tracking Ledger (Section 5.36).
+    Tracks request counts, token consumption, voice duration, latency, and estimated cost
+    aggregated by hospital, feature, conversation, and workflow.
+    """
+    __tablename__ = "ai_usage_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(100), nullable=True, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
+    workflow_id = Column(String(36), nullable=True, index=True)
+    feature_name = Column(String(100), default="VOICE_PATIENT_INTAKE", index=True)
+    model_name = Column(String(100), default="gemini-3.6-flash")
+    
+    input_tokens = Column(Integer, default=0)
+    output_tokens = Column(Integer, default=0)
+    voice_duration_seconds = Column(Float, default=0.0)
+    processing_duration_ms = Column(Float, default=0.0)
+    estimated_cost_usd = Column(Float, default=0.0000)
+    
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+class AIEvaluationRecord(Base):
+    """
+    Internal AI Benchmark Evaluation Persistence (Section 5.37).
+    Stores measurable and reviewable evaluation metrics across 4 domains:
+    Conversational AI, Scheduling, EHR Integration, and Questionnaires.
+    """
+    __tablename__ = "ai_evaluation_records"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    evaluation_id = Column(String(100), nullable=False, index=True)
+    hospital_id = Column(String(36), nullable=True, index=True)
+    session_id = Column(String(100), nullable=True)
+    domain = Column(String(50), nullable=False, index=True)  # CONVERSATIONAL_AI, SCHEDULING, EHR_INTEGRATION, QUESTIONNAIRE
+    test_case_name = Column(String(255), nullable=False)
+    overall_score = Column(Float, default=1.0)
+    passed = Column(Boolean, default=True)
+    metrics_json = Column(Text, nullable=True)  # JSON dictionary of detailed sub-metrics
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
+
 
