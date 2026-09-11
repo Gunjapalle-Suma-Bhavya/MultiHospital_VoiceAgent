@@ -1,8 +1,13 @@
 import React from 'react';
-import { HeartPulse, User, Stethoscope, Building2, ShieldAlert, LogOut } from 'lucide-react';
+import { HeartPulse, User, Stethoscope, Building2, ShieldAlert, LogOut, Layers } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  isCatalogOpen: boolean;
+  onToggleCatalog: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ isCatalogOpen, onToggleCatalog }) => {
   const { user, logout, activePortal, setActivePortal } = useAuth();
 
   if (!user) return null;
@@ -78,9 +83,23 @@ export const Navbar: React.FC = () => {
             </button>
           </div>
 
-          {/* Active User Session & Logout */}
-          <div className="flex items-center space-x-3">
-            <div className="text-right hidden sm:block">
+          {/* 49-Page Catalog Toggle & User Session */}
+          <div className="flex items-center space-x-2.5">
+            <button
+              onClick={onToggleCatalog}
+              className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition flex items-center space-x-1.5 shadow-sm ${
+                isCatalogOpen
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold'
+                  : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-emerald-500/30'
+              }`}
+              title="Toggle Full 49-Page Dynamic Catalog"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">49-Page Catalog</span>
+              <span className="text-[10px] font-mono bg-slate-900/60 px-1 py-0.2 rounded">49</span>
+            </button>
+
+            <div className="text-right hidden lg:block">
               <div className="text-xs font-bold text-white flex items-center justify-end space-x-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>{user.name}</span>

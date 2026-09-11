@@ -5,6 +5,7 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/static/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -26,5 +27,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    outDir: '../static',
+    emptyOutDir: false,
+    chunkSizeWarningLimit: 1500,
   },
 });

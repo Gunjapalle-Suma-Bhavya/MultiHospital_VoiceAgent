@@ -3,11 +3,12 @@ import { ObservabilityTracer } from './ObservabilityTracer';
 import { CanonicalJourneyRunner } from './CanonicalJourneyRunner';
 import { AIEvaluationBoard } from './AIEvaluationBoard';
 import { ReconciliationBoard } from './ReconciliationBoard';
+import { AuditLogViewer } from './AuditLogViewer';
 
 export const PlatformAdminPortal: React.FC = () => {
   return (
     <div className="space-y-6">
-      {/* SRE 4 Golden Signals */}
+      {/* SRE 4 Golden Signals & 16-Step Canonical Waterfall */}
       <ObservabilityTracer />
 
       {/* Canonical 27-Stage DoD Journey & 76-Item Audit */}
@@ -23,6 +24,9 @@ export const PlatformAdminPortal: React.FC = () => {
           <ReconciliationBoard />
         </div>
       </div>
+
+      {/* Zero-PHI Cryptographic Audit Log Viewer */}
+      <AuditLogViewer />
     </div>
   );
 };

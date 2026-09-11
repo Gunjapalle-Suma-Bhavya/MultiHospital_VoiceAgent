@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, TrendingDown, Award } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 export const AIEvaluationBoard: React.FC = () => {
   const [callVolume, setCallVolume] = useState(5000);
@@ -8,15 +9,23 @@ export const AIEvaluationBoard: React.FC = () => {
   const aiCost = callVolume * 0.125;
   const savings = humanCost - aiCost;
 
+  const comparisonData = [
+    { volume: '1k Calls', Human: 3750, AI: 125, NetSavings: 3625 },
+    { volume: '5k Calls', Human: 18750, AI: 625, NetSavings: 18125 },
+    { volume: '10k Calls', Human: 37500, AI: 1250, NetSavings: 36250 },
+    { volume: '25k Calls', Human: 93750, AI: 3125, NetSavings: 90625 },
+  ];
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
       <div className="flex justify-between items-center pb-2 border-b border-slate-800">
         <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
           <DollarSign className="w-4 h-4 text-emerald-400" />
-          <span>Voice AI Unit Economics &amp; ROI</span>
+          <span>Voice AI Unit Economics &amp; ROI Telemetry</span>
         </h3>
-        <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
-          96.67% Savings
+        <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded flex items-center space-x-1">
+          <Award className="w-3 h-3 mr-1" />
+          <span>96.67% Operational Savings</span>
         </span>
       </div>
 
@@ -38,6 +47,27 @@ export const AIEvaluationBoard: React.FC = () => {
         </div>
       </div>
 
+      {/* Recharts ROI Comparison */}
+      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+        <div className="text-[10px] font-bold uppercase text-slate-400">Volume Cost Comparison (USD $)</div>
+        <div className="h-36 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={comparisonData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+              <XAxis dataKey="volume" stroke="#64748b" fontSize={10} />
+              <YAxis stroke="#64748b" fontSize={10} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#020617', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '11px' }}
+                itemStyle={{ color: '#e2e8f0' }}
+              />
+              <Legend wrapperStyle={{ fontSize: '10px' }} />
+              <Bar dataKey="Human" name="Human Front-Desk ($)" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="AI" name="Voice AI Platform ($)" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Slider */}
       <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
         <div className="flex justify-between text-xs">
           <span className="font-medium text-slate-300">Monthly Call Volume:</span>
