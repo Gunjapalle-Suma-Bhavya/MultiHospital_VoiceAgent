@@ -148,6 +148,36 @@
         </div>
 
         <div class="card" style="grid-column: span 2;">
+          <h2>Doctor Dashboard Portal & 360-Degree Inspector (5.31)</h2>
+          <form id="form-doctor-dashboard">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+              <div class="form-group">
+                <label>Doctor ID</label>
+                <input type="text" id="dash-doc-id" placeholder="Doctor UUID" required>
+              </div>
+              <div class="form-group">
+                <label>Calendar View Type</label>
+                <select id="dash-view-type">
+                  <option value="DAY">DAY VIEW</option>
+                  <option value="WEEK">WEEK VIEW</option>
+                  <option value="MONTH">MONTH VIEW</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Target Appointment ID (Optional)</label>
+                <input type="text" id="dash-appt-id" placeholder="Appointment UUID for 360 Details">
+              </div>
+            </div>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+              <button type="button" id="btn-dash-home" class="btn">View Doctor Home Overview</button>
+              <button type="button" id="btn-dash-calendar" class="btn btn-secondary">Query Multi-Calendar View</button>
+              <button type="button" id="btn-dash-details" class="btn btn-secondary">360° Appointment Inspector</button>
+            </div>
+          </form>
+          <div id="dash-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <div class="card" style="grid-column: span 2;">
           <h2>EHR Recovery, Reconciliation & Verified Confirmation Console (5.21 & 5.22)</h2>
           <form id="form-ehr-reconcile">
             <div class="form-group">

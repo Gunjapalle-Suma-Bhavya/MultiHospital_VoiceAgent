@@ -13,6 +13,7 @@ from app.routers.questionnaires import router as questionnaires_router
 from app.routers.workflows import router as workflows_router
 from app.routers.events import router as events_router
 from app.routers.notifications import router as notifications_router
+from app.routers.doctor_dashboard import router as doctor_dashboard_router
 
 __all__ = [
     "onboarding_router",
@@ -26,6 +27,8 @@ __all__ = [
     "questionnaires_router",
     "workflows_router",
     "events_router",
-    "notifications_router"
+    "notifications_router",
+    "doctor_dashboard_router"
 ]
+
 

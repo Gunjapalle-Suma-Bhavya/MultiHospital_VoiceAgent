@@ -167,14 +167,15 @@ class AvailabilityEngine:
         Calculates exact bookable time slots for a doctor on a specific date.
         """
         doc = self.db.query(Doctor).filter(Doctor.id == doctor_id).first()
-        if not doc or doc.doctor_status != DoctorStatus.ACTIVE or not doc.is_active:
-            return []
+        if isinstance(target_date, str):
+            target_date = date.fromisoformat(target_date)
 
         day_of_week = target_date.weekday()
         wh = self.db.query(DoctorWorkingHour).filter(
             DoctorWorkingHour.doctor_id == doctor_id,
             DoctorWorkingHour.day_of_week == day_of_week
         ).first()
+
 
         if not wh:
             return []

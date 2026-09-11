@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
   setupBackgroundWorkflowForm();
   setupEventBusForm();
   setupNotificationCenterForm();
+  setupDoctorDashboardForm();
 });
+
 
 
 
@@ -757,6 +759,64 @@ function setupNotificationCenterForm() {
     });
   }
 }
+
+function setupDoctorDashboardForm() {
+  const dashOutput = document.getElementById("dash-output");
+
+  const btnHome = document.getElementById("btn-dash-home");
+  if (btnHome) {
+    btnHome.addEventListener("click", async () => {
+      const docId = document.getElementById("dash-doc-id").value;
+      if (!docId) return alert("Please enter a Doctor ID");
+      try {
+        const res = await fetch(`/api/v1/doctor-dashboard/${docId}/home`);
+        const data = await res.json();
+        dashOutput.style.display = "block";
+        dashOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        dashOutput.style.display = "block";
+        dashOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnCal = document.getElementById("btn-dash-calendar");
+  if (btnCal) {
+    btnCal.addEventListener("click", async () => {
+      const docId = document.getElementById("dash-doc-id").value;
+      const viewType = document.getElementById("dash-view-type").value;
+      if (!docId) return alert("Please enter a Doctor ID");
+      try {
+        const res = await fetch(`/api/v1/doctor-dashboard/${docId}/calendar?view_type=${viewType}`);
+        const data = await res.json();
+        dashOutput.style.display = "block";
+        dashOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        dashOutput.style.display = "block";
+        dashOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+
+  const btnDetails = document.getElementById("btn-dash-details");
+  if (btnDetails) {
+    btnDetails.addEventListener("click", async () => {
+      const docId = document.getElementById("dash-doc-id").value;
+      const apptId = document.getElementById("dash-appt-id").value;
+      if (!docId || !apptId) return alert("Please enter both Doctor ID and Appointment ID");
+      try {
+        const res = await fetch(`/api/v1/doctor-dashboard/${docId}/appointments/${apptId}`);
+        const data = await res.json();
+        dashOutput.style.display = "block";
+        dashOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        dashOutput.style.display = "block";
+        dashOutput.textContent = "Error: " + err.message;
+      }
+    });
+  }
+}
+
 
 
 

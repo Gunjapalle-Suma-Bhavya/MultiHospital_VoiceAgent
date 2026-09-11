@@ -21,7 +21,8 @@ from app.database.config import init_db
 from app.routers import (
     onboarding_router, admin_router, doctors_router, patients_router,
     discovery_router, voice_router, context_router, ehr_router,
-    questionnaires_router, workflows_router, events_router, notifications_router
+    questionnaires_router, workflows_router, events_router, notifications_router,
+    doctor_dashboard_router
 )
 
 app = FastAPI(
@@ -55,6 +56,8 @@ app.include_router(questionnaires_router)
 app.include_router(workflows_router)
 app.include_router(events_router)
 app.include_router(notifications_router)
+app.include_router(doctor_dashboard_router)
+
 
 
 # Mount Static Assets & Web Frontend UI

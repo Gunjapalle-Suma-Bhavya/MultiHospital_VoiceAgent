@@ -234,10 +234,27 @@ class Doctor(Base):
     appointments = relationship("Appointment", back_populates="doctor")
     approved_questions = relationship("DoctorApprovedQuestion", back_populates="doctor", cascade="all, delete-orphan")
     calendars = relationship("DoctorCalendar", back_populates="doctor", cascade="all, delete-orphan")
+    leaves = relationship("DoctorLeave", back_populates="doctor", cascade="all, delete-orphan")
+
+
+class DoctorLeave(Base):
+    __tablename__ = "doctor_leaves"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    leave_type = Column(String(100), default="ANNUAL_LEAVE")
+    reason = Column(Text, nullable=True)
+    status = Column(String(50), default="APPROVED")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+    doctor = relationship("Doctor", back_populates="leaves")
 
 
 class DoctorCalendar(Base):
     __tablename__ = "doctor_calendars"
+
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=False)
