@@ -46,9 +46,38 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
   const [timeWindow, setTimeWindow] = useState('ANYTIME');
   const [selectedInsurance, setSelectedInsurance] = useState('BCBS');
   const [slots, setSlots] = useState<SlotItem[]>([]);
+  const [selectedSlotMap, setSelectedSlotMap] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [passData, setPassData] = useState<any>(null);
+
+  // Group multiple slots under a single doctor to eliminate duplicates
+  const doctorGroups = React.useMemo(() => {
+    const map = new Map<string, {
+      doctor_id: string;
+      doctor_name: string;
+      specialty: string;
+      hospital_id: string;
+      hospital_name: string;
+      slots: SlotItem[];
+    }>();
+
+    for (const s of slots) {
+      const key = `${s.doctor_id}__${s.hospital_id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          doctor_id: s.doctor_id,
+          doctor_name: s.doctor_name,
+          specialty: s.specialty,
+          hospital_id: s.hospital_id,
+          hospital_name: s.hospital_name,
+          slots: [],
+        });
+      }
+      map.get(key)!.slots.push(s);
+    }
+    return Array.from(map.values());
+  }, [slots]);
 
   const symptomChips = [
     { label: 'Chest Tightness & Palpitations', spec: 'Cardiology' },
@@ -425,51 +454,108 @@ export const DoctorDiscovery: React.FC<DoctorDiscoveryProps> = ({
         </div>
       </div>
 
-      {/* Discovered Slots Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Discovered Doctors Grid with Dedicated Time Selection */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {isLoading ? (
-          <div className="col-span-full py-6 text-center text-xs text-slate-400">
+          <div className="col-span-full py-8 text-center text-xs text-slate-400">
             Querying provider directory &amp; doctor availability calendars...
           </div>
+        ) : doctorGroups.length === 0 ? (
+          <div className="col-span-full py-8 text-center text-xs text-slate-400">
+            No doctors found matching your criteria. Try adjusting the hospital or specialty filter.
+          </div>
         ) : (
-          slots.map((s) => (
-            <div
-              key={s.slot_id}
-              className="bg-slate-950 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-3.5 space-y-2.5 transition"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-black text-xs">
-                    {s.doctor_name.slice(0, 2).toUpperCase()}
+          doctorGroups.map((doc) => {
+            const activeSlotId = selectedSlotMap[doc.doctor_id] || doc.slots[0]?.slot_id;
+            const activeSlot = doc.slots.find((s) => s.slot_id === activeSlotId) || doc.slots[0];
+
+            return (
+              <div
+                key={`${doc.doctor_id}-${doc.hospital_id}`}
+                className="bg-slate-950 border border-slate-800 hover:border-emerald-500/40 rounded-xl p-4 space-y-3 transition shadow-sm flex flex-col justify-between"
+              >
+                {/* Doctor Identity Header */}
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-black text-sm shadow-inner">
+                      {doc.doctor_name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{doc.doctor_name}</h4>
+                      <p className="text-xs text-slate-400 font-medium">
+                        {doc.specialty} &bull; <span className="text-slate-300">{doc.hospital_name}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-xs text-white">{s.doctor_name}</h4>
-                    <p className="text-[10px] text-slate-400">
-                      {s.specialty} &bull; {s.hospital_name}
-                    </p>
+                  <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    {doc.slots.length} Slots Available
+                  </span>
+                </div>
+
+                {/* Separate Time Slot Selector */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-900">
+                  <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-emerald-400" />
+                      <span>Select Appointment Time:</span>
+                    </span>
+                    <span className="text-emerald-400 font-semibold lowercase">
+                      {activeSlot ? 'ready to book' : 'choose a slot'}
+                    </span>
+                  </div>
+
+                  {/* Scrollable Time Pills */}
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1 py-1">
+                    {doc.slots.map((s) => {
+                      const isSelected = s.slot_id === activeSlot?.slot_id;
+                      const timeDisplay = s.start_time
+                        .replace(/Tomorrow\s*/i, '')
+                        .replace(/\s*\(.*\)/, '')
+                        .trim();
+
+                      return (
+                        <button
+                          key={s.slot_id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedSlotMap((prev) => ({
+                              ...prev,
+                              [doc.doctor_id]: s.slot_id,
+                            }))
+                          }
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition ${
+                            isSelected
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold shadow-md ring-1 ring-emerald-400'
+                              : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700 hover:bg-slate-800/80'
+                          }`}
+                        >
+                          {timeDisplay}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                <span className="text-[10px] font-bold bg-slate-900 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                  OPEN
-                </span>
-              </div>
 
-              <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-900">
-                <span className="text-slate-300 font-medium flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{s.start_time}</span>
-                </span>
-                <button
-                  onClick={() => handleBook(s)}
-                  disabled={isBooking}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg transition shadow disabled:opacity-50 flex items-center space-x-1"
-                >
-                  <FileCheck className="w-3.5 h-3.5" />
-                  <span>{isBooking ? 'Locking...' : 'Book & Verify'}</span>
-                </button>
+                {/* Booking Footer */}
+                <div className="flex justify-between items-center text-xs pt-2.5 border-t border-slate-900">
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="text-xs font-semibold text-white">
+                      {activeSlot?.start_time || 'Select a time'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => activeSlot && handleBook(activeSlot)}
+                    disabled={isBooking || !activeSlot}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-lg transition shadow-md disabled:opacity-50 flex items-center space-x-1.5"
+                  >
+                    <FileCheck className="w-3.5 h-3.5" />
+                    <span>{isBooking ? 'Locking...' : 'Book Selected Slot'}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
