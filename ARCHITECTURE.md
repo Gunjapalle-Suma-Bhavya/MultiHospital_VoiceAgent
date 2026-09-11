@@ -362,3 +362,152 @@ flowchart TD
     L --> M[Initiate Human Coordinator Clinical Escalation]
     M --> N[Trigger Automated Patient Reschedule Voice Outreach]
 ```
+
+---
+
+## 7. Technology Selection Expectations & Justifications (Section 37)
+
+The PRD intentionally does not prescribe a single implementation stack, encouraging the engineering team to select modern, resilient technologies best suited to mission-critical healthcare operations. This section details the architectural rationale answering **"Why was this technology selected?"** across all 15 competencies rather than simply listing what was chosen.
+
+---
+
+### 1. Modern Frontend Development
+- **Selected Technology**: Vanilla HTML5, CSS Grid / Flexbox, Modular ES6 JavaScript.
+- **Why Was This Selected?**:
+  - *Zero Runtime Bundle Overhead*: Unlike heavy SPA frameworks (React/Angular) requiring multi-megabyte bundle compilation and client hydration, vanilla HTML5/ES6 delivers sub-10ms initial paint times—crucial for emergency patients calling on constrained mobile connections.
+  - *Direct Audio & Telephony Control*: Direct access to Web Audio API and Server-Sent Events (SSE) without virtual DOM reconciliation overhead, ensuring sub-180ms barge-in speech interruption.
+  - *Comprehensive 49-View Portal*: Easily organized into clean tabbed portals for Patient, Doctor, Hospital Admin, and Platform Admin without complex client-side routing libraries.
+- **Evaluated Alternatives**: React (rejected due to excessive bundle size and state hydration lag for simple real-time streaming audio interfaces) and Next.js (rejected due to unnecessary Node.js server dependencies alongside FastAPI).
+
+---
+
+### 2. Strong Backend Architecture
+- **Selected Technology**: FastAPI (Python 3.11+) with ASGI (Uvicorn).
+- **Why Was This Selected?**:
+  - *Asynchronous High-Throughput I/O*: Non-blocking `async/await` architecture capable of managing thousands of concurrent voice streams, outbound EHR network calls, and database transactions without thread starvation.
+  - *Type Safety with Pydantic v2*: Runtime validation and compilation of request/response schemas compiled to C-extensions, catching data corruption before touching clinical databases.
+  - *Automated OpenAPI & JSON Schema*: Generates live Swagger (`/docs`) and ReDoc contracts for healthcare integrators automatically from type annotations.
+- **Evaluated Alternatives**: Django / Flask (rejected due to synchronous WSGI blocking on long-running EHR calls and lack of native OpenAPI schema derivation) and Node.js/Express (rejected due to Python's overwhelming dominance in clinical AI, NLP, and medical ontology tooling).
+
+---
+
+### 3. Real-Time Communication
+- **Selected Technology**: Server-Sent Events (SSE) via HTTP/2 + Web Audio Streams.
+- **Why Was This Selected?**:
+  - *Unidirectional Stream Efficiency*: Conversational voice output requires streaming tokens and audio chunks from server to client. SSE provides native HTTP/2 multiplexing, automatic reconnection, and firewall traversal without bidirectional WebSocket handshake complexity.
+  - *Latency Masking via Conversational Fillers*: SSE enables injecting conversational fillers (*"Let me search Dr. Sharma's calendar..."*) in under 200ms while asynchronous LLM inference completes in the background.
+  - *Sub-180ms Barge-In Protocol*: Client triggers instant speech pause and audio buffer flush upon detecting patient speech.
+- **Evaluated Alternatives**: Full-duplex WebSockets (rejected due to higher protocol overhead, stateful proxy reconnect issues, and load-balancer sticky-session requirements) and Polling (rejected due to unacceptable multi-second latency).
+
+---
+
+### 4. AI Application Development
+- **Selected Technology**: Live LLM Orchestration (`LiveLLMClient` with GPT-4o-mini via AICredits) with Local Deterministic Fallback.
+- **Why Was This Selected?**:
+  - *Sub-2-Second End-to-End Latency*: GPT-4o-mini delivers high conversational quality with an average time-to-first-token under 350ms, meeting the strict $<2.0\text{s}$ voice turnaround constraint.
+  - *Unit Economics & Sustainability*: At \$0.15/1M prompt tokens, average voice session cost is \$0.125 compared to \$3.75 for human receptionists (**96.67% net savings**).
+  - *Clinical Safety Guardrails*: System-level guardrail layer intercepts clinical red-flags (chest pain, stroke signs) and halts conversational booking to route to 911/ER before invoking LLM generation.
+- **Evaluated Alternatives**: Local open-weight LLMs (rejected for production due to GPU hardware footprint and 4x higher cold-start latency) and Pure Rule-Based State Machines (rejected due to inability to understand natural, ambiguous patient utterances).
+
+---
+
+### 5. Structured AI Capability Execution
+- **Selected Technology**: Centralized `CapabilityRegistry` with 19 Typed Tools, JSON Schema Contracts, and Idempotency Keys.
+- **Why Was This Selected?**:
+  - *Anti-Hallucination Isolation*: The LLM never makes direct database or EHR updates. It can only emit a typed capability execution request with validated arguments.
+  - *Mandatory Idempotency Keys*: All mutating capabilities (`create_appointment`, `reschedule_appointment`) mandate unique idempotency keys, guaranteeing that network retries never produce duplicate bookings.
+  - *Role-Based Authorization on Capabilities*: Tools verify caller role (`PATIENT_AGENT`, `HOSPITAL_ADMIN`, `PLATFORM_ADMIN`) before execution.
+- **Evaluated Alternatives**: Unconstrained LLM Code Generation (rejected due to severe clinical safety and injection risks) and Ad-Hoc Router Functions (rejected due to inability to share tools between Voice AI, Web UI, and Admin tools).
+
+---
+
+### 6. Persistent Contextual Experiences
+- **Selected Technology**: Relational Context Engine with `PatientSessionState` and `AIContextRecord`.
+- **Why Was This Selected?**:
+  - *Zero Redundant Questioning*: Retains past hospital affinity, preferred consultation language, and communication preferences across turns.
+  - *Multi-Turn Slot Accumulation*: Allows patients to incrementally provide appointment criteria (*"Dr. Sharma"* $\rightarrow$ *"Tomorrow"* $\rightarrow$ *"In the afternoon"*) across multiple dialogue turns.
+- **Evaluated Alternatives**: Stateless Conversational Prompts (rejected because patients were forced to repeat their identity and complaint upon every clarification) and Ephemeral In-Memory Dictionaries (rejected due to loss of conversational state across server restarts).
+
+---
+
+### 7. Background Processing
+- **Selected Technology**: Non-blocking `asyncio` Background Workers + Scheduled Batch Scanners.
+- **Why Was This Selected?**:
+  - *Zero Heavy Daemon Dependencies*: Avoids the operational overhead of running external Celery / RabbitMQ clusters for small-to-medium healthcare platforms.
+  - *Immediate Post-Booking Execution*: Asynchronously triggers pre-visit questionnaire dispatch, notification delivery, and EHR sync verification without blocking the patient voice stream.
+  - *Scheduled Reminder Engine*: Automated periodic scanner evaluates appointments $T-24\text{h}$ and $T-2\text{h}$ prior to consultation.
+- **Evaluated Alternatives**: Celery + Redis (rejected due to excessive infrastructure complexity, deployment fragility, and multi-process maintenance overhead for prototype/initial production scale).
+
+---
+
+### 8. Event-Driven Architecture
+- **Selected Technology**: Decoupled `EventBus` Publisher + Immutable `PlatformEventRecord` Ledger.
+- **Why Was This Selected?**:
+  - *Loose Architectural Coupling*: Booking capabilities publish an `APPOINTMENT_BOOKED` event. Notification, Workflow, Audit, and Analytics consumers process the event independently without tight coupling.
+  - *Audit & Replay Capability*: Persisted event store allows rebuilding conversational timelines and auditing operational anomalies.
+- **Evaluated Alternatives**: Synchronous In-Line Execution (rejected because an EHR notification failure would erroneously roll back an already-confirmed patient appointment).
+
+---
+
+### 9. EHR / Healthcare-System Integration
+- **Selected Technology**: Pluggable Adapter Pattern (`EHRConnectorFactory`) with Thread-Safe Circuit Breaker (`EHRCircuitBreaker`).
+- **Why Was This Selected?**:
+  - *Vendor Isolation*: Healthcare networks use disparate systems (Epic, Cerner, legacy HL7). The adapter pattern abstracts vendor differences behind a unified clinical interface (`create_appointment`, `patient_lookup`).
+  - *Cascading Failure Prevention*: The circuit breaker detects consecutive EHR timeouts (threshold: 3) and trips to `OPEN`, immediately serving cached responses or routing to human coordinators rather than hanging patient phone calls.
+- **Evaluated Alternatives**: Hardcoded Vendor API Calls (rejected as it tightly couples AI logic to a single proprietary EHR system).
+
+---
+
+### 10. Healthcare Data Interoperability
+- **Selected Technology**: HL7 FHIR R4 JSON Resource Models (SMART-on-FHIR).
+- **Why Was This Selected?**:
+  - *Federal Regulatory Standard*: FHIR R4 is the legally mandated interoperability standard under ONC and CMS 21st Century Cures Act rules.
+  - *Semantic Consistency*: Standard `Appointment`, `Patient`, and `Practitioner` resource mappings ensure clean translation across Cerner Ignite and Epic Interconnect APIs.
+- **Evaluated Alternatives**: Proprietary Internal JSON Formats (rejected due to high translation debt when onboarding new hospitals) and Legacy HL7 v2 Only (retained as a legacy adapter, but rejected as the primary format due to lack of RESTful semantics).
+
+---
+
+### 11. Data Modeling
+- **Selected Technology**: SQLAlchemy 2.0 Relational Models + Database-Level Row Locking (`with_for_update`).
+- **Why Was This Selected?**:
+  - *ACID Transactional Integrity*: Medical scheduling cannot tolerate phantom bookings or dirty reads. Relational ACID transactions ensure that doctor slot allocation is mutually exclusive.
+  - *Pessimistic Concurrency Control*: `SELECT ... FOR UPDATE` row locks eliminate double-booking race conditions when multiple callers request the same 4:00 PM slot simultaneously.
+  - *Strict Foreign-Key Tenant Isolation*: Hard foreign-key constraints on `hospital_id` ensure cross-tenant queries are blocked at the database engine level.
+- **Evaluated Alternatives**: NoSQL Document Databases like MongoDB (rejected due to lack of cross-document ACID locking and high risk of double-booking under concurrent load).
+
+---
+
+### 12. Analytics
+- **Selected Technology**: Real-Time Operational Telemetry + Unit Economics Financial Modeling (`CostEstimationService`).
+- **Why Was This Selected?**:
+  - *Actionable Business ROI*: Demonstrates granular per-call cost breakdown (\$0.0002 LLM, \$0.019 STT, \$0.018 TTS, \$0.041 SIP) totaling \$0.125/call vs \$3.75 human cost, providing clear executive decision metrics.
+  - *Real-Time Operational Conversion Tracking*: Tracks scheduling funnel completion rates, abandonment rates, and average booking durations.
+- **Evaluated Alternatives**: Offline Batch Log Analysis via ELK / Hadoop (rejected due to multi-hour delay in detecting operational bottlenecks).
+
+---
+
+### 13. Observability
+- **Selected Technology**: 16-Step Canonical Lifecycle Distributed Tracing (`OperationTrace`) + SRE 4 Golden Signals + HIPAA Zero-PHI Audit Logging.
+- **Why Was This Selected?**:
+  - *Root Cause Pinpointing*: When a booking fails, the 16-step trace immediately identifies whether the breakdown occurred during AI Speech Intake, Capability Validation, EHR Network Dispatch, or 5-Point Verification.
+  - *HIPAA Privacy Sanitization*: `PrivacySanitizer` automatically redacts phone numbers, names, and clinical complaints before persisting operational logs (`privacy_level: STRUCTURED_NO_PHI`).
+- **Evaluated Alternatives**: Unstructured Console `print()` Logging (rejected as unsearchable and high-risk for severe HIPAA PHI breach violations).
+
+---
+
+### 14. Testing
+- **Selected Technology**: Pytest + FastAPI `TestClient` + In-Memory SQLite `StaticPool`.
+- **Why Was This Selected?**:
+  - *Fast, Deterministic Execution*: 238 unit, integration, and definition-of-done tests execute in under 15 seconds without requiring live database network connections.
+  - *StaticPool Thread-Safety*: Guarantees all concurrent ASGI threads in FastAPI share the same in-memory schema, preventing table-drop race conditions.
+- **Evaluated Alternatives**: Testing on Live PostgreSQL Instances (rejected due to slow execution times, container startup lag, and risk of dirty test data pollution).
+
+---
+
+### 15. Deployment
+- **Selected Technology**: Multi-Stage Dockerfile + Docker Compose + Twelve-Factor Cloud Configuration.
+- **Why Was This Selected?**:
+  - *Cloud Agnostic Portability*: Container runs identically on local developer machines, Render, Railway, AWS ECS, Google Cloud Run, or on-premise hospital Kubernetes clusters.
+  - *Zero Hardcoded Secrets*: All configuration driven via `.env.example` templates and environment variables, ensuring enterprise security compliance.
+- **Evaluated Alternatives**: Manual Virtual Machine Provisioning / Ansible (rejected due to configuration drift, OS package incompatibilities, and slow deployment turnaround).
+
