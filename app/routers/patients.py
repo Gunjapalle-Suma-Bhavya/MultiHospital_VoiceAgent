@@ -92,3 +92,17 @@ def update_patient_preferences(patient_id: str, payload: PatientPreferenceInput,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# Section 5.22 Verified Appointment Confirmation Endpoint
+from app.appointments.confirmation_service import AppointmentConfirmationService
+
+@router.get("/appointments/{appointment_id}/confirmation")
+def get_verified_appointment_confirmation(appointment_id: str, db: Session = Depends(get_db)):
+    svc = AppointmentConfirmationService(db)
+    try:
+        details = svc.get_appointment_confirmation(appointment_id)
+        return details.model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+

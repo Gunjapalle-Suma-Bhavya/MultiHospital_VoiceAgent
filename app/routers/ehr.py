@@ -54,3 +54,31 @@ def execute_ehr_operation(payload: EHROperationInput, db: Session = Depends(get_
         return result
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported EHR operation '{op}' on connector '{payload.connector_type}'")
+
+
+# Section 5.21 Recovery & Reconciliation Endpoints
+from app.ehr.recovery_and_reconciliation import EHRFailureClassifier, EHRRecoveryAndReconciliationService
+
+class ClassifyErrorInput(BaseModel):
+    error_text: str
+    status_code: Optional[int] = None
+
+class ReconcileInput(BaseModel):
+    appointment_id: str
+
+@router.post("/recovery/classify")
+def classify_ehr_failure(payload: ClassifyErrorInput):
+    category, retryable = EHRFailureClassifier.classify(payload.error_text, payload.status_code)
+    return {"category": category.value, "is_retryable": retryable, "error_text": payload.error_text}
+
+@router.post("/recovery/reconcile")
+def reconcile_unknown_outcome(payload: ReconcileInput, db: Session = Depends(get_db)):
+    svc = EHRRecoveryAndReconciliationService(db)
+    return svc.reconcile_unknown_outcome(payload.appointment_id)
+
+@router.post("/verify-record")
+def verify_field_level_state(payload: ReconcileInput, db: Session = Depends(get_db)):
+    svc = EHRRecoveryAndReconciliationService(db)
+    res = svc.verify_field_level_external_state(payload.appointment_id)
+    return res.model_dump()
+

@@ -146,6 +146,22 @@
           </form>
           <div id="ehr-output" class="status-box" style="display:none; margin-top:1rem;"></div>
         </div>
+
+        <div class="card" style="grid-column: span 2;">
+          <h2>EHR Recovery, Reconciliation & Verified Confirmation Console (5.21 & 5.22)</h2>
+          <form id="form-ehr-reconcile">
+            <div class="form-group">
+              <label>Appointment ID for Safe Reconciliation / Verification</label>
+              <input type="text" id="rec-appt-id" placeholder="Appointment UUID" required>
+            </div>
+            <div style="display:flex; gap:1rem;">
+              <button type="submit" class="btn">Reconcile Unknown Outcome</button>
+              <button type="button" id="btn-verify-field-level" class="btn btn-secondary">Field-Level Verification</button>
+              <button type="button" id="btn-get-spoken-confirmation" class="btn btn-secondary">Spoken Confirmation Text</button>
+            </div>
+          </form>
+          <div id="rec-output" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
       </div>
     </section>
 

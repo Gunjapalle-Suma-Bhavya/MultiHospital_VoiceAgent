@@ -398,6 +398,7 @@ function setupVoiceConsole() {
 
   setupContextResolverForm();
   setupEHRSequenceForm();
+  setupEHRReconciliationForm();
 }
 
 function setupContextResolverForm() {
@@ -455,6 +456,70 @@ function setupEHRSequenceForm() {
     });
   }
 }
+
+function setupEHRReconciliationForm() {
+  const formRec = document.getElementById("form-ehr-reconcile");
+  const recOutput = document.getElementById("rec-output");
+
+  if (formRec) {
+    formRec.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const apptId = document.getElementById("rec-appt-id").value;
+      try {
+        const res = await fetch("/api/v1/ehr/recovery/reconcile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointment_id: apptId })
+        });
+        const data = await res.json();
+        recOutput.style.display = "block";
+        recOutput.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        recOutput.style.display = "block";
+        recOutput.textContent = "Error: " + err.message;
+      }
+    });
+
+    const btnVerify = document.getElementById("btn-verify-field-level");
+    if (btnVerify) {
+      btnVerify.addEventListener("click", async () => {
+        const apptId = document.getElementById("rec-appt-id").value;
+        if (!apptId) return alert("Please enter an Appointment ID");
+        try {
+          const res = await fetch("/api/v1/ehr/verify-record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ appointment_id: apptId })
+          });
+          const data = await res.json();
+          recOutput.style.display = "block";
+          recOutput.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+          recOutput.style.display = "block";
+          recOutput.textContent = "Error: " + err.message;
+        }
+      });
+    }
+
+    const btnConfirm = document.getElementById("btn-get-spoken-confirmation");
+    if (btnConfirm) {
+      btnConfirm.addEventListener("click", async () => {
+        const apptId = document.getElementById("rec-appt-id").value;
+        if (!apptId) return alert("Please enter an Appointment ID");
+        try {
+          const res = await fetch(`/api/v1/patients/appointments/${apptId}/confirmation`);
+          const data = await res.json();
+          recOutput.style.display = "block";
+          recOutput.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+          recOutput.style.display = "block";
+          recOutput.textContent = "Error: " + err.message;
+        }
+      });
+    }
+  }
+}
+
 
 
 
