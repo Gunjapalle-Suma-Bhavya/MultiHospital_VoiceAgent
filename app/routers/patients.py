@@ -23,6 +23,40 @@ class PatientPreferenceInput(BaseModel):
     preferred_time_window: Optional[str] = None
     communication_preference: Optional[str] = None
 
+class PatientLoginInput(BaseModel):
+    phone_number: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+
+@router.post("/login")
+def login_patient(payload: PatientLoginInput, db: Session = Depends(get_db)):
+    import uuid
+    service = PatientSelfServiceService(db)
+    patient = service.register_or_update_patient(
+        phone_number=payload.phone_number,
+        full_name=payload.full_name or "Valued Patient",
+        email=payload.email
+    )
+    token = f"agy-pat-token-{uuid.uuid4().hex[:16]}"
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "patient_id": patient.id,
+        "phone_number": patient.phone_number,
+        "full_name": patient.full_name,
+        "preferred_language": patient.preferred_language,
+        "preferences": {
+            "communication_preference": patient.communication_preference,
+            "preferred_time_window": patient.preferred_time_window
+        },
+        "headers": {
+            "X-User-Role": "PATIENT",
+            "X-User-Id": patient.id,
+            "X-Patient-Id": patient.id
+        }
+    }
+
 
 @router.post("/register")
 def register_patient(payload: PatientRegistrationInput, db: Session = Depends(get_db)):

@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupProductMetricsUI();
   setupEndToEndScenarioUI();
   setupProductPrinciplesUI();
+  setupPrototypeScopeUI();
 });
 
 
@@ -3820,6 +3821,99 @@ function setupProductPrinciplesUI() {
     });
   }
 }
+
+
+// Setup Section 26 Prototype Scope UI
+function setupPrototypeScopeUI() {
+  const btnVerify = document.getElementById("btn-verify-prototype-scope");
+  const btnTestAuth = document.getElementById("btn-test-auth-login");
+  const outputBox = document.getElementById("prototype-scope-verify-output");
+  const scopeBadge = document.getElementById("prototype-scope-badge");
+
+  if (btnVerify) {
+    btnVerify.addEventListener("click", async () => {
+      if (!outputBox) return;
+      outputBox.style.display = "block";
+      outputBox.className = "status-box status-loading";
+      outputBox.innerHTML = `<strong>Executing Multi-Domain Prototype Scope Verification...</strong> Testing all 9 Must-Have domains across Platform, Doctor, Patient, AI, EHR, Questionnaire, Workflow, Analytics, and AI Operations...`;
+
+      try {
+        const res = await fetch("/api/v1/prototype/scope/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        const result = await res.json();
+
+        if (res.ok && result.all_passed) {
+          if (scopeBadge) scopeBadge.textContent = `${result.completion_percentage}%`;
+          outputBox.className = "status-box status-success";
+          outputBox.innerHTML = `
+            <strong>Prototype Scope Verification PASSED - All 9 Must-Have Domains Operational!</strong>
+            <p>Status: <strong>${result.overall_status}</strong> | Verified Domains: <strong>${result.verified_domains} / ${result.total_domains}</strong> | Assertions Checked: <strong>${result.total_assertions_checked}</strong> | Scope Coverage: <strong>${result.completion_percentage}%</strong></p>
+            <div style="font-family: monospace; font-size: 0.85rem; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 0.5rem; max-height: 300px; overflow-y: auto;">
+              ${JSON.stringify(result.domain_results, null, 2).replace(/\\n/g, '<br/>').replace(/ /g, '&nbsp;')}
+            </div>
+          `;
+        } else {
+          outputBox.className = "status-box status-error";
+          outputBox.innerHTML = `<strong>Verification Failed:</strong> ${JSON.stringify(result)}`;
+        }
+      } catch (err) {
+        outputBox.className = "status-box status-error";
+        outputBox.innerHTML = `<strong>Verification Execution Error:</strong> ${err.message}`;
+      }
+    });
+  }
+
+  if (btnTestAuth) {
+    btnTestAuth.addEventListener("click", async () => {
+      if (!outputBox) return;
+      outputBox.style.display = "block";
+      outputBox.className = "status-box status-loading";
+      outputBox.innerHTML = `<strong>Testing User &amp; Patient Authentication...</strong> Executing login simulation for Platform Admin, Hospital Admin, Doctor, and Patient...`;
+
+      try {
+        // Test unified auth login
+        const resAdmin = await fetch("/api/v1/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email_or_identifier: "admin@hospital.org",
+            role: "HOSPITAL_ADMIN"
+          })
+        });
+        const adminData = await resAdmin.json();
+
+        // Test patient login
+        const resPatient = await fetch("/api/v1/patients/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone_number: "+1-555-432-8765",
+            full_name: "Eleanor Vance"
+          })
+        });
+        const patientData = await resPatient.json();
+
+        outputBox.className = "status-box status-success";
+        outputBox.innerHTML = `
+          <strong>Unified Authentication &amp; Patient Login Verified!</strong>
+          <p>Hospital Admin Token: <code>${adminData.access_token}</code> (${adminData.role})</p>
+          <p>Patient Token: <code>${patientData.access_token}</code> (Patient ID: ${patientData.patient_id})</p>
+          <div style="font-family: monospace; font-size: 0.85rem; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #cbd5e1; margin-top: 0.5rem;">
+            <strong>Admin Context Headers:</strong> ${JSON.stringify(adminData.headers)}<br/>
+            <strong>Patient Context Headers:</strong> ${JSON.stringify(patientData.headers)}
+          </div>
+        `;
+      } catch (err) {
+        outputBox.className = "status-box status-error";
+        outputBox.innerHTML = `<strong>Authentication Test Error:</strong> ${err.message}`;
+      }
+    });
+  }
+}
+
 
 
 

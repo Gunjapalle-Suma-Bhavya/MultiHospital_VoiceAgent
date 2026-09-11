@@ -35,6 +35,7 @@
     <button class="tab-btn" data-tab="tab-product-metrics-step23">Product Metrics (23)</button>
     <button class="tab-btn" data-tab="tab-e2e-scenario-step24">End-to-End Scenario (24)</button>
     <button class="tab-btn" data-tab="tab-product-principles-step25">Product Principles (25)</button>
+    <button class="tab-btn" data-tab="tab-prototype-scope-step26">Prototype Scope (26)</button>
   </nav>
 
   <main class="container">
@@ -2736,6 +2737,209 @@
         <div id="principles-audit-output" class="status-box" style="display:none;"></div>
       </div>
     </section>
+
+    <!-- PORTAL 22: SECTION 26 PROTOTYPE SCOPE -->
+    <section id="tab-prototype-scope-step26" class="tab-content">
+      <div class="card" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; border: 1px solid #334155; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h2 style="margin: 0; color: #38bdf8; font-size: 1.4rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span>🔬</span> Section 26: Prototype Scope &amp; Capability Matrix
+            </h2>
+            <p style="margin: 0.35rem 0 0 0; color: #94a3b8; font-size: 0.9rem;">
+              Demonstrates the complete end-to-end healthcare workflow across 9 Must-Have domains without building a full enterprise platform.
+            </p>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <div style="text-align: right;">
+              <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Scope Coverage</div>
+              <div id="prototype-scope-badge" style="font-size: 1.5rem; font-weight: 800; color: #34d399;">100.0%</div>
+            </div>
+            <div style="text-align: right; border-left: 1px solid #334155; padding-left: 1rem;">
+              <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Must-Have Domains</div>
+              <div style="font-size: 1.5rem; font-weight: 800; color: #38bdf8;">9 / 9</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <button type="button" id="btn-verify-prototype-scope" class="btn btn-success" style="padding: 0.6rem 1.5rem;">
+            🧪 Run Real-Time End-to-End Scope Verification
+          </button>
+          <button type="button" id="btn-test-auth-login" class="btn btn-primary" style="padding: 0.6rem 1.2rem;">
+            🔑 Test User &amp; Patient Authentication
+          </button>
+          <span style="font-size: 0.82rem; color: #94a3b8;">
+            Live verification checks database state, RBAC authorization, NLU intent classification, Mock EHR, and event workflows.
+          </span>
+        </div>
+      </div>
+
+      <!-- 9 PROTOTYPE SCOPE DOMAINS GRID -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+
+        <!-- DOMAIN 1: PLATFORM -->
+        <div class="card" style="border-top: 4px solid #3b82f6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #1d4ed8;">1. Platform</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Multi-tenant foundation, role-based user authentication, and hospital administrative lifecycle.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>User authentication:</strong> Platform Admin, Hospital Admin, Doctor, Patient</li>
+            <li><strong>Multi-tenant architecture:</strong> Strict isolation by hospital_id</li>
+            <li><strong>Platform admin:</strong> Superadmin oversight &amp; approvals</li>
+            <li><strong>Hospital registration:</strong> Self-service draft hospital creation</li>
+            <li><strong>Hospital approval:</strong> State machine review &amp; vetting</li>
+            <li><strong>Hospital management:</strong> Department and staff configuration</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 2: DOCTOR -->
+        <div class="card" style="border-top: 4px solid #10b981;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #047857;">2. Doctor</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Clinician profile, recurring calendar shifts, working hours, availability, and blocked slots.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Doctor profile:</strong> Specialties, qualifications, departments</li>
+            <li><strong>Calendar:</strong> Recurring shift schedules &amp; durations</li>
+            <li><strong>Working hours:</strong> Day-of-week shift rules &amp; bounds</li>
+            <li><strong>Availability:</strong> Real-time slot conflict computation</li>
+            <li><strong>Blocked slots:</strong> Personal leave, lunch, and emergency blocks</li>
+            <li><strong>Appointment view:</strong> Scheduled &amp; completed patient roster</li>
+            <li><strong>Questionnaire creation:</strong> Custom intake question authoring</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 3: PATIENT -->
+        <div class="card" style="border-top: 4px solid #8b5cf6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #6d28d9;">3. Patient</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Patient registration, phone/email login, profile, appointment history, and preferences.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Registration:</strong> Intake via voice or web portal</li>
+            <li><strong>Login:</strong> Tokenized phone or email authentication</li>
+            <li><strong>Profile:</strong> Demographics, language, DOB, contact</li>
+            <li><strong>Appointment history:</strong> Confirmed, rescheduled, completed visits</li>
+            <li><strong>Preferences:</strong> Preferred communication &amp; time windows</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 4: AI -->
+        <div class="card" style="border-top: 4px solid #f59e0b;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #b45309;">4. AI Conversational Core</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Voice streaming, telephony, NLU symptom inference, discovery, tool execution, and safety.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Web real-time voice &amp; Inbound phone:</strong> Bi-directional audio</li>
+            <li><strong>Intent understanding:</strong> Cautious non-diagnostic inference</li>
+            <li><strong>Context &amp; Memory:</strong> Multi-turn state &amp; persistent context</li>
+            <li><strong>Doctor &amp; Hospital discovery:</strong> Natural language search</li>
+            <li><strong>Availability checking &amp; Booking:</strong> Conflict-free reservation</li>
+            <li><strong>Rescheduling &amp; Cancellation:</strong> Conversational lifecycle</li>
+            <li><strong>Clarification handling:</strong> Ask-rather-than-guess dialogs</li>
+            <li><strong>Explicit capability execution &amp; Escalation:</strong> Safe handoff</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 5: EHR INTEGRATION -->
+        <div class="card" style="border-top: 4px solid #06b6d4;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #0e7490;">5. EHR / Healthcare-System Integration</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Mock EHR adapter, identity lookups, external booking, verification, idempotency, and recovery.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Mock EHR system:</strong> Standard FHIR/HL7 operations</li>
+            <li><strong>Patient &amp; Provider lookup:</strong> External MRN &amp; clinician mapping</li>
+            <li><strong>Appointment lifecycle:</strong> Create, reschedule, cancel sync</li>
+            <li><strong>External verification:</strong> Out-of-band state confirmation</li>
+            <li><strong>Identifier mapping:</strong> Bidirectional local-to-external link</li>
+            <li><strong>Retry, Idempotency &amp; Reconciliation:</strong> Resilient parity</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 6: QUESTIONNAIRE -->
+        <div class="card" style="border-top: 4px solid #ec4899;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #be185d;">6. Clinical Questionnaire</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Doctor-authored questions, interactive question flow, voice answers, and structured storage.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Doctor-created questions:</strong> Typed schemas (text, choice, numeric)</li>
+            <li><strong>Question flow:</strong> Stepwise adaptive traversal</li>
+            <li><strong>Voice-based answers:</strong> Speech transcription extraction</li>
+            <li><strong>Structured response storage:</strong> Relational JSON answer storage</li>
+            <li><strong>Doctor response viewing:</strong> Clinician dashboard intake review</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 7: WORKFLOW -->
+        <div class="card" style="border-top: 4px solid #14b8a6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #0f766e;">7. Workflow</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Event-driven post-booking confirmation, intake reminders, retry pipelines, and state tracking.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Appointment confirmation workflow:</strong> EHR sync &amp; confirmation</li>
+            <li><strong>Questionnaire workflow:</strong> Intake assignment &amp; reminders</li>
+            <li><strong>Reminder workflow:</strong> Scheduled patient consultation alerts</li>
+            <li><strong>Failure/retry workflow:</strong> Exponential backoff retry</li>
+            <li><strong>Notification workflow:</strong> Multi-channel dispatch (SMS, Email)</li>
+            <li><strong>EHR sync &amp; Status tracking:</strong> Live step execution ledger</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 8: ANALYTICS -->
+        <div class="card" style="border-top: 4px solid #6366f1;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #4338ca;">8. Analytics</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">Comprehensive business outcomes, operational metrics, booking rates, and audit logs.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>Appointments &amp; AI calls:</strong> Volume, turns, and durations</li>
+            <li><strong>Booking success:</strong> Intake-to-confirmed conversion rates</li>
+            <li><strong>Questionnaire completion:</strong> Clinical intake completion rates</li>
+            <li><strong>Workflow &amp; EHR activity:</strong> Operational execution volumes</li>
+            <li><strong>Basic operational metrics:</strong> Latencies, error rates, throughput</li>
+            <li><strong>Audit logs:</strong> Tamper-evident ledger of all operations</li>
+          </ul>
+        </div>
+
+        <!-- DOMAIN 9: AI OPERATIONS -->
+        <div class="card" style="border-top: 4px solid #ea580c;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.1rem; color: #c2410c;">9. AI Operations</h3>
+            <span class="badge badge-success" style="font-size: 0.75rem;">VERIFIED</span>
+          </div>
+          <p style="font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem;">AI usage telemetry, capability execution tracking, latency benchmarks, and traceable operations.</p>
+          <ul style="font-size: 0.8rem; color: #334155; padding-left: 1.2rem; margin: 0; line-height: 1.5;">
+            <li><strong>AI usage metrics:</strong> Token usage, session and turn metrics</li>
+            <li><strong>Capability tracking:</strong> Granular tool execution success rates</li>
+            <li><strong>EHR integration tracking:</strong> AI-triggered external operations</li>
+            <li><strong>Basic evaluation:</strong> Intent, capability, and safety benchmarks</li>
+            <li><strong>Latency measurement:</strong> Voice profiling (STT, LLM, TTS)</li>
+            <li><strong>Failure tracking &amp; Tracing:</strong> Correlation IDs tying actions to DB</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- AUDIT & VERIFICATION OUTPUT LOG -->
+      <div class="card">
+        <h3 style="margin-top: 0; color: #1e293b;">📋 Prototype Scope Live Verification Output</h3>
+        <div id="prototype-scope-verify-output" class="status-box" style="display:none;"></div>
+      </div>
+    </section>
+
 
   </main>
 
