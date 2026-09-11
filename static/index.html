@@ -22,6 +22,7 @@
     <button class="tab-btn" data-tab="tab-rbac">Role-Based Access Control (Step 6)</button>
     <button class="tab-btn" data-tab="tab-core-data-model">Core Data Model (Step 7)</button>
     <button class="tab-btn" data-tab="tab-patient-workflow">Patient Workflow (Step 8)</button>
+    <button class="tab-btn" data-tab="tab-hospital-workflow">Hospital Workflow (Step 9)</button>
   </nav>
 
   <main class="container">
@@ -950,6 +951,146 @@
           <h3>Multi-Domain Analytics &amp; Audit Ledger (Step 20)</h3>
           <div id="pwf-analytics-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; font-family:monospace; max-height:280px; overflow-y:auto;">
             <p style="color:var(--text-muted); font-family:var(--font-family);">Audit logs, patient activity, hospital and AI metrics...</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PORTAL 9: COMPLETE HOSPITAL WORKFLOW (STEP 9) -->
+    <section id="tab-hospital-workflow" class="tab-content">
+      <div class="grid">
+
+        <!-- CARD 1: RUN 23-STAGE WORKFLOW CONTROLLER -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h2>Complete Hospital Workflow (Step 9)</h2>
+              <p style="color:var(--text-muted); font-size:0.9rem;">
+                Autonomous 23-stage lifecycle: Registration, Admin Approval, Clinical Setup, Calendars, Availability, Blocked Periods, EHR Integration, Workflows, Publishing, AI Patient Booking, Sync, Verification, and Analytics.
+              </p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary hwf-preset-btn" data-preset="PRESET_ST_JUDE">Preset: St. Jude Health</button>
+              <button type="button" class="btn btn-secondary hwf-preset-btn" data-preset="PRESET_METRO_GENERAL">Preset: Metro General</button>
+              <button type="button" class="btn btn-secondary hwf-preset-btn" data-preset="PRESET_CARE_REGIONAL">Preset: Care Regional</button>
+            </div>
+          </div>
+
+          <form id="form-hospital-workflow" style="margin-top:1.25rem;">
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Hospital Name</label>
+                <input type="text" id="hwf-name" value="St. Jude Health System" required>
+              </div>
+              <div class="form-group">
+                <label>Hospital Code</label>
+                <input type="text" id="hwf-code" value="STJUDE" required>
+              </div>
+              <div class="form-group">
+                <label>Contact Email</label>
+                <input type="email" id="hwf-contact-email" value="contact@stjude-health.org" required>
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Hospital Administrator Name</label>
+                <input type="text" id="hwf-admin-name" value="Dr. Marcus Vance" required>
+              </div>
+              <div class="form-group">
+                <label>Hospital Administrator Email</label>
+                <input type="email" id="hwf-admin-email" value="marcus.vance@stjude-health.org" required>
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Department</label>
+                <input type="text" id="hwf-dept" value="Cardiovascular Sciences" required>
+              </div>
+              <div class="form-group">
+                <label>Specialty</label>
+                <input type="text" id="hwf-spec" value="Cardiology" required>
+              </div>
+              <div class="form-group">
+                <label>EHR Adapter</label>
+                <select id="hwf-ehr-type">
+                  <option value="MOCK_EHR">Mock Healthcare System EHR</option>
+                  <option value="FHIR_R4">FHIR R4 Standard Adapter</option>
+                  <option value="EPIC">Epic Systems EHR</option>
+                  <option value="CERNER">Oracle Cerner EHR</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap:1rem;">
+              <div class="form-group">
+                <label>Lead Doctor Name</label>
+                <input type="text" id="hwf-doc-name" value="Dr. Olivia Chen" required>
+              </div>
+              <div class="form-group">
+                <label>Lead Doctor Email</label>
+                <input type="email" id="hwf-doc-email" value="olivia.chen@stjude-health.org" required>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; margin-top:0.5rem;">
+              <button type="submit" id="btn-execute-hwf" class="btn" style="background:#16a34a; padding:0.6rem 1.5rem; font-weight:600;">Execute Full 23-Stage Workflow</button>
+            </div>
+          </form>
+
+          <div id="hwf-summary-status" class="status-box" style="display:none; margin-top:1rem;"></div>
+        </div>
+
+        <!-- CARD 2: 23-STAGE INTERACTIVE PROGRESS TIMELINE -->
+        <div class="card" style="grid-column: span 2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h3>23-Stage Hospital Lifecycle Timeline</h3>
+            <span id="hwf-step-counter" style="font-size:0.85rem; color:var(--text-muted);">Awaiting execution</span>
+          </div>
+          <div id="hwf-timeline-container" style="display:flex; flex-direction:column; gap:0.6rem; max-height:450px; overflow-y:auto; padding-right:0.5rem;">
+            <p style="color:var(--text-muted); font-size:0.9rem;">Click "Execute Full 23-Stage Workflow" to run the complete hospital onboarding, configuration, and booking lifecycle.</p>
+          </div>
+        </div>
+
+        <!-- CARD 3: ONBOARDING & APPROVAL -->
+        <div class="card">
+          <h3>Onboarding &amp; Admin Review (Stages 1-5)</h3>
+          <div id="hwf-onboarding-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:300px; overflow-y:auto; font-family:monospace;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Hospital status transitions, tax ID, license, and admin login...</p>
+          </div>
+        </div>
+
+        <!-- CARD 4: CLINICAL CONFIGURATION -->
+        <div class="card">
+          <h3>Clinical &amp; Calendar Setup (Stages 6-14)</h3>
+          <div id="hwf-clinical-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:300px; overflow-y:auto; font-family:monospace;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Department, specialty, working hours, blocked periods, questionnaires, and publishing...</p>
+          </div>
+        </div>
+
+        <!-- CARD 5: AI BOOKING, EHR SYNC & VERIFICATION -->
+        <div class="card">
+          <h3>Discovery, Booking &amp; EHR Sync (Stages 15-18)</h3>
+          <div id="hwf-booking-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:300px; overflow-y:auto; font-family:monospace;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Patient discovery, voice AI booking, external sync, and 5-point verification...</p>
+          </div>
+        </div>
+
+        <!-- CARD 6: WORKFLOWS, NOTIFICATIONS & DOCTOR REVIEW -->
+        <div class="card">
+          <h3>Post-Booking &amp; Clinician Review (Stages 19-22)</h3>
+          <div id="hwf-review-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; min-height:180px; max-height:300px; overflow-y:auto; line-height:1.6;">
+            <p style="color:var(--text-muted);">Reminder workflow, notifications, doctor schedule, and pre-visit clinical briefing...</p>
+          </div>
+        </div>
+
+        <!-- CARD 7: HOSPITAL OPERATIONAL ANALYTICS -->
+        <div class="card" style="grid-column: span 2;">
+          <h3>Hospital Operational Analytics &amp; Health (Stage 23)</h3>
+          <div id="hwf-analytics-output" style="background:#f8fafc; border:1px solid var(--border-color); border-radius:6px; padding:1rem; font-size:0.85rem; font-family:monospace; max-height:250px; overflow-y:auto;">
+            <p style="color:var(--text-muted); font-family:var(--font-family);">Real-time hospital statistics, doctor counts, sync rate, and operational health...</p>
           </div>
         </div>
 

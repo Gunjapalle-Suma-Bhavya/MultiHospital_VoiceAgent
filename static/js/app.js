@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupRBACForms();
   setupCoreDataModelForms();
   setupPatientWorkflowForms();
+  setupHospitalWorkflowForms();
 });
 
 
@@ -1991,6 +1992,221 @@ function setupPatientWorkflowForms() {
     }
   });
 }
+
+// Portal 9: Complete Hospital Workflow (Step 9) Logic
+function setupHospitalWorkflowForms() {
+  const form = document.getElementById("form-hospital-workflow");
+  const summaryBox = document.getElementById("hwf-summary-status");
+  const stepCounter = document.getElementById("hwf-step-counter");
+  const timelineContainer = document.getElementById("hwf-timeline-container");
+  const onboardingOutput = document.getElementById("hwf-onboarding-output");
+  const clinicalOutput = document.getElementById("hwf-clinical-output");
+  const bookingOutput = document.getElementById("hwf-booking-output");
+  const reviewOutput = document.getElementById("hwf-review-output");
+  const analyticsOutput = document.getElementById("hwf-analytics-output");
+  const presetButtons = document.querySelectorAll(".hwf-preset-btn");
+
+  const PRESETS_DATA = {
+    PRESET_ST_JUDE: {
+      name: "St. Jude Health System",
+      code: "STJUDE",
+      contact_email: "contact@stjude-health.org",
+      admin_name: "Dr. Marcus Vance",
+      admin_email: "marcus.vance@stjude-health.org",
+      dept: "Cardiovascular Sciences",
+      spec: "Cardiology",
+      doc_name: "Dr. Olivia Chen",
+      doc_email: "olivia.chen@stjude-health.org",
+      ehr: "MOCK_EHR"
+    },
+    PRESET_METRO_GENERAL: {
+      name: "Metro General Hospital",
+      code: "METROGEN",
+      contact_email: "admin@metrogen.org",
+      admin_name: "Sarah Jenkins",
+      admin_email: "s.jenkins@metrogen.org",
+      dept: "Orthopedic Surgery",
+      spec: "Orthopedics",
+      doc_name: "Dr. Vikram Patel",
+      doc_email: "v.patel@metrogen.org",
+      ehr: "FHIR_R4"
+    },
+    PRESET_CARE_REGIONAL: {
+      name: "Care Regional Medical Center",
+      code: "CAREREG",
+      contact_email: "ops@careregional.com",
+      admin_name: "Robert Sterling",
+      admin_email: "r.sterling@careregional.com",
+      dept: "Neurological Sciences",
+      spec: "Neurology",
+      doc_name: "Dr. Fiona Gallagher",
+      doc_email: "f.gallagher@careregional.com",
+      ehr: "EPIC"
+    }
+  };
+
+  presetButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const pKey = btn.getAttribute("data-preset");
+      const pData = PRESETS_DATA[pKey];
+      if (pData) {
+        document.getElementById("hwf-name").value = pData.name;
+        document.getElementById("hwf-code").value = pData.code;
+        document.getElementById("hwf-contact-email").value = pData.contact_email;
+        document.getElementById("hwf-admin-name").value = pData.admin_name;
+        document.getElementById("hwf-admin-email").value = pData.admin_email;
+        document.getElementById("hwf-dept").value = pData.dept;
+        document.getElementById("hwf-spec").value = pData.spec;
+        document.getElementById("hwf-doc-name").value = pData.doc_name;
+        document.getElementById("hwf-doc-email").value = pData.doc_email;
+        document.getElementById("hwf-ehr-type").value = pData.ehr;
+      }
+    });
+  });
+
+  if (!form) return;
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      hospital_name: document.getElementById("hwf-name").value.trim(),
+      hospital_code: document.getElementById("hwf-code").value.trim(),
+      contact_email: document.getElementById("hwf-contact-email").value.trim(),
+      admin_name: document.getElementById("hwf-admin-name").value.trim(),
+      admin_email: document.getElementById("hwf-admin-email").value.trim(),
+      department_name: document.getElementById("hwf-dept").value.trim(),
+      specialty_name: document.getElementById("hwf-spec").value.trim(),
+      doctor_name: document.getElementById("hwf-doc-name").value.trim(),
+      doctor_email: document.getElementById("hwf-doc-email").value.trim(),
+      ehr_adapter_type: document.getElementById("hwf-ehr-type").value
+    };
+
+    summaryBox.style.display = "block";
+    summaryBox.textContent = "Executing complete 23-stage hospital workflow pipeline...";
+    stepCounter.textContent = "Running 23 stages in real time...";
+
+    try {
+      const res = await fetch("/api/v1/hospital-workflow/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail ? JSON.stringify(data.detail) : `HTTP ${res.status}`);
+      }
+
+      summaryBox.innerHTML = `<strong style="color:var(--success-color);">Hospital Lifecycle Workflow Completed!</strong><br>` +
+        `Hospital: <strong>${escapeHtml(data.hospital_name)}</strong> [<code>${escapeHtml(payload.hospital_code)}</code>] | ` +
+        `Status: <strong>${escapeHtml(data.hospital_status)}</strong> | Doctor: <strong>${escapeHtml(data.doctor_name)}</strong> | ` +
+        `Appointment: <code>${escapeHtml(data.appointment_id)}</code> | EHR ID: <code>${escapeHtml(data.external_appointment_id)}</code>`;
+
+      stepCounter.textContent = `All ${data.stages_completed} Stages Executed (100% Complete)`;
+
+      // Render 23-Stage Progress Timeline
+      if (data.execution_trace && timelineContainer) {
+        let timelineHtml = "";
+        data.execution_trace.forEach(item => {
+          timelineHtml += `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:0.5rem 0.85rem; display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <span style="background:#16a34a; color:#fff; font-size:0.75rem; font-weight:700; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;">${item.step}</span>
+                <strong style="font-size:0.85rem; color:#0f172a;">Stage ${item.step}: ${escapeHtml(item.title)}</strong>
+              </div>
+              <span style="font-size:0.75rem; font-weight:600; color:#16a34a; background:#fff; padding:0.15rem 0.45rem; border-radius:4px; border:1px solid #bbf7d0;">
+                ${escapeHtml(item.status)}
+              </span>
+            </div>
+          `;
+        });
+        timelineContainer.innerHTML = timelineHtml;
+      }
+
+      // Populate Panels
+      if (data.execution_trace) {
+        const t = data.execution_trace;
+
+        // Onboarding Output (Stages 1-5)
+        if (onboardingOutput) {
+          const s1_5 = {
+            stage_1_registration: t.find(s => s.step === 1)?.details,
+            stage_2_details_submitted: t.find(s => s.step === 2)?.details,
+            stage_3_admin_review: t.find(s => s.step === 3)?.details,
+            stage_4_approved: t.find(s => s.step === 4)?.details,
+            stage_5_admin_login: t.find(s => s.step === 5)?.details,
+          };
+          onboardingOutput.textContent = JSON.stringify(s1_5, null, 2);
+        }
+
+        // Clinical Output (Stages 6-14)
+        if (clinicalOutput) {
+          const s6_14 = {
+            hospital_config: t.find(s => s.step === 6)?.details,
+            doctor_created: t.find(s => s.step === 7)?.details,
+            calendar_configured: t.find(s => s.step === 8)?.details,
+            availability: t.find(s => s.step === 9)?.details,
+            blocked_periods: t.find(s => s.step === 10)?.details,
+            questionnaire_created: t.find(s => s.step === 11)?.details,
+            ehr_integration: t.find(s => s.step === 12)?.details,
+            workflows_enabled: t.find(s => s.step === 13)?.details,
+            published_live: t.find(s => s.step === 14)?.details,
+          };
+          clinicalOutput.textContent = JSON.stringify(s6_14, null, 2);
+        }
+
+        // Booking & EHR Sync (Stages 15-18)
+        if (bookingOutput) {
+          const s15_18 = {
+            discovery_result: t.find(s => s.step === 15)?.details,
+            ai_appointment_booked: t.find(s => s.step === 16)?.details,
+            ehr_outbound_sync: t.find(s => s.step === 17)?.details,
+            authoritative_verification: t.find(s => s.step === 18)?.details,
+          };
+          bookingOutput.textContent = JSON.stringify(s15_18, null, 2);
+        }
+
+        // Post-Booking & Review (Stages 19-22)
+        if (reviewOutput) {
+          const s19 = t.find(s => s.step === 19)?.details;
+          const s20 = t.find(s => s.step === 20)?.details;
+          const s21 = t.find(s => s.step === 21)?.details;
+          const s22 = t.find(s => s.step === 22)?.details;
+
+          let rHtml = `<div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.83rem;">`;
+          if (s19) rHtml += `<div><strong>Workflow:</strong> <code>${escapeHtml(s19.workflow_name)}</code> (${escapeHtml(s19.status)})</div>`;
+          if (s20) rHtml += `<div><strong>Notification:</strong> Sent to ${escapeHtml(s20.recipient)} via ${escapeHtml(s20.channel)} [${escapeHtml(s20.notification_status)}]</div>`;
+          if (s21) rHtml += `<div><strong>Doctor Schedule:</strong> Synced for ${escapeHtml(s21.doctor_name)} at ${escapeHtml(s21.scheduled_datetime)}</div>`;
+          if (s22) {
+            rHtml += `<div style="margin-top:0.4rem; padding:0.5rem; background:#fff; border:1px solid #e2e8f0; border-radius:4px;">
+              <strong>Pre-Visit Clinical Intake Responses:</strong>
+              <pre style="margin-top:0.25rem; font-size:0.78rem;">${escapeHtml(JSON.stringify(s22.patient_intake_responses, null, 2))}</pre>
+            </div>`;
+          }
+          rHtml += `</div>`;
+          reviewOutput.innerHTML = rHtml;
+        }
+
+        // Analytics (Stage 23)
+        if (analyticsOutput && data.hospital_analytics) {
+          analyticsOutput.textContent = JSON.stringify(data.hospital_analytics, null, 2);
+        }
+      }
+
+    } catch (err) {
+      summaryBox.textContent = "Error executing hospital workflow: " + err.message;
+      stepCounter.textContent = "Execution encountered an error";
+    }
+  });
+}
+
 
 
 
