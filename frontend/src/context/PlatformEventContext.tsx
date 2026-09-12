@@ -45,39 +45,36 @@ interface PlatformEventContextType {
 
 const PlatformEventContext = createContext<PlatformEventContextType | undefined>(undefined);
 
-const INITIAL_BOOKINGS: LiveBooking[] = [
-  {
-    id: 'APT-1024',
-    doctor_id: 'DOC-SHARMA-01',
-    doctor_name: 'Dr. Sharma',
-    patient_name: 'Marcus Aurelius',
-    patient_phone: '+1-555-SHOULDER',
-    scheduled_time: 'Today, 10:00 AM',
-    slot_time: '10:00 AM',
-    specialty: 'Orthopedic Surgery',
-    status: 'CONFIRMED',
-    is_ehr_verified: true,
-  },
-  {
-    id: 'APT-1025',
-    doctor_id: 'DOC-SHARMA-01',
-    doctor_name: 'Dr. Sharma',
-    patient_name: 'Elena Rostova',
-    patient_phone: '+1-555-KNEE-99',
-    scheduled_time: 'Today, 11:00 AM',
-    slot_time: '11:00 AM',
-    specialty: 'Orthopedic Surgery',
-    status: 'CONFIRMED',
-    is_ehr_verified: true,
-  },
-];
-
 export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
   const [events, setEvents] = useState<PlatformEvent[]>([]);
-  const [bookings, setBookings] = useState<LiveBooking[]>(INITIAL_BOOKINGS);
-  const [blockedSlots, setBlockedSlots] = useState<string[]>(['14:00 PM']);
-  const [hospitalUtilization, setHospitalUtilization] = useState<number>(78);
+  const [bookings, setBookings] = useState<LiveBooking[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
+  const [hospitalUtilization, setHospitalUtilization] = useState<number>(82);
+
+  // Synchronize live appointments from backend API on initialization
+  useEffect(() => {
+    fetch('/api/v1/appointments')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.appointments) && data.appointments.length > 0) {
+          const mapped: LiveBooking[] = data.appointments.map((a: any) => ({
+            id: a.id || a.appointment_id || `APT-${Math.floor(1000 + Math.random() * 9000)}`,
+            doctor_id: a.doctor_id || 'DOC-SHARMA-01',
+            doctor_name: a.doctor_name || 'Dr. Sharma',
+            patient_name: a.patient_name || 'Registered Patient',
+            patient_phone: a.patient_phone || '+1-555-0100',
+            scheduled_time: a.scheduled_time || a.slot_time || 'Today',
+            slot_time: a.slot_time || '10:00 AM',
+            specialty: a.specialty || 'General Medicine',
+            status: (a.status as any) || 'CONFIRMED',
+            is_ehr_verified: a.is_ehr_verified ?? true,
+          }));
+          setBookings(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const addEvent = useCallback((event: Omit<PlatformEvent, 'id' | 'timestamp'>) => {
     const newEvent: PlatformEvent = {
