@@ -188,27 +188,29 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
 
           <div className="flex items-center space-x-1.5">
-            <span className="text-slate-400 text-[11px]">TTS Engine:</span>
-            <button
-              onClick={() => setVoiceMode('browser')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
-                voiceMode === 'browser'
-                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
-              }`}
-            >
-              Browser WebSpeech
-            </button>
+            <span className="text-slate-400 text-[11px] font-semibold">TTS Engine:</span>
             <button
               onClick={() => setVoiceMode('server')}
-              className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition flex items-center space-x-1.5 ${
                 voiceMode === 'server'
-                  ? 'bg-sky-600 text-white border-sky-500 shadow-sm'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm ring-1 ring-emerald-400/40'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
               }`}
-              title="Universal server-side synthesis fallback for all browsers"
+              title="High-definition ElevenLabs Neural Voice Synthesis"
             >
-              Neural Server
+              <span className={`w-1.5 h-1.5 rounded-full ${voiceMode === 'server' ? 'bg-emerald-300 animate-pulse' : 'bg-slate-500'}`} />
+              <span>ElevenLabs Neural</span>
+            </button>
+            <button
+              onClick={() => setVoiceMode('browser')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                voiceMode === 'browser'
+                  ? 'bg-sky-600 text-white border-sky-500 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+              title="Browser WebSpeech native robot voice"
+            >
+              Browser Local
             </button>
           </div>
         </div>

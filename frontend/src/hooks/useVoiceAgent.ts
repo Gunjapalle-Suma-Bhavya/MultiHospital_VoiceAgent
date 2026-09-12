@@ -32,7 +32,7 @@ export function useVoiceAgent() {
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
   const [audioLevel, setAudioLevel] = useState<number>(0);
-  const [voiceMode, setVoiceMode] = useState<'browser' | 'server'>('browser');
+  const [voiceMode, setVoiceMode] = useState<'browser' | 'server'>('server');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
