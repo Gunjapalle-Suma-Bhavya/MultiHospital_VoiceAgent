@@ -36,6 +36,7 @@ class VoiceTurnInput(BaseModel):
     user_utterance: str
     hospital_id: Optional[str] = None
     session_id: Optional[str] = None
+    language: Optional[str] = "en"
 
 class InboundCallInput(BaseModel):
     caller_phone_number: str
@@ -54,7 +55,8 @@ def voice_agent_chat_endpoint(payload: VoiceTurnInput, db: Session = Depends(get
         patient_phone=payload.patient_phone,
         user_utterance=payload.user_utterance,
         hospital_id=payload.hospital_id,
-        session_id=payload.session_id
+        session_id=payload.session_id,
+        language=payload.language or "en"
     )
     try:
         from app.database.mongodb import persist_to_mongodb

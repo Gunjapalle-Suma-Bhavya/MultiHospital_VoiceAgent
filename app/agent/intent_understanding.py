@@ -152,6 +152,101 @@ SYMPTOM_TO_SPECIALTY_MAP = {
     "tooth pain": "Dentistry",
     "dentist": "Dentistry",
     "dentistry": "Dentistry",
+
+    # --- Multilingual Symptoms (Telugu - తెలుగు) ---
+    # Telugu Gastroenterology
+    "కడుపు నొప్పి": "Gastroenterology",
+    "కడుపులో నొప్పి": "Gastroenterology",
+    "కడుపు": "Gastroenterology",
+    "జీర్ణ": "Gastroenterology",
+    "అసిడిటీ": "Gastroenterology",
+    "వాంతులు": "Gastroenterology",
+    "వికారం": "Gastroenterology",
+    "కడుపు మంట": "Gastroenterology",
+    "kadupu noppi": "Gastroenterology",
+    "kadupu": "Gastroenterology",
+
+    # Telugu Cardiology
+    "గుండె నొప్పి": "Cardiology",
+    "ఛాతీ నొప్పి": "Cardiology",
+    "ఛాతీలో నొప్పి": "Cardiology",
+    "గుండె": "Cardiology",
+    "ఛాతీ": "Cardiology",
+    "దడ": "Cardiology",
+    "రక్తపోటు": "Cardiology",
+    "బిపి": "Cardiology",
+    "gunde noppi": "Cardiology",
+    "chathi noppi": "Cardiology",
+    "gunde": "Cardiology",
+
+    # Telugu Orthopedics
+    "మోకాలి నొప్పి": "Orthopedics",
+    "కీళ్ల నొప్పి": "Orthopedics",
+    "ఎముక నొప్పి": "Orthopedics",
+    "ఎముక": "Orthopedics",
+    "కీళ్ళు": "Orthopedics",
+    "మోకాలు": "Orthopedics",
+    "వెన్నునొప్పి": "Orthopedics",
+    "నడుము నొప్పి": "Orthopedics",
+    "మెడ నొప్పి": "Orthopedics",
+    "కాలు నొప్పి": "Orthopedics",
+    "చేయి నొప్పి": "Orthopedics",
+    "విరుగుడు": "Orthopedics",
+    "mokali noppi": "Orthopedics",
+    "nadumu noppi": "Orthopedics",
+    "vennu noppi": "Orthopedics",
+
+    # Telugu Dermatology
+    "చర్మ సమస్య": "Dermatology",
+    "చర్మం": "Dermatology",
+    "దద్దుర్లు": "Dermatology",
+    "దురద": "Dermatology",
+    "మచ్చలు": "Dermatology",
+    "మొటిమలు": "Dermatology",
+    "అలెర్జీ": "Dermatology",
+    "charmam": "Dermatology",
+    "durada": "Dermatology",
+
+    # Telugu Neurology
+    "తలనొప్పి": "Neurology",
+    "తీవ్రమైన తలనొప్పి": "Neurology",
+    "మైకము": "Neurology",
+    "తల తిరుగుతోంది": "Neurology",
+    "తిమ్మిరి": "Neurology",
+    "talanopi": "Neurology",
+    "talanoppi": "Neurology",
+
+    # Telugu General Medicine
+    "జ్వరం": "General Medicine",
+    "దగ్గు": "General Medicine",
+    "జలుబు": "General Medicine",
+    "రొంప": "General Medicine",
+    "నీరసం": "General Medicine",
+    "అలసట": "General Medicine",
+    "అనారోగ్యం": "General Medicine",
+    "ఒంట్లో బాగోలేదు": "General Medicine",
+    "బాధ": "General Medicine",
+    "jwaram": "General Medicine",
+    "daggu": "General Medicine",
+    "jalubu": "General Medicine",
+    "ontlo bagoledhu": "General Medicine",
+
+    # Telugu Ophthalmology
+    "కంటి నొప్పి": "Ophthalmology",
+    "కంటి సమస్య": "Ophthalmology",
+    "చూపు": "Ophthalmology",
+    "కళ్ళు": "Ophthalmology",
+
+    # Telugu ENT
+    "చెవి నొప్పి": "ENT",
+    "గొంతు నొప్పి": "ENT",
+    "గొంతు": "ENT",
+    "ముక్కు": "ENT",
+
+    # Telugu Dentistry
+    "పంటి నొప్పి": "Dentistry",
+    "దంత": "Dentistry",
+    "పన్ను": "Dentistry",
 }
 
 
@@ -216,7 +311,10 @@ class SymptomIntentResolver:
         general_health_words = [
             "problem", "issue", "trouble", "pain", "hurt", "hurting", "ache", "sick", "unwell",
             "ill", "condition", "suffering", "discomfort", "symptom", "disease", "feeling bad",
-            "not well", "not feeling good", "medical", "doctor"
+            "not well", "not feeling good", "medical", "doctor",
+            # Telugu general health expressions
+            "సమస్య", "నొప్పి", "బాధ", "జబ్బు", "రోగం", "రోగి", "వైద్యుడు", "డాక్టర్",
+            "బాగోలేదు", "అస్వస్థత", "అనారోగ్యం", "samasya", "noppi", "badha", "roga"
         ]
         if any(w in lowered for w in general_health_words):
             return SymptomInferenceResult(

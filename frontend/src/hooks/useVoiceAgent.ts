@@ -15,7 +15,24 @@ export interface ChatMessage {
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let resumeTimer: any = null;
 
-export function useVoiceAgent() {
+// Locale and multi-language mappings
+export const LOCALE_MAP: Record<string, string> = {
+  en: 'en-US',
+  es: 'es-ES',
+  hi: 'hi-IN',
+  te: 'te-IN',
+  zh: 'zh-CN',
+};
+
+export const GREETINGS: Record<string, string> = {
+  en: 'Hello, this is the NexusHealth AI Voice Intake Agent. How can I assist you with your health or appointment scheduling today?',
+  te: 'నమస్కారం! నేను మీ నెక్సస్ హెల్త్ ఏఐ వాయిస్ అసిస్టెంట్‌ని. ఈ రోజు మీ ఆరోగ్య సమస్య లేదా అపాయింట్‌మెంట్ బుకింగ్ కోసం ఎలా సహాయపడగలను?',
+  hi: 'नमस्ते! मैं आपका नेक्सस हेल्थ एआई वॉयस असिस्टेंट हूँ। आज मैं आपकी स्वास्थ्य या अपॉइंटमेंट शेड्यूलिंग में कैसे मदद कर सकता हूँ?',
+  es: '¡Hola! Este es el Agente de Voz de NexusHealth AI. ¿Cómo puedo ayudarle con su salud o programación de citas hoy?',
+  zh: '您好，这里是 NexusHealth AI 语音分诊助手。今天有什么可以为您效劳？',
+};
+
+export function useVoiceAgent(selectedLanguage: string = 'en') {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -38,15 +55,48 @@ export function useVoiceAgent() {
   const [isEndpointPending, setIsEndpointPending] = useState<boolean>(false);
   const [handsFreeMode, setHandsFreeMode] = useState<boolean>(true);
 
+  const selectedLanguageRef = useRef<string>(selectedLanguage);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init',
       sender: 'assistant',
-      text: 'Hello, this is the NexusHealth AI Voice Intake Agent. How can I assist you with your health or appointment scheduling today?',
+      text: GREETINGS[selectedLanguage] || GREETINGS.en,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       intent: 'GREETING',
     },
   ]);
+
+  useEffect(() => {
+    selectedLanguageRef.current = selectedLanguage;
+    // Update initial greeting if user hasn't started talking yet
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === 'msg-init') {
+        return [
+          {
+            ...prev[0],
+            text: GREETINGS[selectedLanguage] || GREETINGS.en,
+          },
+        ];
+      }
+      return prev;
+    });
+
+    const targetLocale = LOCALE_MAP[selectedLanguage] || 'en-US';
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = targetLocale;
+      if (isRecordingRef.current) {
+        try {
+          recognitionRef.current.stop();
+          setTimeout(() => {
+            try {
+              recognitionRef.current?.start();
+            } catch {}
+          }, 150);
+        } catch {}
+      }
+    }
+  }, [selectedLanguage]);
 
   const recognitionRef = useRef<any>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -130,10 +180,12 @@ export function useVoiceAgent() {
 
     try {
       setIsSpeaking(true);
+      const currentLang = selectedLanguageRef.current || 'en';
+      const targetLocale = LOCALE_MAP[currentLang] || 'en-US';
       const res = await fetch('/api/v1/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textToSpeak, language: 'en', voice: 'clinical_female' }),
+        body: JSON.stringify({ text: textToSpeak, language: currentLang, voice: 'clinical_female' }),
       });
 
       // If interrupted during network fetch, drop stale audio
@@ -209,7 +261,7 @@ export function useVoiceAgent() {
         try {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          utterance.lang = 'en-US';
+          utterance.lang = targetLocale;
           utterance.onstart = () => {
             setIsSpeaking(true);
             currentAiSpeechTextRef.current = textToSpeak;
@@ -248,8 +300,10 @@ export function useVoiceAgent() {
       console.warn('playServerAudio caught error:', err);
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         try {
+          const currentLang = selectedLanguageRef.current || 'en';
+          const targetLocale = LOCALE_MAP[currentLang] || 'en-US';
           const utterance = new SpeechSynthesisUtterance(textToSpeak);
-          utterance.lang = 'en-US';
+          utterance.lang = targetLocale;
           window.speechSynthesis.speak(utterance);
         } catch {}
       }
@@ -292,13 +346,17 @@ export function useVoiceAgent() {
 
       setTimeout(() => {
         try {
+          const currentLang = selectedLanguageRef.current || 'en';
+          const currentLocale = LOCALE_MAP[currentLang] || 'en-US';
           const utterance = new SpeechSynthesisUtterance(text);
           activeUtterance = utterance;
-          utterance.lang = 'en-US';
+          utterance.lang = currentLocale;
 
           const voices = window.speechSynthesis.getVoices();
           if (voices && voices.length > 0) {
+            const langPrefix = currentLang.toLowerCase();
             const preferredVoice =
+              voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
               voices.find(
                 (v) =>
                   v.lang.startsWith('en') &&
@@ -386,7 +444,7 @@ export function useVoiceAgent() {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-US';
+      recognition.lang = LOCALE_MAP[selectedLanguageRef.current || 'en'] || 'en-US';
 
       recognition.onspeechstart = () => {
         // Sound detected by microphone.
@@ -599,6 +657,10 @@ export function useVoiceAgent() {
       return;
     }
 
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = LOCALE_MAP[selectedLanguageRef.current || 'en'] || 'en-US';
+    }
+
     try {
       lastTranscriptRef.current = '';
       setTranscriptLive('');
@@ -644,7 +706,14 @@ export function useVoiceAgent() {
   }, []);
 
   const testSpeaker = () => {
-    speak('NexusHealth AI voice system is active. Your audio output is working properly.');
+    const testPhrases: Record<string, string> = {
+      en: 'NexusHealth AI voice system is active. Your audio output is working properly.',
+      te: 'నమస్కారం! నెక్సస్ హెల్త్ ఏఐ వాయిస్ సిస్టమ్ పనిచేస్తోంది. మీ ఆడియో అవుట్‌పుట్ సరిగ్గా ఉంది.',
+      hi: 'नेक्सस हेल्थ एआई वॉयस सिस्टम सक्रिय है। आपका ऑडियो आउटपुट ठीक से काम कर रहा है।',
+      es: 'El sistema de voz de NexusHealth AI está activo. Su salida de audio funciona correctamente.',
+      zh: 'NexusHealth AI 语音系统已启动，您的音频输出正常。',
+    };
+    speak(testPhrases[selectedLanguageRef.current || 'en'] || testPhrases.en);
   };
 
   // Real-Time SSE Token Streaming
@@ -666,7 +735,7 @@ export function useVoiceAgent() {
 
     let accumulated = '';
     const sse = new EventSource(
-      `/api/v1/should-have/streaming/demo?utterance=${encodeURIComponent(userUtterance)}`
+      `/api/v1/should-have/streaming/demo?utterance=${encodeURIComponent(userUtterance)}&language=${encodeURIComponent(selectedLanguageRef.current || 'en')}`
     );
     eventSourceRef.current = sse;
 
@@ -732,6 +801,7 @@ export function useVoiceAgent() {
           patient_phone: patientPhone,
           user_utterance: text,
           hospital_id: hospitalId,
+          language: selectedLanguageRef.current || 'en',
         }),
       });
 

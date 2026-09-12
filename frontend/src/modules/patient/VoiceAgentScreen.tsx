@@ -11,7 +11,7 @@ interface VoiceAgentScreenProps {
 
 export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtySelected }) => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const {
     messages,
     isProcessing,
@@ -41,7 +41,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     isEndpointPending,
     handsFreeMode,
     setHandsFreeMode,
-  } = useVoiceAgent();
+  } = useVoiceAgent(language);
 
   const [inputVal, setInputVal] = useState('');
 
@@ -56,11 +56,19 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
       user?.hospital_id || 'HOSP-CITY-01'
     );
     if (res) {
-      const lower = trimmed.toLowerCase();
-      if (lower.includes('shoulder') || lower.includes('orthopedic') || lower.includes('bone') || lower.includes('knee')) {
-        onSpecialtySelected?.('Orthopedics');
-      } else if (lower.includes('heart') || lower.includes('cardio') || lower.includes('chest')) {
-        onSpecialtySelected?.('Cardiology');
+      if (res.data?.specialty_recommended) {
+        onSpecialtySelected?.(res.data.specialty_recommended);
+      } else if (res.data?.doctor?.specialty) {
+        onSpecialtySelected?.(res.data.doctor.specialty);
+      } else {
+        const lower = trimmed.toLowerCase();
+        if (lower.includes('shoulder') || lower.includes('orthopedic') || lower.includes('bone') || lower.includes('knee') || lower.includes('మోకాలు') || lower.includes('ఎముక') || lower.includes('घुटने')) {
+          onSpecialtySelected?.('Orthopedics');
+        } else if (lower.includes('heart') || lower.includes('cardio') || lower.includes('chest') || lower.includes('గుండె') || lower.includes('ఛాతీ') || lower.includes('सीना')) {
+          onSpecialtySelected?.('Cardiology');
+        } else if (lower.includes('stomach') || lower.includes('gastro') || lower.includes('కడుపు') || lower.includes('జీర్ణ') || lower.includes('पेट')) {
+          onSpecialtySelected?.('Gastroenterology');
+        }
       }
     }
   };
@@ -89,25 +97,112 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     }
   };
 
-  const presetPrompts = [
-    {
-      label: '🦴 Knee / Joint Pain',
-      text: "I've had knee pain for 3 days, can I book an appointment with an orthopedic doctor?",
-    },
-    {
-      label: '🚨 Chest Tightness (Emergency)',
-      text: 'I have acute chest tightness and severe shortness of breath right now!',
-      isEmergency: true,
-    },
-    {
-      label: '🫀 Cardiology Consult',
-      text: 'I need a routine annual cardiology checkup with Dr. Rao.',
-    },
-    {
-      label: '🩺 Schedule with Dr. Sharma',
-      text: 'Can I see Dr. Sharma tomorrow morning at 10:00 AM?',
-    },
-  ];
+  const getPresetPrompts = () => {
+    switch (language) {
+      case 'te':
+        return [
+          {
+            label: '🩺 కడుపు నొప్పి (Gastro)',
+            text: 'నాకు 2 రోజుల నుండి విపరీతమైన కడుపు నొప్పిగా ఉంది, గ్యాస్ట్రో డాక్టర్‌ని సంప్రదించాలి.',
+          },
+          {
+            label: '🦴 మోకాలి నొప్పి (Ortho)',
+            text: 'నాకు మోకాలి నొప్పి ఉంది, ఆర్థోపెడిక్ డాక్టర్ అపాయింట్‌మెంట్ కావాలి.',
+          },
+          {
+            label: '🚨 ఛాతీ నొప్పి (Emergency)',
+            text: 'నాకు గుండె వద్ద తీవ్రమైన ఛాతీ నొప్పి మరియు శ్వాస తీసుకోవడం కష్టంగా ఉంది!',
+            isEmergency: true,
+          },
+          {
+            label: '✅ అపాయింట్‌మెంట్ బుక్ (Book)',
+            text: 'సరే అపాయింట్‌మెంట్ బుక్ చేయండి.',
+          },
+        ];
+      case 'hi':
+        return [
+          {
+            label: '🩺 पेट दर्द (Gastro)',
+            text: 'मुझे 2 दिनों से तेज पेट दर्द है, डॉक्टर से मिलना है।',
+          },
+          {
+            label: '🦴 घुटने का दर्द (Ortho)',
+            text: 'मेरे घुटने में तेज दर्द है, क्या ऑर्थोपेडिक डॉक्टर से अपॉइंटमेंट मिल सकता है?',
+          },
+          {
+            label: '🚨 सीने में दर्द (Emergency)',
+            text: 'मुझे सीने में तेज दर्द और सांस लेने में तकलीफ हो रही है!',
+            isEmergency: true,
+          },
+          {
+            label: '✅ अपॉइंटमेंट बुक करें (Book)',
+            text: 'हाँ, अपॉइंटमेंट बुक कर दीजिए।',
+          },
+        ];
+      case 'es':
+        return [
+          {
+            label: '🦴 Dolor de rodilla (Ortho)',
+            text: 'Tengo dolor en la rodilla desde hace 3 días, ¿puedo programar una cita con traumatología?',
+          },
+          {
+            label: '🚨 Dolor en el pecho (Emergency)',
+            text: '¡Siento una fuerte opresión en el pecho y dificultad para respirar ahora mismo!',
+            isEmergency: true,
+          },
+          {
+            label: '🩺 Dolor estomacal (Gastro)',
+            text: 'Tengo dolor abdominal severo desde anoche.',
+          },
+          {
+            label: '✅ Confirmar cita (Book)',
+            text: 'Sí, reserve la cita por favor.',
+          },
+        ];
+      case 'zh':
+        return [
+          {
+            label: '🦴 膝盖疼痛 (骨科)',
+            text: '我膝盖疼了三天了，可以帮我预约骨科医生吗？',
+          },
+          {
+            label: '🚨 急性胸痛 (急诊)',
+            text: '我现在胸口剧痛，呼吸非常困难！',
+            isEmergency: true,
+          },
+          {
+            label: '🩺 胃肠不适 (胃肠科)',
+            text: '我最近几天严重胃痛，伴有恶心症状。',
+          },
+          {
+            label: '✅ 确认预约 (门诊)',
+            text: '好的，请为我预约门诊。',
+          },
+        ];
+      default:
+        return [
+          {
+            label: '🦴 Knee / Joint Pain',
+            text: "I've had knee pain for 3 days, can I book an appointment with an orthopedic doctor?",
+          },
+          {
+            label: '🚨 Chest Tightness (Emergency)',
+            text: 'I have acute chest tightness and severe shortness of breath right now!',
+            isEmergency: true,
+          },
+          {
+            label: '🩺 Stomach / Gastro Pain',
+            text: "I've had severe stomach ache and nausea since yesterday.",
+          },
+          {
+            label: '✅ Confirm Booking',
+            text: 'Yes, please book the appointment for me.',
+          },
+        ];
+    }
+  };
+
+  const presetPrompts = getPresetPrompts();
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-md h-full">

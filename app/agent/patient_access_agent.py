@@ -36,6 +36,7 @@ from app.schemas.actions import (
     CreateAppointmentInput, RescheduleAppointmentInput, CancelAppointmentInput, EscalateToHumanInput
 )
 from app.patients.patient_service import PatientSelfServiceService
+from app.agent.multilingual import MultilingualClinicalLocalizer
 
 
 class AIPatientAccessAgent:
@@ -58,7 +59,10 @@ class AIPatientAccessAgent:
         text_lower = user_text.lower().strip()
 
         # 1. Pure Greetings (only if text is solely a greeting without health problem description)
-        pure_greetings = {"hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings", "hi there", "hello there"}
+        pure_greetings = {
+            "hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings", "hi there", "hello there",
+            "నమస్కారం", "హలో", "నమస్తే", "namaskaram", "namaste", "hola", "buenos dias", "buenas tardes", "नमस्ते"
+        }
         if text_lower in pure_greetings or not text_lower:
             return (
                 "Hello! I am your AI Patient Care Coordinator with the NexusHealth multi-hospital network. "
@@ -177,7 +181,8 @@ class AIPatientAccessAgent:
         context_override: Optional[Dict[str, Any]] = None,
         hospital_id: Optional[str] = None,
         doctor_id: Optional[str] = None,
-        override_hospital_id: Optional[str] = None
+        override_hospital_id: Optional[str] = None,
+        language: Optional[str] = "en"
     ) -> Dict[str, Any]:
         """
         Unified turn processing pipeline executing the 12 core AI capabilities across channels.
@@ -191,6 +196,12 @@ class AIPatientAccessAgent:
 
         # 1. Register/Retrieve Patient Profile & Persistent Session State
         patient = self.patient_service.register_or_update_patient(phone_number=phone)
+        if language and language != "en":
+            try:
+                patient.preferred_language = language
+                self.db.commit()
+            except Exception:
+                pass
         capabilities_invoked.append("PATIENT_PROFILE_RESOLVED")
 
         session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == sid).first()
@@ -243,6 +254,8 @@ class AIPatientAccessAgent:
                 EscalateToHumanInput(session_id=sid, patient_id=patient.id, reason=guardrail_res["reason"])
             )
             speech = guardrail_res["redirect_response"]
+            if language and language != "en":
+                speech = MultilingualClinicalLocalizer.localize(speech, lang=language)
             return {
                 "status": "SUCCESS",
                 "success": True,
@@ -255,6 +268,7 @@ class AIPatientAccessAgent:
                 "interaction_context": {"session_id": sid, "workflow_step": "HUMAN_ESCALATION"},
                 "speech_response": speech,
                 "agent_response": speech,
+                "language": language or "en",
                 "escalation_triggered": True,
                 "escalation_ticket_id": esc_output.ticket_id,
                 "capabilities_invoked": capabilities_invoked
@@ -600,6 +614,18 @@ class AIPatientAccessAgent:
             else:
                 agent_response = self._generate_rich_clinical_fallback(user_utterance)
 
+        if language and language != "en":
+            agent_response = MultilingualClinicalLocalizer.localize(
+                agent_response,
+                lang=language,
+                context={
+                    "doctor_name": (action_payload.get("doctor_name") if action_payload else None) or resolved_context.get("doctor_name"),
+                    "hospital_name": (action_payload.get("hospital_name") if action_payload else None),
+                    "target_datetime": resolved_context.get("target_datetime"),
+                    "specialty": resolved_context.get("inferred_specialty")
+                }
+            )
+
         return {
             "status": "SUCCESS",
             "success": True,
@@ -612,6 +638,7 @@ class AIPatientAccessAgent:
             "interaction_context": {"session_id": sid, "workflow_step": session_state.workflow_step},
             "speech_response": agent_response,
             "agent_response": agent_response,
+            "language": language or "en",
             "action_executed": action_executed,
             "action_payload": action_payload,
             "escalation_triggered": escalation_triggered,

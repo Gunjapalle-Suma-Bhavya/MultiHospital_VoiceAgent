@@ -247,7 +247,10 @@ class ContextAwareReferenceResolver:
         elif (draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"] or doctor_id) and any(w in lowered for w in [
             "okay book", "ok book", "okay", "ok", "yes", "sure", "go ahead", "confirm", "lock it in",
             "book it", "book that", "yes please", "please book", "book an appointment", "book appointment",
-            "process that", "process it", "i want to book", "book with", "book that slot", "book the slot", "fine"
+            "process that", "process it", "i want to book", "book with", "book that slot", "book the slot", "fine",
+            # Telugu affirmatives
+            "బుక్ చేయండి", "సరే బుక్", "అపాయింట్‌మెంట్ బుక్", "సరే", "అవును", "చేయండి", "ఖరారు చేయండి", "ముందుకు సాగండి",
+            "sare", "avunu", "book cheyandi", "sare book"
         ]):
             if draft.get("first_slot"):
                 try:
@@ -261,11 +264,15 @@ class ContextAwareReferenceResolver:
 
         # 6. Context-Aware Intent Resolution
         # A. Emergency / Human Escalation Priority
-        if any(w in lowered for w in ["emergency", "chest pain", "crushing", "ambulance", "heart attack", "human", "operator", "help right now", "call 911", "dying"]):
+        if any(w in lowered for w in [
+            "emergency", "chest pain", "crushing", "ambulance", "heart attack", "human", "operator", "help right now", "call 911", "dying",
+            # Telugu emergency
+            "అత్యవసరం", "ప్రాణాపాయం", "అంబులెన్స్", "గుండెపోటు", "సహాయం చేయండి", "కాపాడండి"
+        ]):
             intent = "HUMAN_ESCALATION"
 
         # B. Cancellation
-        elif "cancel" in lowered:
+        elif any(w in lowered for w in ["cancel", "రద్దు", "రద్దు చేయండి", "raddu"]):
             intent = "CANCEL_APPOINTMENT"
 
         # C. User selected a specific time/slot or confirmed booking with a known doctor
@@ -274,10 +281,13 @@ class ContextAwareReferenceResolver:
         elif any(w in lowered for w in [
             "book that", "confirm", "reserve that", "yes please", "lock it in", "book it",
             "okay book", "ok book", "yes book", "please book", "book an appointment",
-            "book appointment", "process that", "process it", "go ahead", "i want to book"
+            "book appointment", "process that", "process it", "go ahead", "i want to book",
+            # Telugu booking
+            "బుక్ చేయండి", "సరే బుక్", "అపాయింట్‌మెంట్ బుక్", "సరే", "అవును", "చేయండి", "ఖరారు చేయండి",
+            "book cheyandi", "sare book"
         ]) and doctor_id:
             intent = "BOOK_APPOINTMENT"
-        elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"]:
+        elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine", "సరే", "అవును"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"]:
             intent = "BOOK_APPOINTMENT"
 
         # D. Symptom triage and medical concern detection (prioritized to directly address patient symptoms)
@@ -285,30 +295,30 @@ class ContextAwareReferenceResolver:
             intent = "SEARCH_DOCTORS"
 
         # E. User asks for availability / slots
-        elif any(w in lowered for w in ["availab", "slot", "openings", "free time", "when is", "schedule for tomorrow", "when can"]):
+        elif any(w in lowered for w in ["availab", "slot", "openings", "free time", "when is", "schedule for tomorrow", "when can", "సమయాలు", "వేళలు", "స్లాట్లు"]):
             intent = "CHECK_AVAILABILITY"
 
         # F. Hospital FAQs (strict word boundaries to prevent accidental matches like "fee" inside "feeling")
         elif (
             re.search(r'\b(visiting\s*hours?|clinic\s*hours?|hours\s+of\s+operation|opening\s*hours?)\b', lowered)
-            or any(w in lowered for w in ["what time do you open", "when do you open", "what time do you close", "when do you close"])
+            or any(w in lowered for w in ["what time do you open", "when do you open", "what time do you close", "when do you close", "వేళలు", "ఎప్పుడు తెరుస్తారు"])
         ):
             intent = "HOSPITAL_HOURS"
         elif (
             re.search(r'\b(directions?|parking|address)\b', lowered)
-            or any(w in lowered for w in ["where are you", "where is the hospital", "where located", "where is the clinic"])
+            or any(w in lowered for w in ["where are you", "where is the hospital", "where located", "where is the clinic", "ఎక్కడ", "చిరునామా", "పార్కింగ్"])
         ):
             intent = "HOSPITAL_LOCATION"
-        elif re.search(r'\b(insurance|medicare|medicaid|copay|co-pay|coverage|costs?|fees?|pricing|bill|billing|payment)\b', lowered):
+        elif re.search(r'\b(insurance|medicare|medicaid|copay|co-pay|coverage|costs?|fees?|pricing|bill|billing|payment)\b', lowered) or any(w in lowered for w in ["బీమా", "ఇన్సూరెన్స్"]):
             intent = "HOSPITAL_INSURANCE"
         elif (
             re.search(r'\b(paperwork|documents?)\b', lowered)
-            or any(w in lowered for w in ["what should i bring", "what do i need to bring", "what to bring", "how to prepare"])
+            or any(w in lowered for w in ["what should i bring", "what do i need to bring", "what to bring", "how to prepare", "ఏమి తీసుకురావాలి"])
         ):
             intent = "CLINIC_PREPARATION"
 
         # G. User requests booking or an appointment
-        elif any(w in lowered for w in ["book", "appointment", "schedule", "consultation", "see a doctor"]):
+        elif any(w in lowered for w in ["book", "appointment", "schedule", "consultation", "see a doctor", "బుక్", "అపాయింట్‌మెంట్", "షెడ్యూల్", "సంప్రదింపు"]):
             intent = "BOOK_APPOINTMENT"
 
         # H. User asks about a specific doctor by name
@@ -316,7 +326,7 @@ class ContextAwareReferenceResolver:
             intent = "DOCTOR_INQUIRY"
 
         # I. Doctor / Specialist Search
-        elif any(w in lowered for w in ["doctor", "specialist", "physician", "find", "search", "who works"]):
+        elif any(w in lowered for w in ["doctor", "specialist", "physician", "find", "search", "who works", "డాక్టర్", "వైద్యుడు", "నిపుణుడు"]):
             intent = "SEARCH_DOCTORS"
 
         # J. Secondary Symptom triage
