@@ -113,7 +113,7 @@ def synthesize_speech(payload: SynthesizeInput):
         try:
             with httpx.Client(timeout=8.0) as client:
                 res = client.post(
-                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                    f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?optimize_streaming_latency=4&output_format=mp3_22050_32",
                     headers={
                         "xi-api-key": api_key,
                         "Content-Type": "application/json",

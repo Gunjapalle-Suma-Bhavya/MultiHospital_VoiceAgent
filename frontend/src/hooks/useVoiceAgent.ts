@@ -34,6 +34,10 @@ export function useVoiceAgent() {
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [voiceMode, setVoiceMode] = useState<'browser' | 'server'>('server');
 
+  // Automatic Speech Endpointing (VAD) & Continuous Hands-Free Dialogue
+  const [isEndpointPending, setIsEndpointPending] = useState<boolean>(false);
+  const [handsFreeMode, setHandsFreeMode] = useState<boolean>(true);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init',
@@ -52,6 +56,10 @@ export function useVoiceAgent() {
   const serverAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioSeqRef = useRef<number>(0);
   const isProcessingRef = useRef<boolean>(false);
+  const endpointTimerRef = useRef<any>(null);
+  const handsFreeRef = useRef<boolean>(true);
+  const commitAndSendRef = useRef<() => void>(() => {});
+  const startVoiceRef = useRef<((onInterim?: (t: string) => void, onFinal?: (t: string) => void) => void) | null>(null);
 
   const stopSpeaking = useCallback(() => {
     audioSeqRef.current += 1;
@@ -132,6 +140,13 @@ export function useVoiceAgent() {
               serverAudioRef.current = null;
             }
             setIsSpeaking(false);
+            if (handsFreeRef.current && !isProcessingRef.current) {
+              setTimeout(() => {
+                if (handsFreeRef.current && !isProcessingRef.current && !serverAudioRef.current) {
+                  startVoiceRef.current?.();
+                }
+              }, 400);
+            }
           };
           audio.onerror = (e) => {
             console.warn('Server audio playback error:', e);
@@ -249,6 +264,13 @@ export function useVoiceAgent() {
               resumeTimer = null;
             }
             setIsSpeaking(false);
+            if (handsFreeRef.current && !isProcessingRef.current) {
+              setTimeout(() => {
+                if (handsFreeRef.current && !isProcessingRef.current && !activeUtterance) {
+                  startVoiceRef.current?.();
+                }
+              }, 400);
+            }
           };
 
           utterance.onerror = (e) => {
@@ -320,14 +342,48 @@ export function useVoiceAgent() {
         if (onInterimRef.current) {
           onInterimRef.current(current);
         }
+
+        // Automatic Voice Activity Endpoint Detection (VAD)
+        if (endpointTimerRef.current) {
+          clearTimeout(endpointTimerRef.current);
+          endpointTimerRef.current = null;
+        }
+
+        const trimmed = current.trim();
+        if (trimmed.length > 0) {
+          setIsEndpointPending(true);
+          // 1200ms of natural silence after speaking triggers automatic dispatch to AI
+          endpointTimerRef.current = setTimeout(() => {
+            commitAndSendRef.current();
+          }, 1200);
+        } else {
+          setIsEndpointPending(false);
+        }
+      };
+
+      recognition.onspeechend = () => {
+        // Natural speech pause detected by audio hardware: accelerate auto-dispatch
+        if (lastTranscriptRef.current.trim().length > 0) {
+          setIsEndpointPending(true);
+          if (endpointTimerRef.current) {
+            clearTimeout(endpointTimerRef.current);
+          }
+          endpointTimerRef.current = setTimeout(() => {
+            commitAndSendRef.current();
+          }, 600);
+        }
       };
 
       recognition.onend = () => {
         setIsRecording(false);
+        setIsEndpointPending(false);
+        if (endpointTimerRef.current) {
+          clearTimeout(endpointTimerRef.current);
+          endpointTimerRef.current = null;
+        }
         const finalVal = lastTranscriptRef.current.trim();
         if (finalVal && onAutoSendRef.current) {
           const fn = onAutoSendRef.current;
-          onAutoSendRef.current = null;
           lastTranscriptRef.current = '';
           setTranscriptLive('');
           fn(finalVal);
@@ -337,6 +393,11 @@ export function useVoiceAgent() {
       recognition.onerror = (e: any) => {
         console.warn('Speech recognition status:', e.error);
         setIsRecording(false);
+        setIsEndpointPending(false);
+        if (endpointTimerRef.current) {
+          clearTimeout(endpointTimerRef.current);
+          endpointTimerRef.current = null;
+        }
         if (e.error === 'not-allowed') {
           setVoiceNotice('Microphone blocked: Please click the lock or camera icon in your browser address bar to Allow microphone access.');
         } else if (e.error === 'no-speech') {
@@ -363,6 +424,10 @@ export function useVoiceAgent() {
     }
 
     return () => {
+      if (endpointTimerRef.current) {
+        clearTimeout(endpointTimerRef.current);
+        endpointTimerRef.current = null;
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -375,12 +440,48 @@ export function useVoiceAgent() {
     };
   }, [triggerBargeIn, stopSpeaking]);
 
-  const startVoiceRecording = (
+  const commitAndSendVoice = useCallback(() => {
+    if (endpointTimerRef.current) {
+      clearTimeout(endpointTimerRef.current);
+      endpointTimerRef.current = null;
+    }
+    setIsEndpointPending(false);
+
+    const finalVal = (lastTranscriptRef.current || '').trim();
+    if (!finalVal) return;
+
+    // Reset transcript immediately so recognition onend doesn't double-send
+    lastTranscriptRef.current = '';
+    setTranscriptLive('');
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsRecording(false);
+
+    if (onAutoSendRef.current) {
+      onAutoSendRef.current(finalVal);
+    }
+  }, []);
+
+  useEffect(() => {
+    commitAndSendRef.current = commitAndSendVoice;
+  }, [commitAndSendVoice]);
+
+  const startVoiceRecording = useCallback((
     onInterim?: (text: string) => void,
     onFinalSubmit?: (text: string) => void
   ) => {
     triggerBargeIn();
     setVoiceNotice(null);
+    handsFreeRef.current = true;
+    if (endpointTimerRef.current) {
+      clearTimeout(endpointTimerRef.current);
+      endpointTimerRef.current = null;
+    }
+    setIsEndpointPending(false);
 
     if (!recognitionRef.current) {
       setVoiceNotice('Microphone speech recognition is not available in this browser. Please use Chrome/Edge or click a quick scenario.');
@@ -409,9 +510,19 @@ export function useVoiceAgent() {
         setVoiceNotice('Microphone starting... Click again if your browser is prompting for permission.');
       }
     }
-  };
+  }, [triggerBargeIn]);
 
-  const stopVoiceRecording = () => {
+  useEffect(() => {
+    startVoiceRef.current = startVoiceRecording;
+  }, [startVoiceRecording]);
+
+  const stopVoiceRecording = useCallback(() => {
+    handsFreeRef.current = false;
+    if (endpointTimerRef.current) {
+      clearTimeout(endpointTimerRef.current);
+      endpointTimerRef.current = null;
+    }
+    setIsEndpointPending(false);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -420,13 +531,12 @@ export function useVoiceAgent() {
       const textToSend = lastTranscriptRef.current.trim();
       if (textToSend && onAutoSendRef.current) {
         const fn = onAutoSendRef.current;
-        onAutoSendRef.current = null;
         lastTranscriptRef.current = '';
         setTranscriptLive('');
         fn(textToSend);
       }
     }
-  };
+  }, []);
 
   const testSpeaker = () => {
     speak('NexusHealth AI voice system is active. Your audio output is working properly.');
@@ -602,5 +712,9 @@ export function useVoiceAgent() {
     audioLevel,
     voiceMode,
     setVoiceMode,
+    isEndpointPending,
+    handsFreeMode,
+    setHandsFreeMode,
+    commitAndSendVoice,
   };
 }

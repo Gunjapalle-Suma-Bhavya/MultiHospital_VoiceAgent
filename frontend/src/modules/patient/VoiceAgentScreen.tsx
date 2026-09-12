@@ -38,6 +38,9 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     audioLevel,
     voiceMode,
     setVoiceMode,
+    isEndpointPending,
+    handsFreeMode,
+    setHandsFreeMode,
   } = useVoiceAgent();
 
   const [inputVal, setInputVal] = useState('');
@@ -152,6 +155,11 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               <span>SSE Stream</span>
             </button>
 
+            <span className="text-[10px] font-bold bg-emerald-950 text-emerald-400 px-2 py-1 rounded border border-emerald-800 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Auto-Endpoint &lt;2s</span>
+            </span>
+
             <span className="text-[10px] font-semibold bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">
               {latencyMs ? `${latencyMs}ms` : '<2.0s'}
             </span>
@@ -248,10 +256,17 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
             <div>
               <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                 {isRecording ? (
-                  <span className="text-rose-400 flex items-center gap-1">
-                    <Radio className="w-3 h-3 animate-ping" />
-                    Listening... (speak now, then pause or click Send)
-                  </span>
+                  isEndpointPending ? (
+                    <span className="text-amber-400 font-bold flex items-center gap-1.5 animate-pulse">
+                      <Radio className="w-3.5 h-3.5 text-amber-400" />
+                      Endpoint reached &bull; Auto-sending to AI (&lt;2s)...
+                    </span>
+                  ) : (
+                    <span className="text-rose-400 flex items-center gap-1">
+                      <Radio className="w-3 h-3 animate-ping" />
+                      Listening... (speak naturally &bull; AI auto-responds when you finish)
+                    </span>
+                  )
                 ) : isSpeaking ? (
                   <span className="text-sky-400 flex items-center gap-1">
                     <Volume2 className="w-3 h-3 animate-bounce" />
@@ -262,26 +277,42 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 ) : streamActive ? (
                   <span className="text-indigo-400">Streaming AI Audio &amp; Tokens...</span>
                 ) : isProcessing ? (
-                  'Processing Clinical Intake NLP...'
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                    Processing Clinical AI Response (&lt;2s)...
+                  </span>
                 ) : (
-                  'Microphone Ready &bull; Click mic icon or select scenario'
+                  'Microphone Ready &bull; Speak naturally (AI auto-detects end of speech)'
                 )}
               </div>
               <div className="text-[10px] text-slate-500">
-                Natural Web Speech Synthesizer &bull; Sub-180ms Interruption Active
+                Auto-Endpoint VAD (&lt;2.0s response) &bull; Hands-Free Continuous Dialogue Active
               </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setHandsFreeMode(!handsFreeMode)}
+              className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition flex items-center gap-1 ${
+                handsFreeMode
+                  ? 'bg-emerald-950/60 border-emerald-700/80 text-emerald-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+              title={handsFreeMode ? 'Hands-Free Dialogue is ON: AI auto-responds and listens continuously' : 'Hands-Free Dialogue is OFF'}
+            >
+              <Radio className="w-3 h-3" />
+              <span>Hands-Free: {handsFreeMode ? 'ON' : 'OFF'}</span>
+            </button>
+
             {isRecording && (
               <button
                 onClick={handleManualSendCurrent}
                 className="text-xs bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg transition shadow-md flex items-center space-x-1"
-                title="Send current spoken words to AI"
+                title="Send now without waiting for auto-endpoint pause"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Send to AI</span>
+                <span>Send now</span>
               </button>
             )}
 
@@ -305,12 +336,18 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
               <span className="text-white font-medium italic truncate">
                 "{transcriptLive || inputVal}"
               </span>
+              {isEndpointPending && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold animate-pulse shrink-0">
+                  Auto-Sending...
+                </span>
+              )}
             </div>
             <button
               onClick={handleManualSendCurrent}
-              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-[11px] rounded-lg transition shrink-0"
+              className="px-2.5 py-1 bg-emerald-600/80 hover:bg-emerald-500 text-slate-950 font-bold text-[11px] rounded-lg transition shrink-0"
+              title="Click to send immediately without waiting for auto-endpoint"
             >
-              Send to AI
+              Send now
             </button>
           </div>
         )}
