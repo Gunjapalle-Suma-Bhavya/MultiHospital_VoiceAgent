@@ -42,10 +42,23 @@ app = FastAPI(
 # Initialize Database Schema
 init_db()
 
-# Enable CORS
+# Enable CORS with Standards-Compliant Origin Whitelist
+cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if cors_origins_env:
+    allowed_origins = [orig.strip() for orig in cors_origins_env.split(",") if orig.strip()]
+else:
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:3000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

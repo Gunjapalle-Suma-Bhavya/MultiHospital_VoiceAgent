@@ -10,35 +10,44 @@ from datetime import datetime, timezone
 import pymongo
 from pymongo import MongoClient
 
-MONGODB_URI = os.getenv(
-    "MONGODB_URI",
-    "mongodb+srv://gunjapallesumabhavya_db_user:FyqJLvHSZhb3ceIL@cluster0.scjuj68.mongodb.net/?appName=Cluster0"
-)
+MONGODB_URI = os.getenv("MONGODB_URI", "")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "nexushealth_hospital_db")
 
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 _mongo_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="mongo_sync")
 _mongo_client: Optional[MongoClient] = None
+_last_connection_failure: float = 0.0
+_FAILURE_COOLDOWN_SECONDS: float = 60.0
 
 def get_mongodb_client() -> Optional[MongoClient]:
-    global _mongo_client
-    if _mongo_client is None:
-        try:
-            _mongo_client = MongoClient(
-                MONGODB_URI,
-                serverSelectionTimeoutMS=1500,
-                connectTimeoutMS=1500,
-                socketTimeoutMS=2000
-            )
-            # verify ping
-            _mongo_client.admin.command('ping')
-        except Exception as e:
-            print(f"[MongoDB Warning] Connection error: {e}")
-            return None
-    return _mongo_client
+    global _mongo_client, _last_connection_failure
+    if not MONGODB_URI:
+        return None
+    if _mongo_client is not None:
+        return _mongo_client
+    if time.time() - _last_connection_failure < _FAILURE_COOLDOWN_SECONDS:
+        return None
+    try:
+        _mongo_client = MongoClient(
+            MONGODB_URI,
+            serverSelectionTimeoutMS=1500,
+            connectTimeoutMS=1500,
+            socketTimeoutMS=2000
+        )
+        # verify ping
+        _mongo_client.admin.command('ping')
+        return _mongo_client
+    except Exception as e:
+        _last_connection_failure = time.time()
+        _mongo_client = None
+        print(f"[MongoDB Warning] Connection error: {e}")
+        return None
 
 def get_mongo_db():
+    if not MONGODB_URI:
+        return None
     client = get_mongodb_client()
     if client is not None:
         return client[DB_NAME]

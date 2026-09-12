@@ -98,9 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }),
       });
 
-      let session: UserSession;
       if (res.ok && res.data) {
-        session = {
+        const session: UserSession = {
           access_token: res.data.access_token || `token-${Date.now()}`,
           role,
           user_id: res.data.user_id || `user-${identifier}`,
@@ -112,24 +111,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           doctor_id: res.data.doctor_id || identifier,
           headers: res.data.headers || { 'X-User-Role': role },
         };
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+        setUser(session);
+        return true;
       } else {
-        session = {
-          access_token: `token-${Date.now()}`,
-          role,
-          user_id: `user-${identifier}`,
-          name: defaultName || identifier,
-          identifier,
-          hospital_id: hospitalId,
-          hospital_name: 'City Memorial Hospital',
-          patient_id: identifier,
-          doctor_id: identifier,
-          headers: { 'X-User-Role': role },
-        };
+        console.warn('Authentication rejected by platform:', res.error);
+        return false;
       }
-
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-      setUser(session);
-      return true;
     } catch (e) {
       console.error('Login error:', e);
       return false;

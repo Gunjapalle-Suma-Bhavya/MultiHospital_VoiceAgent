@@ -125,7 +125,17 @@ class ConcurrencyProtectionEngine:
                             "held_by_other": True
                         }
 
-            # 2. Check database for existing confirmed or active appointments in this slot
+            # 2. Database-level locking & active appointment conflict check
+            # For databases supporting SELECT ... FOR UPDATE (PostgreSQL/MySQL), serialize transactions across workers
+            try:
+                doc_query = db.query(Doctor).filter(Doctor.id == doctor_id)
+                bind_engine = db.get_bind()
+                if bind_engine and bind_engine.name != "sqlite":
+                    doc_query = doc_query.with_for_update()
+                doc_query.first()
+            except Exception:
+                pass
+
             existing_appt = db.query(Appointment).filter(
                 Appointment.doctor_id == doctor_id,
                 Appointment.start_datetime < slot_end,

@@ -153,8 +153,8 @@ ENVIRONMENT=production
 # Database Configuration (Relational Core)
 DATABASE_URL=sqlite:///./hospital_platform.db
 
-# MongoDB Atlas Cloud Persistence
-MONGODB_URI=mongodb+srv://gunjapallesumabhavya_db_user:FyqJLvHSZhb3ceIL@cluster0.scjuj68.mongodb.net/?appName=Cluster0
+# MongoDB Atlas Cloud Persistence (Optional Document Store)
+MONGODB_URI=mongodb+srv://<db_username>:<db_password>@cluster0.scjuj68.mongodb.net/?appName=Cluster0
 MONGODB_DB_NAME=nexushealth_hospital_db
 
 # Live AI / LLM Integration

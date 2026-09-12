@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { usePlatformRouter } from './hooks/usePlatformRouter';
 import { Navbar } from './components/Navbar';
 import { CatalogSidebar } from './components/CatalogSidebar';
-import { DynamicPageViewer } from './components/DynamicPageViewer';
 import { AuthScreen } from './modules/auth/AuthScreen';
 import { PatientPortal } from './modules/patient';
-import { DoctorPortal } from './modules/doctor';
-import { HospitalPortal } from './modules/hospital';
-import { PlatformAdminPortal } from './modules/admin';
 import { CatalogPage } from './api/client';
+
+// Lazy-loaded portals & heavy catalog views for route-level code splitting
+const DoctorPortal = lazy(() => import('./modules/doctor').then((m) => ({ default: m.DoctorPortal })));
+const HospitalPortal = lazy(() => import('./modules/hospital').then((m) => ({ default: m.HospitalPortal })));
+const PlatformAdminPortal = lazy(() => import('./modules/admin').then((m) => ({ default: m.PlatformAdminPortal })));
+const DynamicPageViewer = lazy(() => import('./components/DynamicPageViewer').then((m) => ({ default: m.DynamicPageViewer })));
+
+const WorkspaceLoader: React.FC = () => (
+  <div className="flex-1 flex flex-col items-center justify-center p-16 space-y-3">
+    <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      Loading Clinical Workspace...
+    </span>
+  </div>
+);
 
 export const App: React.FC = () => {
   const { user, activePortal, setActivePortal } = useAuth();
@@ -84,20 +95,22 @@ export const App: React.FC = () => {
           {/* Dynamic 49-Page Viewer Content */}
           <main className="flex-1 overflow-y-auto">
             {route.catalogRole && route.catalogPageId ? (
-              <DynamicPageViewer
-                role={route.catalogRole}
-                page={{
-                  page_id: route.catalogPageId,
-                  page_number: 1,
-                  title: route.catalogPageId.replace('_', ' ').toUpperCase(),
-                  description: 'Dynamic enterprise page synchronized via deep URL hash.',
-                  category: 'Enterprise',
-                  icon: 'layers',
-                  default_actions: ['inspect', 'export_telemetry'],
-                }}
-                context={context}
-                onBackToWorkspace={() => navigate(`/${activePortal}`)}
-              />
+              <Suspense fallback={<WorkspaceLoader />}>
+                <DynamicPageViewer
+                  role={route.catalogRole}
+                  page={{
+                    page_id: route.catalogPageId,
+                    page_number: 1,
+                    title: route.catalogPageId.replace('_', ' ').toUpperCase(),
+                    description: 'Dynamic enterprise page synchronized via deep URL hash.',
+                    category: 'Enterprise',
+                    icon: 'layers',
+                    default_actions: ['inspect', 'export_telemetry'],
+                  }}
+                  context={context}
+                  onBackToWorkspace={() => navigate(`/${activePortal}`)}
+                />
+              </Suspense>
             ) : (
               <div className="p-12 text-center text-slate-400 space-y-3">
                 <div className="text-xl font-bold text-white">49-Page Platform Catalog Explorer</div>
@@ -114,15 +127,17 @@ export const App: React.FC = () => {
           {(route.portal === 'patient' || activePortal === 'patient') && (
             <PatientPortal initialTab={route.view} />
           )}
-          {(route.portal === 'doctor' || activePortal === 'doctor') && (
-            <DoctorPortal initialTab={route.view} />
-          )}
-          {(route.portal === 'hospital' || activePortal === 'hospital') && (
-            <HospitalPortal initialTab={route.view} />
-          )}
-          {(route.portal === 'admin' || activePortal === 'admin') && (
-            <PlatformAdminPortal initialTab={route.view} />
-          )}
+          <Suspense fallback={<WorkspaceLoader />}>
+            {(route.portal === 'doctor' || activePortal === 'doctor') && (
+              <DoctorPortal initialTab={route.view} />
+            )}
+            {(route.portal === 'hospital' || activePortal === 'hospital') && (
+              <HospitalPortal initialTab={route.view} />
+            )}
+            {(route.portal === 'admin' || activePortal === 'admin') && (
+              <PlatformAdminPortal initialTab={route.view} />
+            )}
+          </Suspense>
         </main>
       )}
     </div>
