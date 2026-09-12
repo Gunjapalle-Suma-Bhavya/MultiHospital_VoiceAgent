@@ -117,39 +117,171 @@ class ContextResolver:
         return ResolutionResult(is_resolved=False)
 
 
+import re
+import json
+from datetime import datetime, date, time, timedelta, timezone
+from app.database.models import Doctor, Hospital, PatientSessionState, PatientProfile
+from app.agent.intent_understanding import SymptomIntentResolver
+
+
 class ContextAwareReferenceResolver:
     """
     Stateful context resolver integrated with DB session & patient session state.
+    Resolves doctor entities, hospital facilities, dates/times, and conversational intent.
     """
 
     def __init__(self, db_session):
         self.db = db_session
 
     def resolve_context(self, session_id: str, patient_phone: str, user_utterance: str) -> Dict[str, Any]:
-        lowered = user_utterance.lower()
+        lowered = user_utterance.lower().strip()
         hospital_id = None
         doctor_id = None
+        doctor_name = None
         target_datetime = None
         intent = "GENERAL_INQUIRY"
 
-        if "cancel" in lowered:
+        # 1. Load active draft session state if present
+        draft: Dict[str, Any] = {}
+        session_state = None
+        if session_id:
+            try:
+                session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == session_id).first()
+                if session_state and session_state.active_draft_booking_json:
+                    draft = json.loads(session_state.active_draft_booking_json)
+            except Exception:
+                pass
+
+        # 2. Match Doctor by Name in Database
+        active_docs = []
+        try:
+            active_docs = self.db.query(Doctor).filter(Doctor.is_active == True).all()
+        except Exception:
+            pass
+
+        matched_doc = None
+        common_name_words = {"white", "green", "reed", "may", "day", "long", "young", "brown", "gray", "grey", "have", "more", "head", "well", "house"}
+        for d in active_docs:
+            d_name = d.name.lower()
+            clean_full = re.sub(r'^(dr\.?|doctor)\s*', '', d_name).strip()
+            last_name = clean_full.split()[-1] if clean_full else ""
+
+            # Check exact Dr./Doctor title patterns, clean full names, or distinctive last names
+            dr_pat = rf'\b(dr\.?|doctor)\s+{re.escape(last_name)}\b'
+            dr_full_pat = rf'\b(dr\.?|doctor)\s+{re.escape(clean_full)}\b'
+            if re.search(dr_full_pat, lowered) or re.search(dr_pat, lowered):
+                matched_doc = d
+                break
+            elif clean_full and len(clean_full) >= 5 and clean_full in lowered:
+                matched_doc = d
+                break
+            elif last_name and len(last_name) >= 4 and last_name not in common_name_words and re.search(rf'\b{re.escape(last_name)}\b', lowered):
+                matched_doc = d
+                break
+
+        if matched_doc:
+            doctor_id = matched_doc.id
+            hospital_id = matched_doc.hospital_id
+            doctor_name = matched_doc.name
+        elif draft.get("doctor_id"):
+            doctor_id = draft.get("doctor_id")
+            hospital_id = draft.get("hospital_id")
+            doctor_name = draft.get("doctor_name")
+
+        # 3. Match Hospital Name
+        if not hospital_id:
+            try:
+                active_hosps = self.db.query(Hospital).filter(Hospital.is_active == True).all()
+                for h in active_hosps:
+                    h_name = h.name.lower()
+                    clean_hosp = re.sub(r'\b(hospital|center|medical|health|system|general|care|clinic)\b', '', h_name).strip()
+                    if clean_hosp and len(clean_hosp) >= 4 and clean_hosp in lowered:
+                        hospital_id = h.id
+                        break
+                    elif h_name in lowered:
+                        hospital_id = h.id
+                        break
+            except Exception:
+                pass
+
+        # 4. Extract Date / Time / Slots
+        time_match = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b', lowered)
+        if time_match:
+            hr = int(time_match.group(1))
+            minute = int(time_match.group(2) or 0)
+            meridiem = time_match.group(3)
+            if meridiem == 'pm' and hr < 12:
+                hr += 12
+            elif meridiem == 'am' and hr == 12:
+                hr = 0
+            target_d = date.today() + timedelta(days=1)
+            target_datetime = datetime.combine(target_d, time(hr, minute))
+        elif any(w in lowered for w in ["morning", "morning slot", "9 am", "9:00 am"]):
+            target_d = date.today() + timedelta(days=1)
+            target_datetime = datetime.combine(target_d, time(9, 0))
+        elif any(w in lowered for w in ["afternoon", "afternoon slot", "2 pm", "2:00 pm"]):
+            target_d = date.today() + timedelta(days=1)
+            target_datetime = datetime.combine(target_d, time(14, 0))
+        elif any(w in lowered for w in ["first one", "first slot", "earliest", "that slot"]):
+            target_d = date.today() + timedelta(days=1)
+            target_datetime = datetime.combine(target_d, time(9, 0))
+
+        # 5. Symptom Inference
+        symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(user_utterance)
+        inferred_spec = symptom_res.inferred_specialty if symptom_res.has_symptom else None
+
+        # 6. Context-Aware Intent Resolution
+        # A. Emergency / Human Escalation Priority
+        if any(w in lowered for w in ["emergency", "chest pain", "crushing", "ambulance", "heart attack", "human", "operator", "help right now", "call 911", "dying"]):
+            intent = "HUMAN_ESCALATION"
+
+        # B. Cancellation
+        elif "cancel" in lowered:
             intent = "CANCEL_APPOINTMENT"
-        elif "book" in lowered or "schedule" in lowered or "appointment" in lowered:
+
+        # C. User selected a specific time/slot or confirmed booking with a known doctor
+        elif target_datetime and doctor_id:
             intent = "BOOK_APPOINTMENT"
-        elif "doctor" in lowered or "find" in lowered or "search" in lowered:
-            intent = "SEARCH_DOCTORS"
-        elif "availab" in lowered or "slot" in lowered:
+        elif any(w in lowered for w in ["book that", "confirm", "reserve that", "yes please", "lock it in", "book it"]) and doctor_id:
+            intent = "BOOK_APPOINTMENT"
+
+        # D. User asks for availability / slots
+        elif any(w in lowered for w in ["availab", "slot", "openings", "free time", "when is", "schedule for tomorrow", "when can"]):
             intent = "CHECK_AVAILABILITY"
 
-        # Check for emergency/human escalation keywords
-        if "emergency" in lowered or "chest pain" in lowered or "ambulance" in lowered or "human" in lowered or "operator" in lowered or "help right now" in lowered:
-            intent = "HUMAN_ESCALATION"
+        # E. Hospital FAQs (prioritize specific logistics over general words)
+        elif any(w in lowered for w in ["visiting hour", "visiting", "hospital hour", "clinic hour", "hours of operation", "visiting hours", "timings", "what time do you open", "when do you open", "when are you open", "when do you close"]):
+            intent = "HOSPITAL_HOURS"
+        elif any(w in lowered for w in ["where are you", "location", "address", "directions", "where is", "parking"]):
+            intent = "HOSPITAL_LOCATION"
+        elif any(w in lowered for w in ["insurance", "medicare", "medicaid", "copay", "co-pay", "coverage", "cost", "fee", "price", "pay"]):
+            intent = "HOSPITAL_INSURANCE"
+        elif any(w in lowered for w in ["bring", "prepare", "preparation", "documents", "paperwork", "what do i need", "what should i have", "what should i bring"]):
+            intent = "CLINIC_PREPARATION"
+
+        # F. User requests booking or an appointment
+        elif any(w in lowered for w in ["book", "appointment", "schedule", "consultation", "see a doctor"]):
+            intent = "BOOK_APPOINTMENT"
+
+        # G. User asks about a specific doctor by name
+        elif matched_doc and not any(w in lowered for w in ["book", "appointment", "schedule"]):
+            intent = "DOCTOR_INQUIRY"
+
+        # H. Doctor / Specialist Search
+        elif any(w in lowered for w in ["doctor", "specialist", "physician", "find", "search", "who works"]):
+            intent = "SEARCH_DOCTORS"
+
+        # I. Symptom triage
+        elif inferred_spec:
+            intent = "SEARCH_DOCTORS"
 
         return {
             "intent": intent,
             "hospital_id": hospital_id,
             "doctor_id": doctor_id,
+            "doctor_name": doctor_name,
             "target_datetime": target_datetime,
+            "inferred_specialty": inferred_spec,
             "is_resolved": True
         }
 

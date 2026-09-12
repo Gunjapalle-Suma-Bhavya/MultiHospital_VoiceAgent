@@ -24,7 +24,12 @@ class LiveLLMClient:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     def is_configured(self) -> bool:
-        return bool(self.api_key and len(self.api_key.strip()) > 5)
+        key = (self.api_key or "").strip()
+        if not key or len(key) <= 5:
+            return False
+        if any(ph in key.lower() for ph in ["your-api-key", "placeholder", "xxx", "todo"]):
+            return False
+        return True
 
     def chat_completion(
         self,
