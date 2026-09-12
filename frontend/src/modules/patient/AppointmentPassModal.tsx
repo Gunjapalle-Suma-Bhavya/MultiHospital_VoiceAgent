@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, Printer, Calendar, MapPin, QrCode, CheckCircle2, ShieldCheck, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Printer, Calendar, MapPin, QrCode, CheckCircle2, ShieldCheck, Download, Wallet } from 'lucide-react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Props {
   booking: {
@@ -15,8 +16,52 @@ interface Props {
 }
 
 export const AppointmentPassModal: React.FC<Props> = ({ booking, onClose }) => {
+  const { t } = useLanguage();
+  const [walletSaved, setWalletSaved] = useState(false);
+
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadWalletPass = () => {
+    const passObj = {
+      formatVersion: 1,
+      passTypeIdentifier: 'pass.com.nexushealth.clinical.appointment',
+      serialNumber: booking.id,
+      teamIdentifier: 'NEXUSHEALTH',
+      organizationName: booking.hospital_name || 'NexusHealth Hospital Network',
+      description: `Appointment with ${booking.doctor_name}`,
+      barcode: {
+        message: `NEXUS-CARE-PASS-${booking.id}`,
+        format: 'PKBarcodeFormatQR',
+        messageEncoding: 'iso-8859-1',
+      },
+      generic: {
+        primaryFields: [
+          { key: 'doctor', label: 'PHYSICIAN', value: booking.doctor_name },
+        ],
+        secondaryFields: [
+          { key: 'patient', label: 'PATIENT', value: booking.patient_name },
+          { key: 'time', label: 'DATE & TIME', value: booking.scheduled_time },
+        ],
+        backFields: [
+          { key: 'specialty', label: 'CLINICAL SPECIALTY', value: booking.specialty },
+          { key: 'phone', label: 'CONTACT', value: booking.patient_phone },
+          { key: 'instructions', label: 'ARRIVAL', value: 'Please check in 15 minutes prior to appointment.' }
+        ]
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(passObj, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `care-pass-${booking.id}.pass.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setWalletSaved(true);
+    setTimeout(() => setWalletSaved(false), 3500);
   };
 
   const downloadICal = () => {
@@ -174,15 +219,30 @@ export const AppointmentPassModal: React.FC<Props> = ({ booking, onClose }) => {
           </div>
         </div>
 
-        {/* Modal Action Buttons */}
-        <div className="p-4 border-t border-slate-800 bg-slate-900 flex justify-between items-center print:hidden">
-          <button
-            onClick={downloadICal}
-            className="text-xs text-slate-300 hover:text-white px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition flex items-center space-x-1.5"
-          >
-            <Calendar className="w-3.5 h-3.5 text-sky-400" />
-            <span>Add to iCal / Outlook</span>
-          </button>
+        {/* Modal Action Buttons (Upgrade 7) */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900 flex flex-wrap justify-between items-center gap-2 print:hidden">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={downloadICal}
+              className="text-xs text-slate-300 hover:text-white px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition flex items-center space-x-1.5"
+            >
+              <Calendar className="w-3.5 h-3.5 text-sky-400" />
+              <span>iCal / Outlook</span>
+            </button>
+
+            <button
+              onClick={handleDownloadWalletPass}
+              className={`text-xs px-3 py-2 rounded-xl border transition flex items-center space-x-1.5 ${
+                walletSaved
+                  ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/50'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+              title="Download Apple / Google Mobile Wallet Pass"
+            >
+              <Wallet className="w-3.5 h-3.5 text-amber-400" />
+              <span>{walletSaved ? '✓ Pass Downloaded' : t('apple_wallet')}</span>
+            </button>
+          </div>
 
           <div className="flex space-x-2">
             <button
@@ -190,7 +250,7 @@ export const AppointmentPassModal: React.FC<Props> = ({ booking, onClose }) => {
               className="text-xs font-bold text-slate-950 bg-emerald-500 hover:bg-emerald-400 px-4 py-2 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / Save Care Pass</span>
+              <span>{t('print_pass')}</span>
             </button>
             <button
               onClick={onClose}

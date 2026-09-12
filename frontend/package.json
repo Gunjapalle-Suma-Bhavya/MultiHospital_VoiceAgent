@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:sync": "tsc && vite build && python3 ../scripts/sync_frontend.py",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "generate-types": "openapi-typescript http://127.0.0.1:8000/openapi.json -o ./src/api/schema.d.ts"

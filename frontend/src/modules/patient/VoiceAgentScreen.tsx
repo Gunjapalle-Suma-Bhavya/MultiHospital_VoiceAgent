@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mic, MicOff, Send, Volume2, VolumeX, Hand, Sparkles, Radio, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useVoiceAgent } from '../../hooks/useVoiceAgent';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../context/LanguageContext';
 import { AudioVisualizerCanvas } from '../../components/AudioVisualizerCanvas';
 
 interface VoiceAgentScreenProps {
@@ -10,6 +11,7 @@ interface VoiceAgentScreenProps {
 
 export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtySelected }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const {
     messages,
     isProcessing,
@@ -30,6 +32,12 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     triggerBargeIn,
     speak,
     testSpeaker,
+    audioDevices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    audioLevel,
+    voiceMode,
+    setVoiceMode,
   } = useVoiceAgent();
 
   const [inputVal, setInputVal] = useState('');
@@ -160,11 +168,57 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
           </div>
         )}
 
+        {/* Device Selection & Engine Mode Strip (Upgrades 1 & 8) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-900/60 rounded-xl border border-slate-800 text-xs">
+          <div className="flex items-center space-x-2">
+            <Mic className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-slate-400 font-semibold">{t('mic_device')}:</span>
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none max-w-[190px] truncate"
+            >
+              <option value="default">Default Microphone</option>
+              {audioDevices.map((d, i) => (
+                <option key={d.deviceId || i} value={d.deviceId}>
+                  {d.label || `Microphone ${i + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-1.5">
+            <span className="text-slate-400 text-[11px]">TTS Engine:</span>
+            <button
+              onClick={() => setVoiceMode('browser')}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
+                voiceMode === 'browser'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}
+            >
+              Browser WebSpeech
+            </button>
+            <button
+              onClick={() => setVoiceMode('server')}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
+                voiceMode === 'server'
+                  ? 'bg-sky-600 text-white border-sky-500 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}
+              title="Universal server-side synthesis fallback for all browsers"
+            >
+              Neural Server
+            </button>
+          </div>
+        </div>
+
         {/* Real Dynamic Audio Visualizer Canvas */}
         <AudioVisualizerCanvas
           isActive={isRecording || isSpeaking || isProcessing || streamActive}
           isSpeaking={isSpeaking}
           isListening={isRecording}
+          audioLevel={audioLevel}
         />
 
         {/* Audio Status Strip */}

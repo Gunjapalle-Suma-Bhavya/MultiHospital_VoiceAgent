@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Stethoscope,
@@ -10,6 +10,11 @@ import {
   Plus,
   Trash2,
   Lock,
+  Play,
+  Pause,
+  Headphones,
+  Volume2,
+  RotateCcw,
 } from 'lucide-react';
 import { usePlatformEvents, LiveBooking } from '../../context/PlatformEventContext';
 
@@ -20,6 +25,33 @@ interface Props {
 
 export const EncounterModal: React.FC<Props> = ({ booking, onClose }) => {
   const { completeEncounter } = usePlatformEvents();
+
+  // Upgrade 9: Patient Voice Call Audio Replay & Timestamped Transcript
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [currentPlaySec, setCurrentPlaySec] = useState(0);
+
+  const callTranscript = [
+    { sec: 2, timestamp: '00:02', speaker: 'Patient', text: 'Hello, I’ve had terrible right knee pain for 3 days and difficulty bearing weight.' },
+    { sec: 7, timestamp: '00:07', speaker: 'AI Assistant', text: 'I understand. Is there any swelling, numbness, or recent trauma to the knee?' },
+    { sec: 13, timestamp: '00:13', speaker: 'Patient', text: 'Mild swelling around the kneecap. No fever or recent accident.' },
+    { sec: 19, timestamp: '00:19', speaker: 'AI Assistant', text: 'Thank you. I have scheduled you with Dr. Sharma for an Orthopedic consultation.' },
+  ];
+
+  useEffect(() => {
+    let timer: any = null;
+    if (isPlayingAudio) {
+      timer = setInterval(() => {
+        setCurrentPlaySec((prev) => {
+          if (prev >= 24) {
+            setIsPlayingAudio(false);
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isPlayingAudio]);
 
   const [soap, setSoap] = useState({
     subjective: `Patient reports: ${booking.specialty || 'General'} consultation. Chief complaint: Severe pain and discomfort worsening over 5-7 days. Denies fever or chills.`,
@@ -134,6 +166,95 @@ export const EncounterModal: React.FC<Props> = ({ booking, onClose }) => {
               <div className="text-[10px] text-slate-400 font-bold uppercase">AI Risk Score</div>
               <div className="text-sm font-black text-amber-400 mt-1">Tier-1 Mild</div>
               <div className="text-[10px] text-slate-400">Low Acuity</div>
+            </div>
+          </div>
+
+          {/* Upgrade 9: Patient Voice Call Audio Replay & Synchronized Transcript */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex flex-wrap justify-between items-center gap-2">
+              <div className="flex items-center space-x-2">
+                <Headphones className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Patient Intake Voice Call Recording (Audio Replay)
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPlayingAudio(!isPlayingAudio)}
+                  className={`text-xs px-3 py-1 rounded-lg font-bold flex items-center space-x-1.5 transition ${
+                    isPlayingAudio
+                      ? 'bg-rose-600 text-white shadow'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow'
+                  }`}
+                >
+                  {isPlayingAudio ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                  <span>{isPlayingAudio ? 'Pause Audio' : 'Play 24s Call'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPlayingAudio(false);
+                    setCurrentPlaySec(0);
+                  }}
+                  className="p-1 text-slate-400 hover:text-white rounded bg-slate-900 border border-slate-800"
+                  title="Restart Audio"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+                <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                  00:{currentPlaySec < 10 ? `0${currentPlaySec}` : currentPlaySec} / 00:24
+                </span>
+              </div>
+            </div>
+
+            {/* Audio Progress Scrubber Bar */}
+            <div
+              className="w-full bg-slate-900 h-2 rounded-full overflow-hidden cursor-pointer"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pct = (e.clientX - rect.left) / rect.width;
+                setCurrentPlaySec(Math.round(pct * 24));
+              }}
+            >
+              <div
+                className="bg-emerald-400 h-full transition-all duration-200"
+                style={{ width: `${(currentPlaySec / 24) * 100}%` }}
+              />
+            </div>
+
+            {/* Interactive Clickable Transcript Lines */}
+            <div className="space-y-1.5 pt-1">
+              <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                Click any line below to jump audio playback to that exact second:
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 max-h-36 overflow-y-auto">
+                {callTranscript.map((t) => {
+                  const isActiveLine = currentPlaySec >= t.sec && currentPlaySec < t.sec + 6;
+                  return (
+                    <div
+                      key={t.sec}
+                      onClick={() => {
+                        setCurrentPlaySec(t.sec);
+                        setIsPlayingAudio(true);
+                      }}
+                      className={`p-2 rounded-lg text-xs flex items-start space-x-2.5 transition cursor-pointer border ${
+                        isActiveLine
+                          ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200'
+                          : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span className="font-mono text-[10px] font-bold text-emerald-400 shrink-0 mt-0.5">
+                        {t.timestamp}
+                      </span>
+                      <div className="flex-1">
+                        <span className="font-bold mr-1 text-white">{t.speaker}:</span>
+                        <span>"{t.text}"</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

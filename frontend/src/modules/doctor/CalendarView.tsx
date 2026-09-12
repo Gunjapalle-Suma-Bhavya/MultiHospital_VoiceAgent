@@ -20,7 +20,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const { bookings, blockedSlots, blockSlot, unblockSlot } = usePlatformEvents();
 
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const today = new Date();
+  const currentDayOfWeek = (today.getDay() + 6) % 7; // Monday = 0
+
+  const getDayDate = (dayOffset: number) => {
+    const d = new Date();
+    d.setDate(today.getDate() - currentDayOfWeek + dayOffset);
+    return {
+      name: weekDays[dayOffset],
+      dateStr: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      isToday: dayOffset === currentDayOfWeek,
+    };
+  };
+
+  const daysInfo = weekDays.map((_, idx) => getDayDate(idx));
+
+  // Extended hourly time slots (8:00 AM to 6:00 PM)
   const baseSlots = [
+    '08:00 AM',
+    '08:30 AM',
     '09:00 AM',
     '09:30 AM',
     '10:00 AM',
@@ -36,6 +57,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     '04:00 PM',
     '04:30 PM',
     '05:00 PM',
+    '05:30 PM',
   ];
 
   const handleToggleSlot = async (slotTime: string, isBlocked: boolean) => {
@@ -75,14 +97,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
-      <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+      <div className="flex flex-wrap justify-between items-center pb-2 border-b border-slate-800 gap-2">
         <div>
           <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
             <Clock className="w-4 h-4 text-sky-400" />
-            <span>Today's Live Patient Consultation Schedule</span>
+            <span>Interactive 7-Day Clinical Schedule (Weekly Grid)</span>
           </h3>
           <p className="text-xs text-slate-400">
-            Click any patient to inspect clinical briefs, or toggle hourly slots below
+            Select a weekday to view scheduled consultations or click slots to lock / unlock capacity
           </p>
         </div>
         <span className="text-xs text-emerald-400 font-mono font-bold flex items-center gap-1">
@@ -91,12 +113,36 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </span>
       </div>
 
-      {/* Visual Time Grid */}
+      {/* 7-Day Weekday Tab Selector (Upgrade 4) */}
+      <div className="grid grid-cols-7 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-center">
+        {daysInfo.map((day, idx) => (
+          <button
+            key={day.name}
+            onClick={() => setSelectedDayIndex(idx)}
+            className={`py-1.5 px-1 rounded-lg transition text-xs flex flex-col items-center ${
+              selectedDayIndex === idx
+                ? 'bg-sky-600 text-white font-bold shadow'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <span className="text-[10px] uppercase font-semibold">{day.name.slice(0, 3)}</span>
+            <span className="text-xs">{day.dateStr}</span>
+            {day.isToday && (
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-bold mt-0.5">
+                Today
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Visual Time Grid for Selected Day */}
       <div className="space-y-1.5">
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-          Visual Hourly Consultation Grid (Click slot to block / unblock):
+        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <span>{daysInfo[selectedDayIndex].name} Hourly Consultation Slots</span>
+          <span className="text-slate-500">Click slot to toggle block</span>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-xs">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-xs">
           {baseSlots.map((time) => {
             const bookedAppt = allAppointments.find((a) => a.time === time);
             const isBlocked = blockedSlots.includes(time);
@@ -112,21 +158,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     handleToggleSlot(time, isBlocked);
                   }
                 }}
-                className={`p-2 rounded-lg border text-center transition cursor-pointer ${
+                className={`p-2.5 rounded-xl border text-center transition cursor-pointer shadow-sm ${
                   isBooked
-                    ? 'bg-sky-950/50 border-sky-500/50 text-sky-300 hover:border-sky-400'
+                    ? 'bg-sky-950/60 border-sky-500 text-sky-200 hover:border-sky-400'
                     : isBlocked
-                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300 hover:border-rose-400'
-                    : 'bg-slate-950 border-slate-800 hover:border-emerald-500/50 text-slate-300'
+                    ? 'bg-rose-950/40 border-rose-500/50 text-rose-300 hover:border-rose-400'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-emerald-500/60 text-slate-300'
                 }`}
               >
                 <div className="font-bold text-[11px]">{time}</div>
-                <div className="text-[9px] mt-0.5 truncate font-medium">
+                <div className="text-[9px] mt-1 truncate font-medium">
                   {isBooked
-                    ? `Booked: ${bookedAppt.patient_name}`
+                    ? `✓ ${bookedAppt.patient_name}`
                     : isBlocked
-                    ? 'Blocked'
-                    : 'Available'}
+                    ? '⛔ Blocked'
+                    : '🟢 Available'}
                 </div>
               </div>
             );

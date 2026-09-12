@@ -4,9 +4,10 @@ interface Props {
   isActive: boolean;
   isSpeaking: boolean;
   isListening: boolean;
+  audioLevel?: number;
 }
 
-export const AudioVisualizerCanvas: React.FC<Props> = ({ isActive, isSpeaking, isListening }) => {
+export const AudioVisualizerCanvas: React.FC<Props> = ({ isActive, isSpeaking, isListening, audioLevel = 45 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -86,19 +87,19 @@ export const AudioVisualizerCanvas: React.FC<Props> = ({ isActive, isSpeaking, i
   }, [isActive, isSpeaking, isListening]);
 
   return (
-    <div className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col items-center justify-center space-y-1">
-      <div className="flex justify-between items-center w-full px-2 text-[10px] font-mono text-slate-500">
+    <div className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-col items-center justify-center space-y-1.5 transition-colors">
+      <div className="flex justify-between items-center w-full px-2 text-[10px] font-mono text-slate-500 dark:text-slate-400">
         <span className="flex items-center space-x-1">
           <span
             className={`w-1.5 h-1.5 rounded-full ${
               isListening ? 'bg-rose-500 animate-ping' : isSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-emerald-500'
             }`}
           />
-          <span className="uppercase">
+          <span className="uppercase font-semibold">
             {isListening ? 'Active Microphone (Speech In)' : isSpeaking ? 'Synthesizer (Audio Out)' : 'Web Audio Pipeline Ready'}
           </span>
         </span>
-        <span>Sub-180ms Barge-In</span>
+        <span className="text-emerald-600 dark:text-emerald-400 font-bold">Sub-180ms Neural Voice</span>
       </div>
 
       <canvas
@@ -107,6 +108,19 @@ export const AudioVisualizerCanvas: React.FC<Props> = ({ isActive, isSpeaking, i
         height={48}
         className="w-full max-w-md h-12 rounded-lg"
       />
+
+      {isListening && (
+        <div className="w-full max-w-md px-2 flex items-center space-x-2 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+          <span>INPUT GAIN</span>
+          <div className="flex-1 bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="bg-emerald-500 h-full transition-all duration-75"
+              style={{ width: `${Math.min(100, Math.max(15, audioLevel))}%` }}
+            />
+          </div>
+          <span className="font-bold text-emerald-600 dark:text-emerald-400">{Math.round(audioLevel)} dB</span>
+        </div>
+      )}
     </div>
   );
 };

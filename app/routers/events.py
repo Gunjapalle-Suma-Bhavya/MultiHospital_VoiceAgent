@@ -84,3 +84,47 @@ def get_event_subscribers():
     return {
         "active_subscribers": event_bus.get_subscribers()
     }
+
+
+@router.get("/stream")
+async def stream_events():
+    """
+    Server-Sent Events (SSE) stream for live platform event push updates.
+    """
+    import asyncio
+    import json
+    from datetime import datetime, timezone
+    from fastapi.responses import StreamingResponse
+
+    async def event_generator():
+        # Initial greeting event
+        init_payload = {
+            "type": "SSE_CONNECTED",
+            "title": "Real-time Event Stream Online",
+            "detail": "Connected to NexusHealth Cross-Portal Event Bus",
+            "actorRole": "SYSTEM",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        yield f"data: {json.dumps(init_payload)}\n\n"
+
+        # Continuous heartbeat / push loop
+        while True:
+            await asyncio.sleep(8)
+            heartbeat = {
+                "type": "HEARTBEAT",
+                "title": "System Alive",
+                "detail": "Live telemetry channel synchronized",
+                "actorRole": "SYSTEM",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            yield f"data: {json.dumps(heartbeat)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

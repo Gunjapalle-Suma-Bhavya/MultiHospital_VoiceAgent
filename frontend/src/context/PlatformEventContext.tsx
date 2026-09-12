@@ -88,6 +88,35 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
     setEvents((prev) => [newEvent, ...prev.slice(0, 49)]);
   }, []);
 
+  // Real-time Push via Server-Sent Events (SSE)
+  useEffect(() => {
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource('/api/v1/events/stream');
+      es.onmessage = (e) => {
+        try {
+          const payload = JSON.parse(e.data);
+          if (payload && payload.type && payload.type !== 'HEARTBEAT') {
+            addEvent({
+              type: payload.type === 'SSE_CONNECTED' ? 'EHR_SYNCED' : payload.type,
+              title: payload.title || 'Platform Event Received',
+              detail: payload.detail || 'Synchronized live via SSE event bus',
+              actorRole: payload.actorRole || 'SYSTEM',
+              metadata: payload.metadata || {},
+            });
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        es?.close();
+      };
+    } catch {}
+
+    return () => {
+      es?.close();
+    };
+  }, [addEvent]);
+
   const createBooking = useCallback(
     (data: Omit<LiveBooking, 'id' | 'status' | 'is_ehr_verified'>): LiveBooking => {
       const id = `APT-${Math.floor(1000 + Math.random() * 9000)}`;

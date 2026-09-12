@@ -12,9 +12,14 @@ import {
   RefreshCw,
   X,
   CheckCircle2,
+  Sun,
+  Moon,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { usePlatformEvents } from '../context/PlatformEventContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage, SUPPORTED_LANGUAGES } from '../context/LanguageContext';
 
 interface NavbarProps {
   isCatalogOpen: boolean;
@@ -37,6 +42,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { events } = usePlatformEvents();
+  const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, currentOption } = useLanguage();
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
   const [isMongoModalOpen, setIsMongoModalOpen] = useState(false);
   const [mongoStatus, setMongoStatus] = useState<MongoStatus | null>(null);
@@ -193,6 +201,46 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Layers className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">49-Page Catalog</span>
+            </button>
+
+            {/* Language Selector Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center space-x-1.5 transition shadow-sm"
+                title="Change Platform Language"
+              >
+                <span>{currentOption.flag}</span>
+                <span className="hidden sm:inline font-bold">{currentOption.code.toUpperCase()}</span>
+              </button>
+              {isLangMenuOpen && (
+                <div className="absolute right-0 mt-2 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50">
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        setLanguage(lang.code);
+                        setIsLangMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs flex items-center space-x-2 hover:bg-slate-800 transition ${
+                        language === lang.code ? 'text-emerald-400 font-bold bg-slate-800/60' : 'text-slate-300'
+                      }`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Clinical Light / Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition shadow-sm"
+              title={`Switch to ${theme === 'dark' ? 'Clinical Light Mode' : 'Dark Mode'}`}
+            >
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5 text-sky-400" />}
             </button>
 
             <div className="text-right hidden xl:block pl-1">

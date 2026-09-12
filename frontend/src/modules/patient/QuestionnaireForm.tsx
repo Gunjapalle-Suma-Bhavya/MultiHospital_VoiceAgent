@@ -3,6 +3,8 @@ import { ClipboardList, CheckCircle2, RotateCw, HelpCircle, ShieldCheck } from '
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { FileUp, Flame, AlertCircle } from 'lucide-react';
 
 interface QuestionItem {
   question_id: string;
@@ -24,10 +26,14 @@ interface QuestionnaireData {
 export const QuestionnaireForm: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [selectedSpecialty, setSelectedSpecialty] = useState('Orthopedics');
   const [questionnaire, setQuestionnaire] = useState<QuestionnaireData | null>(null);
   const [intro, setIntro] = useState<string>('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [painScore, setPainScore] = useState<number>(5);
+  const [selectedBodyZone, setSelectedBodyZone] = useState<string>('Knee / Joint');
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -167,6 +173,120 @@ export const QuestionnaireForm: React.FC = () => {
               </span>
             </div>
             {intro && <p className="text-xs text-slate-400 italic">"{intro}"</p>}
+          </div>
+
+          {/* Upgrade 6: Visual Clinical Pain Scale Slider (1-10) */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-amber-400" />
+                <span>{t('pain_level')}:</span>
+              </label>
+              <span
+                className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  painScore <= 3
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    : painScore <= 6
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                    : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                }`}
+              >
+                {painScore} / 10 &bull; {painScore <= 3 ? '😊 Mild' : painScore <= 6 ? '😐 Moderate' : painScore <= 8 ? '😣 Severe' : '🚨 Extreme'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={painScore}
+              onChange={(e) => setPainScore(parseInt(e.target.value))}
+              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>1 - Barely Noticeable</span>
+              <span>5 - Moderate Aches</span>
+              <span>10 - Unbearable Pain</span>
+            </div>
+          </div>
+
+          {/* Upgrade 6: Interactive 2D Body Map Zone Selector */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+            <label className="text-xs font-bold text-slate-200 block">
+              {t('body_location')}:
+            </label>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[
+                'Head & Neck',
+                'Chest & Heart',
+                'Right Shoulder',
+                'Left Shoulder',
+                'Abdomen / Stomach',
+                'Right Knee',
+                'Left Knee',
+                'Spine & Lower Back',
+                'Skin / Rash Zone',
+              ].map((zone) => (
+                <button
+                  type="button"
+                  key={zone}
+                  onClick={() => setSelectedBodyZone(zone)}
+                  className={`text-xs px-3 py-1 rounded-lg border font-medium transition ${
+                    selectedBodyZone === zone
+                      ? 'bg-sky-600 text-white border-sky-500 font-bold shadow-sm'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {zone}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Upgrade 6: Medical Report & Prior Prescription Uploader */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <FileUp className="w-4 h-4 text-indigo-400" />
+                <span>Upload Prior Medical Report / Lab PDF:</span>
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">Optional (PDF, PNG, JPG)</span>
+            </div>
+            {uploadedFile ? (
+              <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/40 rounded-lg flex justify-between items-center text-xs">
+                <div className="flex items-center space-x-2 text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="font-semibold truncate max-w-xs">{uploadedFile.name}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">({uploadedFile.size})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUploadedFile(null)}
+                  className="text-slate-400 hover:text-rose-400 text-xs font-bold"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className="border border-dashed border-slate-700 hover:border-emerald-500/60 rounded-lg p-3 text-center block cursor-pointer transition bg-slate-900/50">
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setUploadedFile({
+                        name: file.name,
+                        size: `${Math.round(file.size / 1024)} KB`,
+                      });
+                      showToast('info', 'Document Attached', `${file.name} ready for intake OCR analysis.`);
+                    }
+                  }}
+                />
+                <span className="text-xs text-slate-400">
+                  Click to attach previous lab test, X-Ray report, or medication summary
+                </span>
+              </label>
+            )}
           </div>
 
           <div className="space-y-3">

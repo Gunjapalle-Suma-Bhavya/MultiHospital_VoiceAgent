@@ -28,6 +28,12 @@ export function useVoiceAgent() {
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(true);
 
+  // Upgrade 1 & 8: Audio Device Selection & Decibel Level Meter
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('default');
+  const [audioLevel, setAudioLevel] = useState<number>(0);
+  const [voiceMode, setVoiceMode] = useState<'browser' | 'server'>('browser');
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-init',
@@ -71,10 +77,53 @@ export function useVoiceAgent() {
     }, 1500);
   }, [stopSpeaking]);
 
+  // Universal Server Audio Playback Fallback
+  const playServerAudio = useCallback(async (textToSpeak: string) => {
+    try {
+      setIsSpeaking(true);
+      const res = await fetch('/api/v1/voice/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToSpeak, language: 'en', voice: 'clinical_female' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio_base64) {
+          const audio = new Audio(data.audio_base64);
+          audio.onended = () => setIsSpeaking(false);
+          audio.onerror = () => setIsSpeaking(false);
+          await audio.play();
+          return;
+        }
+      }
+      setIsSpeaking(false);
+    } catch {
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  // Enumerate input devices on mount
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        const audioInputs = devices.filter((d) => d.kind === 'audioinput');
+        setAudioDevices(audioInputs);
+        if (audioInputs.length > 0 && selectedDeviceId === 'default') {
+          setSelectedDeviceId(audioInputs[0].deviceId || 'default');
+        }
+      }).catch(() => {});
+    }
+  }, [selectedDeviceId]);
+
   const speak = useCallback(
     (text: string) => {
       if (isMuted || !text.trim()) return;
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+      // Check for server-side speech synthesis fallback
+      if (voiceMode === 'server' || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        playServerAudio(text);
+        return;
+      }
 
       stopSpeaking();
 
@@ -466,5 +515,11 @@ export function useVoiceAgent() {
     speak,
     stopSpeaking,
     testSpeaker,
+    audioDevices,
+    selectedDeviceId,
+    setSelectedDeviceId,
+    audioLevel,
+    voiceMode,
+    setVoiceMode,
   };
 }
