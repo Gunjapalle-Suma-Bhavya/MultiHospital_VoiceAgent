@@ -51,6 +51,45 @@ class AIPatientAccessAgent:
         self.executor = ActionExecutor(db_session)
         self.patient_service = PatientSelfServiceService(db_session)
 
+    def _generate_dynamic_response(
+        self,
+        user_utterance: str,
+        language: Optional[str],
+        intent: str,
+        clinical_facts: Dict[str, Any],
+        fallback_text: str
+    ) -> tuple[str, bool]:
+        """
+        Attempts to generate a natural, empathetic, conversational response via live LLM.
+        Returns (response_text, was_llm_generated).
+        Falls back to rule-based localization if LLM is unconfigured or errors.
+        """
+        try:
+            from app.voice.llm_client import live_llm_client
+            if live_llm_client.is_configured():
+                llm_response = live_llm_client.generate_grounded_response(
+                    user_utterance=user_utterance,
+                    language=language or "en",
+                    intent=intent,
+                    clinical_facts=clinical_facts,
+                    timeout_sec=5.0
+                )
+                if llm_response and len(llm_response.strip()) > 5:
+                    return llm_response.strip(), True
+        except Exception:
+            pass
+
+        # Fallback to deterministic localization
+        if language and language != "en":
+            localized = MultilingualClinicalLocalizer.localize(
+                fallback_text,
+                lang=language,
+                context=clinical_facts
+            )
+            return localized, False
+
+        return fallback_text, False
+
     def _generate_rich_clinical_fallback(self, user_text: str) -> str:
         """
         Generates empathetic, comprehensive, and clinically sound patient responses
@@ -294,12 +333,21 @@ class AIPatientAccessAgent:
         agent_response = ""
         action_executed = None
         action_payload = {}
+        was_llm_generated = False
 
         if intent == "HUMAN_ESCALATION":
             esc_output = self.executor.escalate_to_human(
                 EscalateToHumanInput(session_id=sid, patient_id=patient.id, reason="Patient requested human emergency support")
             )
-            agent_response = "EMERGENCY: If you are experiencing a life-threatening emergency, please call 911 immediately. Transferring your call to our on-duty healthcare triage coordinator right now. Please remain on the line."
+            clinical_facts = {
+                "emergency_status": "Life-threatening alert triggered",
+                "action": "Transferring immediately to on-duty healthcare triage coordinator",
+                "emergency_numbers": "108 / 911 / 112"
+            }
+            fallback = "EMERGENCY: If you are experiencing a life-threatening emergency, please call 911 immediately. Transferring your call to our on-duty healthcare triage coordinator right now. Please remain on the line."
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
         elif intent == "CANCEL_APPOINTMENT":
             capabilities_invoked.append("TOOL_SELECTION_CANCELLATION")
@@ -311,34 +359,75 @@ class AIPatientAccessAgent:
                 )
                 action_executed = "CANCEL_APPOINTMENT"
                 action_payload = cancel_output.model_dump()
-                agent_response = "Your upcoming appointment has been successfully cancelled in the hospital EHR system. Would you like to reschedule for a future date?"
+                clinical_facts = {
+                    "appointment_status": "Successfully cancelled in hospital EHR system",
+                    "reschedule_available": "Patient can reschedule anytime"
+                }
+                fallback = "Your upcoming appointment has been successfully cancelled in the hospital EHR system. Would you like to reschedule for a future date?"
             else:
-                agent_response = "You do not currently have any active upcoming appointments on file to cancel. Would you like to schedule a new consultation?"
+                clinical_facts = {
+                    "appointment_status": "No active upcoming appointments found on file to cancel"
+                }
+                fallback = "You do not currently have any active upcoming appointments on file to cancel. Would you like to schedule a new consultation?"
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
         elif intent == "HOSPITAL_HOURS":
-            agent_response = (
+            clinical_facts = {
+                "outpatient_clinics": "Monday through Friday from 8:00 AM to 6:00 PM, and Saturdays from 9:00 AM to 1:00 PM",
+                "inpatient_visiting_hours": "Daily from 8:00 AM to 8:00 PM",
+                "emergency_departments": "Open 24/7 across all network hospitals"
+            }
+            fallback = (
                 "Our outpatient specialty clinics are open Monday through Friday from 8:00 AM to 6:00 PM, and Saturdays from 9:00 AM to 1:00 PM. "
                 "General visiting hours for inpatient wards are from 8:00 AM to 8:00 PM daily. Emergency departments at all our network hospitals remain open 24/7. "
                 "Would you like to schedule an appointment during clinic hours?"
             )
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
         elif intent == "HOSPITAL_LOCATION":
-            agent_response = (
+            clinical_facts = {
+                "city_memorial_hospital": "100 Medical Center Way, Metro City",
+                "care_regional_hospital": "250 Healthcare Blvd, South Valley",
+                "metro_health_medical_center": "500 Central Ave",
+                "parking_and_access": "Validated patient parking and wheelchair accessibility available at all locations"
+            }
+            fallback = (
                 "NexusHealth operates across regional hospital campuses: City Memorial Hospital is located at 100 Medical Center Way, Metro City; "
                 "Care Regional Hospital is at 250 Healthcare Blvd, South Valley; and Metro Health Medical Center is at 500 Central Ave. "
                 "All locations provide validated patient parking and wheelchair accessibility. Which campus would you like to visit?"
             )
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
         elif intent == "HOSPITAL_INSURANCE":
-            agent_response = (
+            clinical_facts = {
+                "accepted_insurances": "Medicare, Medicaid, and major commercial plans (Blue Cross Blue Shield, Aetna, Cigna, UnitedHealthcare)",
+                "financial_clearance": "Upfront eligibility and copay verification provided"
+            }
+            fallback = (
                 "NexusHealth hospitals accept Medicare, Medicaid, and most major commercial insurance providers including Blue Cross Blue Shield, Aetna, Cigna, and UnitedHealthcare. "
                 "Our intake team will verify your eligibility and copay before your consultation. Would you like to book an appointment with a specialist?"
             )
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
         elif intent == "CLINIC_PREPARATION":
-            agent_response = (
+            clinical_facts = {
+                "what_to_bring": "Valid government-issued photo ID, active insurance card, prior medical records or current medications",
+                "recommended_arrival": "15 minutes prior to appointment time for registration check-in"
+            }
+            fallback = (
                 "For your hospital appointment, please bring a valid government-issued photo ID, your active insurance card, and any relevant prior medical records or current medications. "
                 "We recommend arriving 15 minutes before your scheduled appointment time to complete check-in. Can I help you book a consultation slot?"
+            )
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
             )
 
         elif intent == "DOCTOR_INQUIRY" and active_doc_id:
@@ -362,7 +451,7 @@ class AIPatientAccessAgent:
                 else:
                     slot_phrase = "Would you like me to check the next available weekday for an opening?"
 
-                agent_response = (
+                fallback = (
                     f"{doc_name} is a specialist in {doc_obj.specialty} with our {doc_obj.department or 'Clinical Care'} department "
                     f"at {hosp_name}. {slot_phrase}"
                 )
@@ -377,6 +466,18 @@ class AIPatientAccessAgent:
                     "stage": "SLOTS_OFFERED"
                 })
                 self.db.commit()
+
+                clinical_facts = {
+                    "doctor_name": doc_name,
+                    "hospital_name": hosp_name,
+                    "specialty": doc_obj.specialty,
+                    "department": doc_obj.department or "Clinical Care",
+                    "available_slots_tomorrow": slot_times if avail_output.available_slots else "None",
+                    "first_slot": first_time if avail_output.available_slots else None
+                }
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
 
         elif intent in ["SEARCH_DOCTORS", "SEARCH_HOSPITALS"]:
             capabilities_invoked.append("TOOL_SELECTION_SEARCH")
@@ -410,9 +511,17 @@ class AIPatientAccessAgent:
                 })
                 self.db.commit()
 
+                doc_list = ", ".join([f"{doc.name} at {doc.hospital_name}" for doc in search_output.doctors[:3]])
+                clinical_facts = {
+                    "recommended_specialty": inferred_spec or top_doc.specialty,
+                    "matched_specialists": doc_list,
+                    "primary_recommended_doctor": top_doc.name,
+                    "hospital_facility": top_doc.hospital_name,
+                    "first_available_slot": avail_output.available_slots[0].start_datetime.strftime("%A, %B %d at %I:%M %p") if avail_output.available_slots else "Tomorrow morning"
+                }
+
                 if inferred_spec:
-                    doc_list = ", ".join([f"{doc.name} at {doc.hospital_name}" for doc in search_output.doctors[:3]])
-                    agent_response = (
+                    fallback = (
                         f"I understand your concerns regarding your symptoms. Based on clinical intake triage, "
                         f"a consultation with our {inferred_spec} department is strongly recommended. "
                         f"We currently have top specialists available: {doc_list}. "
@@ -420,25 +529,38 @@ class AIPatientAccessAgent:
                         f"or check available times for tomorrow?"
                     )
                 else:
-                    doc_list = ", ".join([f"{doc.name} ({doc.specialty} at {doc.hospital_name})" for doc in search_output.doctors[:3]])
-                    agent_response = (
+                    fallback = (
                         f"We have top physicians available across our hospital network: {doc_list}. "
                         f"Which doctor or specialty would you like to schedule an appointment with?"
                     )
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
             else:
-                agent_response = (
+                clinical_facts = {
+                    "search_result": "No physicians currently matching exact criteria",
+                    "offer": "Broaden search across regional hospital network"
+                }
+                fallback = (
                     "I couldn't find active doctors matching those specific criteria at this moment. "
                     "Would you like me to broaden our search across our regional hospital network facilities or check another medical department?"
+                )
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
                 )
 
         elif intent == "CHECK_AVAILABILITY":
             capabilities_invoked.append("TOOL_SELECTION_AVAILABILITY")
             if not active_doc_id:
-                agent_response = (
+                clinical_facts = {"action": "Clarify which physician or department to check"}
+                fallback = (
                     "I would be glad to check available consultation slots for you. "
                     "Which physician or medical department would you like to see?"
                 )
                 capabilities_invoked.append("CLARIFICATION_PROMPTED")
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
             else:
                 doc_obj = self.db.query(Doctor).filter(Doctor.id == active_doc_id).first()
                 hosp_obj = self.db.query(Hospital).filter(Hospital.id == doc_obj.hospital_id).first() if doc_obj else None
@@ -454,7 +576,13 @@ class AIPatientAccessAgent:
                 if avail_output.available_slots:
                     slot_times = ", ".join([s.start_datetime.strftime("%I:%M %p") for s in avail_output.available_slots[:4]])
                     first_time = avail_output.available_slots[0].start_datetime.strftime("%I:%M %p")
-                    agent_response = (
+                    clinical_facts = {
+                        "doctor_name": doc_name,
+                        "hospital_name": hosp_name,
+                        "available_slots_tomorrow": slot_times,
+                        "first_open_slot": first_time
+                    }
+                    fallback = (
                         f"I checked the real-time hospital calendar for {doc_name} at {hosp_name}. "
                         f"We have open 30-minute consultation slots available tomorrow at: {slot_times}. "
                         f"Shall I go ahead and book the {first_time} slot for you, or do you prefer another time?"
@@ -470,10 +598,18 @@ class AIPatientAccessAgent:
                     })
                     self.db.commit()
                 else:
-                    agent_response = (
+                    clinical_facts = {
+                        "doctor_name": doc_name,
+                        "hospital_name": hosp_name,
+                        "available_slots_tomorrow": "None currently open"
+                    }
+                    fallback = (
                         f"There are no available slots for {doc_name} tomorrow. "
                         f"Would you like me to check the next available weekday, or see if another specialist has openings?"
                     )
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
 
         elif intent == "BOOK_APPOINTMENT":
             capabilities_invoked.append("TOOL_SELECTION_BOOKING")
@@ -498,8 +634,12 @@ class AIPatientAccessAgent:
                             active_hosp_id = fallback_d.hospital_id
 
             if not active_doc_id:
-                agent_response = "I would be glad to help you schedule an appointment. Which physician or medical department would you like to see?"
+                clinical_facts = {"action": "Ask patient which physician or specialty they wish to book"}
+                fallback = "I would be glad to help you schedule an appointment. Which physician or medical department would you like to see?"
                 capabilities_invoked.append("CLARIFICATION_PROMPTED")
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
             else:
                 doc_obj = self.db.query(Doctor).filter(Doctor.id == active_doc_id).first()
                 hosp_obj = self.db.query(Hospital).filter(Hospital.id == doc_obj.hospital_id).first() if doc_obj else None
@@ -534,7 +674,15 @@ class AIPatientAccessAgent:
                 action_payload = book_output.model_dump()
                 if book_output.success:
                     capabilities_invoked.extend(["WORKFLOW_INITIATED", "EHR_ORCHESTRATED", "AUTHORITATIVE_VERIFIED"])
-                    agent_response = (
+                    clinical_facts = {
+                        "booking_status": "Confirmed in hospital EHR",
+                        "doctor_name": book_output.doctor_name,
+                        "hospital_name": book_output.hospital_name,
+                        "appointment_datetime": target_dt.strftime('%A, %B %d at %I:%M %p'),
+                        "verification_code": book_output.appointment_id[:8],
+                        "preparation": "Arrive 15 minutes early with photo ID and insurance card"
+                    }
+                    fallback = (
                         f"Certainly! I am processing that for you right now. "
                         f"Your appointment request has been sent to {book_output.doctor_name} at {book_output.hospital_name} "
                         f"and is confirmed for {target_dt.strftime('%A, %B %d at %I:%M %p')}. "
@@ -547,7 +695,14 @@ class AIPatientAccessAgent:
                     self.db.commit()
                 else:
                     capabilities_invoked.append("ERROR_HANDLED")
-                    agent_response = f"I am processing your appointment request, but was unable to complete the booking: {book_output.message}. Would you like me to reserve an alternate consultation slot?"
+                    clinical_facts = {
+                        "booking_status": "Failed to complete",
+                        "reason": book_output.message
+                    }
+                    fallback = f"I am processing your appointment request, but was unable to complete the booking: {book_output.message}. Would you like me to reserve an alternate consultation slot?"
+                agent_response, was_llm_generated = self._generate_dynamic_response(
+                    user_utterance, language, intent, clinical_facts, fallback
+                )
 
         else:
             capabilities_invoked.append("GENERAL_CONVERSATION")
@@ -589,32 +744,17 @@ class AIPatientAccessAgent:
                         })
                         self.db.commit()
 
-            from app.voice.llm_client import live_llm_client
-            if live_llm_client.is_configured():
-                llm_reply = live_llm_client.chat_completion(
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are NexusHealth's intelligent, empathetic AI Clinical Care Coordinator for a premier multi-hospital network. "
-                                "Provide a thorough, warm, and helpful response (3 to 4 sentences) addressing the patient's concerns. "
-                                "Highlight relevant hospital departments, doctor specialties, or appointment steps. "
-                                "Never provide a definitive self-diagnosis or prescribe medication, but be reassuring, informative, and proactive."
-                            )
-                        },
-                        {"role": "user", "content": user_utterance}
-                    ],
-                    max_tokens=220,
-                    timeout_sec=5.0
-                )
-                if llm_reply:
-                    agent_response = llm_reply
-                else:
-                    agent_response = self._generate_rich_clinical_fallback(user_utterance)
-            else:
-                agent_response = self._generate_rich_clinical_fallback(user_utterance)
+            clinical_facts = {
+                "patient_message": user_utterance,
+                "partner_hospitals": "City Memorial Hospital, Care Regional Hospital, Metro Health Medical Center",
+                "specialties": "Orthopedics, Cardiology, Dermatology, Neurology, Gastroenterology, General Medicine"
+            }
+            fallback = self._generate_rich_clinical_fallback(user_utterance)
+            agent_response, was_llm_generated = self._generate_dynamic_response(
+                user_utterance, language, intent, clinical_facts, fallback
+            )
 
-        if language and language != "en":
+        if not was_llm_generated and language and language != "en":
             agent_response = MultilingualClinicalLocalizer.localize(
                 agent_response,
                 lang=language,
