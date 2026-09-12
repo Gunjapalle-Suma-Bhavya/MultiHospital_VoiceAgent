@@ -57,8 +57,9 @@ class AIPatientAccessAgent:
         """
         text_lower = user_text.lower().strip()
 
-        # 1. Greetings
-        if text_lower in ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings"]:
+        # 1. Pure Greetings (only if text is solely a greeting without health problem description)
+        pure_greetings = {"hello", "hi", "hey", "good morning", "good afternoon", "good evening", "greetings", "hi there", "hello there"}
+        if text_lower in pure_greetings or not text_lower:
             return (
                 "Hello! I am your AI Patient Care Coordinator with the NexusHealth multi-hospital network. "
                 "How can I assist you with scheduling a doctor appointment, checking clinic hours, or addressing your healthcare needs today?"
@@ -158,11 +159,12 @@ class AIPatientAccessAgent:
                 "and Internal Medicine (Dr. Watson). Which medical specialty or condition can I help you find an appointment for today?"
             )
 
-        # 14. Default Comprehensive Clinical Intake Greeting
+        # 14. Default Empathic Clinical Problem Fallback
         return (
-            "Hello! I am your AI Patient Care Coordinator with the NexusHealth multi-hospital network. "
-            "I can help you evaluate your symptoms, locate the most qualified physician, check real-time availability, "
-            "and confirm your hospital appointment with EHR verification. How can I assist you with your health today?"
+            "I hear your healthcare concern and I am here to help you get the right care. "
+            "Based on the symptoms you have described, our clinical team strongly recommends an evaluation with our physicians "
+            "at City Memorial Hospital or Care Regional Hospital. We have top board-certified specialists available for consultation tomorrow. "
+            "Would you like me to book an appointment with our specialist, or check available consultation slots?"
         )
 
     def process_patient_turn(
@@ -368,6 +370,11 @@ class AIPatientAccessAgent:
             search_output = self.executor.search_doctors(
                 SearchDoctorsInput(session_id=sid, patient_id=patient.id, hospital_id=active_hosp_id, specialty=inferred_spec)
             )
+            # If active hospital does not have this specialist, search across the entire multi-hospital network
+            if not search_output.doctors and active_hosp_id:
+                search_output = self.executor.search_doctors(
+                    SearchDoctorsInput(session_id=sid, patient_id=patient.id, hospital_id=None, specialty=inferred_spec)
+                )
             action_executed = "SEARCH_DOCTORS"
             action_payload = search_output.model_dump()
             if search_output.doctors:

@@ -56,14 +56,36 @@ export function useVoiceAgent() {
   const serverAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioSeqRef = useRef<number>(0);
   const isProcessingRef = useRef<boolean>(false);
+  const isRecordingRef = useRef<boolean>(false);
+  const currentAiSpeechTextRef = useRef<string>('');
   const endpointTimerRef = useRef<any>(null);
   const handsFreeRef = useRef<boolean>(true);
   const commitAndSendRef = useRef<() => void>(() => {});
   const startVoiceRef = useRef<((onInterim?: (t: string) => void, onFinal?: (t: string) => void) => void) | null>(null);
   const sessionIdRef = useRef<string>(`voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
+  const isSelfEcho = (transcript: string, aiText: string): boolean => {
+    if (!aiText || !transcript) return false;
+    const cleanT = transcript.toLowerCase().trim().replace(/[^\w\s]/g, '');
+    const cleanAi = aiText.toLowerCase().trim().replace(/[^\w\s]/g, '');
+    if (!cleanT) return false;
+    if (cleanAi.includes(cleanT) || cleanT.includes(cleanAi)) {
+      return true;
+    }
+    const tWords = cleanT.split(/\s+/).filter(Boolean);
+    const aiWords = new Set(cleanAi.split(/\s+/).filter(Boolean));
+    if (tWords.length > 0) {
+      const matchCount = tWords.filter((w) => aiWords.has(w)).length;
+      if (matchCount / tWords.length >= 0.75 && tWords.length >= 2) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const stopSpeaking = useCallback(() => {
     audioSeqRef.current += 1;
+    currentAiSpeechTextRef.current = '';
     // 1. Immediately pause and destroy any playing ElevenLabs / server audio
     if (serverAudioRef.current) {
       try {
@@ -136,17 +158,22 @@ export function useVoiceAgent() {
           setIsSpeaking(true);
           const audio = new Audio(data.audio_base64);
           serverAudioRef.current = audio;
+          currentAiSpeechTextRef.current = textToSpeak;
+
           audio.onended = () => {
             if (serverAudioRef.current === audio) {
               serverAudioRef.current = null;
             }
             setIsSpeaking(false);
-            if (handsFreeRef.current && !isProcessingRef.current) {
+            currentAiSpeechTextRef.current = '';
+            if (handsFreeRef.current && !isProcessingRef.current && !isRecordingRef.current) {
               setTimeout(() => {
-                if (handsFreeRef.current && !isProcessingRef.current && !serverAudioRef.current) {
-                  startVoiceRef.current?.();
+                if (handsFreeRef.current && !isProcessingRef.current && !isRecordingRef.current) {
+                  try {
+                    recognitionRef.current?.start();
+                  } catch {}
                 }
-              }, 400);
+              }, 200);
             }
           };
           audio.onerror = (e) => {
@@ -155,10 +182,21 @@ export function useVoiceAgent() {
               serverAudioRef.current = null;
             }
             setIsSpeaking(false);
+            currentAiSpeechTextRef.current = '';
           };
 
           try {
             await audio.play();
+            // Full-duplex listening: Keep microphone active during playback so patient can interrupt anytime
+            if (handsFreeRef.current && !isRecordingRef.current && !isProcessingRef.current) {
+              setTimeout(() => {
+                if (handsFreeRef.current && !isRecordingRef.current && !isProcessingRef.current) {
+                  try {
+                    recognitionRef.current?.start();
+                  } catch {}
+                }
+              }, 150);
+            }
             return;
           } catch (playErr) {
             console.warn('audio.play() failed, attempting fallback to browser speech:', playErr);
@@ -172,8 +210,32 @@ export function useVoiceAgent() {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(textToSpeak);
           utterance.lang = 'en-US';
-          utterance.onend = () => setIsSpeaking(false);
-          utterance.onerror = () => setIsSpeaking(false);
+          utterance.onstart = () => {
+            setIsSpeaking(true);
+            currentAiSpeechTextRef.current = textToSpeak;
+            if (handsFreeRef.current && !isRecordingRef.current && !isProcessingRef.current) {
+              setTimeout(() => {
+                if (handsFreeRef.current && !isRecordingRef.current && !isProcessingRef.current) {
+                  try {
+                    recognitionRef.current?.start();
+                  } catch {}
+                }
+              }, 150);
+            }
+          };
+          utterance.onend = () => {
+            setIsSpeaking(false);
+            currentAiSpeechTextRef.current = '';
+            if (handsFreeRef.current && !isProcessingRef.current && !isRecordingRef.current) {
+              try {
+                recognitionRef.current?.start();
+              } catch {}
+            }
+          };
+          utterance.onerror = () => {
+            setIsSpeaking(false);
+            currentAiSpeechTextRef.current = '';
+          };
           setIsSpeaking(true);
           window.speechSynthesis.speak(utterance);
           return;
@@ -181,6 +243,7 @@ export function useVoiceAgent() {
       }
 
       setIsSpeaking(false);
+      currentAiSpeechTextRef.current = '';
     } catch (err) {
       console.warn('playServerAudio caught error:', err);
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -191,6 +254,7 @@ export function useVoiceAgent() {
         } catch {}
       }
       setIsSpeaking(false);
+      currentAiSpeechTextRef.current = '';
     }
   }, [stopSpeaking]);
 
@@ -325,11 +389,12 @@ export function useVoiceAgent() {
       recognition.lang = 'en-US';
 
       recognition.onspeechstart = () => {
-        triggerBargeIn();
+        // Sound detected by microphone.
       };
 
       recognition.onstart = () => {
         setIsRecording(true);
+        isRecordingRef.current = true;
         setVoiceNotice(null);
       };
 
@@ -338,6 +403,25 @@ export function useVoiceAgent() {
         for (let i = 0; i < event.results.length; i++) {
           current += event.results[i][0].transcript;
         }
+
+        const trimmed = current.trim();
+        if (!trimmed) return;
+
+        // Full-duplex barge-in check: If AI is actively vocalizing audio
+        const currentlySpeaking = !!serverAudioRef.current || (typeof window !== 'undefined' && window.speechSynthesis?.speaking);
+        if (currentlySpeaking) {
+          if (isSelfEcho(trimmed, currentAiSpeechTextRef.current)) {
+            // Echo detected from computer speaker - ignore so AI audio is not falsely interrupted
+            return;
+          }
+          // Real patient speech detected while AI was speaking: INSTANT INTERRUPT!
+          stopSpeaking();
+          setBargeInAlert(true);
+          setTimeout(() => {
+            setBargeInAlert(false);
+          }, 1500);
+        }
+
         lastTranscriptRef.current = current;
         setTranscriptLive(current);
         if (onInterimRef.current) {
@@ -350,16 +434,11 @@ export function useVoiceAgent() {
           endpointTimerRef.current = null;
         }
 
-        const trimmed = current.trim();
-        if (trimmed.length > 0) {
-          setIsEndpointPending(true);
-          // 1200ms of natural silence after speaking triggers automatic dispatch to AI
-          endpointTimerRef.current = setTimeout(() => {
-            commitAndSendRef.current();
-          }, 1200);
-        } else {
-          setIsEndpointPending(false);
-        }
+        setIsEndpointPending(true);
+        // 1200ms of natural silence after speaking triggers automatic dispatch to AI
+        endpointTimerRef.current = setTimeout(() => {
+          commitAndSendRef.current();
+        }, 1200);
       };
 
       recognition.onspeechend = () => {
@@ -377,6 +456,7 @@ export function useVoiceAgent() {
 
       recognition.onend = () => {
         setIsRecording(false);
+        isRecordingRef.current = false;
         setIsEndpointPending(false);
         if (endpointTimerRef.current) {
           clearTimeout(endpointTimerRef.current);
@@ -388,12 +468,22 @@ export function useVoiceAgent() {
           lastTranscriptRef.current = '';
           setTranscriptLive('');
           fn(finalVal);
+        } else if (handsFreeRef.current && !isProcessingRef.current) {
+          // Seamlessly restart recognition so hands-free listening remains active
+          setTimeout(() => {
+            if (handsFreeRef.current && !isProcessingRef.current && !isRecordingRef.current) {
+              try {
+                recognitionRef.current?.start();
+              } catch {}
+            }
+          }, 200);
         }
       };
 
       recognition.onerror = (e: any) => {
         console.warn('Speech recognition status:', e.error);
         setIsRecording(false);
+        isRecordingRef.current = false;
         setIsEndpointPending(false);
         if (endpointTimerRef.current) {
           clearTimeout(endpointTimerRef.current);
@@ -402,7 +492,16 @@ export function useVoiceAgent() {
         if (e.error === 'not-allowed') {
           setVoiceNotice('Microphone blocked: Please click the lock or camera icon in your browser address bar to Allow microphone access.');
         } else if (e.error === 'no-speech') {
-          setVoiceNotice('No words heard: Speak closer to your microphone or click a quick scenario below.');
+          // Normal timeout on silence: In hands-free mode, restart after brief pause
+          if (handsFreeRef.current && !isProcessingRef.current) {
+            setTimeout(() => {
+              if (handsFreeRef.current && !isProcessingRef.current && !isRecordingRef.current) {
+                try {
+                  recognitionRef.current?.start();
+                } catch {}
+              }
+            }, 300);
+          }
         } else if (e.error === 'network') {
           setVoiceNotice('Speech recognition network paused: You can click any quick scenario or type below to talk with AI.');
         } else {
@@ -461,6 +560,7 @@ export function useVoiceAgent() {
       } catch {}
     }
     setIsRecording(false);
+    isRecordingRef.current = false;
 
     if (onAutoSendRef.current) {
       onAutoSendRef.current(finalVal);
@@ -475,7 +575,6 @@ export function useVoiceAgent() {
     onInterim?: (text: string) => void,
     onFinalSubmit?: (text: string) => void
   ) => {
-    triggerBargeIn();
     setVoiceNotice(null);
     handsFreeRef.current = true;
     if (endpointTimerRef.current) {
@@ -494,6 +593,10 @@ export function useVoiceAgent() {
     }
     if (onFinalSubmit) {
       onAutoSendRef.current = onFinalSubmit;
+    }
+
+    if (isRecordingRef.current) {
+      return;
     }
 
     try {
@@ -529,6 +632,7 @@ export function useVoiceAgent() {
         recognitionRef.current.stop();
       } catch {}
       setIsRecording(false);
+      isRecordingRef.current = false;
       const textToSend = lastTranscriptRef.current.trim();
       if (textToSend && onAutoSendRef.current) {
         const fn = onAutoSendRef.current;

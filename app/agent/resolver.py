@@ -280,33 +280,46 @@ class ContextAwareReferenceResolver:
         elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"]:
             intent = "BOOK_APPOINTMENT"
 
-        # D. User asks for availability / slots
+        # D. Symptom triage and medical concern detection (prioritized to directly address patient symptoms)
+        elif inferred_spec and not any(w in lowered for w in ["visiting hour", "insurance", "address", "parking"]):
+            intent = "SEARCH_DOCTORS"
+
+        # E. User asks for availability / slots
         elif any(w in lowered for w in ["availab", "slot", "openings", "free time", "when is", "schedule for tomorrow", "when can"]):
             intent = "CHECK_AVAILABILITY"
 
-        # E. Hospital FAQs (prioritize specific logistics over general words)
-        elif any(w in lowered for w in ["visiting hour", "visiting", "hospital hour", "clinic hour", "hours of operation", "visiting hours", "timings", "what time do you open", "when do you open", "when are you open", "when do you close"]):
+        # F. Hospital FAQs (strict word boundaries to prevent accidental matches like "fee" inside "feeling")
+        elif (
+            re.search(r'\b(visiting\s*hours?|clinic\s*hours?|hours\s+of\s+operation|opening\s*hours?)\b', lowered)
+            or any(w in lowered for w in ["what time do you open", "when do you open", "what time do you close", "when do you close"])
+        ):
             intent = "HOSPITAL_HOURS"
-        elif any(w in lowered for w in ["where are you", "location", "address", "directions", "where is", "parking"]):
+        elif (
+            re.search(r'\b(directions?|parking|address)\b', lowered)
+            or any(w in lowered for w in ["where are you", "where is the hospital", "where located", "where is the clinic"])
+        ):
             intent = "HOSPITAL_LOCATION"
-        elif any(w in lowered for w in ["insurance", "medicare", "medicaid", "copay", "co-pay", "coverage", "cost", "fee", "price", "pay"]):
+        elif re.search(r'\b(insurance|medicare|medicaid|copay|co-pay|coverage|costs?|fees?|pricing|bill|billing|payment)\b', lowered):
             intent = "HOSPITAL_INSURANCE"
-        elif any(w in lowered for w in ["bring", "prepare", "preparation", "documents", "paperwork", "what do i need", "what should i have", "what should i bring"]):
+        elif (
+            re.search(r'\b(paperwork|documents?)\b', lowered)
+            or any(w in lowered for w in ["what should i bring", "what do i need to bring", "what to bring", "how to prepare"])
+        ):
             intent = "CLINIC_PREPARATION"
 
-        # F. User requests booking or an appointment
+        # G. User requests booking or an appointment
         elif any(w in lowered for w in ["book", "appointment", "schedule", "consultation", "see a doctor"]):
             intent = "BOOK_APPOINTMENT"
 
-        # G. User asks about a specific doctor by name
+        # H. User asks about a specific doctor by name
         elif matched_doc and not any(w in lowered for w in ["book", "appointment", "schedule"]):
             intent = "DOCTOR_INQUIRY"
 
-        # H. Doctor / Specialist Search
+        # I. Doctor / Specialist Search
         elif any(w in lowered for w in ["doctor", "specialist", "physician", "find", "search", "who works"]):
             intent = "SEARCH_DOCTORS"
 
-        # I. Symptom triage
+        # J. Secondary Symptom triage
         elif inferred_spec:
             intent = "SEARCH_DOCTORS"
 
