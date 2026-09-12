@@ -218,6 +218,7 @@ class Doctor(Base):
     languages_json = Column(Text, nullable=True)  # JSON list of languages
     consultation_type = Column(SQLEnum(ConsultationType), default=ConsultationType.IN_PERSON)
     default_appointment_duration = Column(Integer, default=30)
+    consultation_fee = Column(Float, default=100.0, nullable=True)
     
     doctor_status = Column(SQLEnum(DoctorStatus), default=DoctorStatus.ACTIVE)
     is_active = Column(Boolean, default=True)
