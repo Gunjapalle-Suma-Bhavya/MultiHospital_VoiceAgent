@@ -50,6 +50,23 @@ class NotificationEngine:
         )
         self.db.add(record)
         self.db.commit()
+
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            persist_to_mongodb("notifications", {
+                "notification_id": record.id,
+                "recipient_role": record.recipient_role,
+                "recipient_id": record.recipient_id,
+                "notification_type": record.notification_type,
+                "channel": record.channel,
+                "subject": record.subject,
+                "body": record.body,
+                "status": record.status,
+                "sent_at": record.sent_at.isoformat() if record.sent_at else None
+            }, key_field="notification_id")
+        except Exception:
+            pass
+
         return record
 
     # -------------------------------------------------------------------------
@@ -166,7 +183,21 @@ class NotificationEngine:
     # QUERY NOTIFICATIONS HISTORY
     # -------------------------------------------------------------------------
     def get_recipient_notifications(self, role: str, recipient_id: str) -> List[NotificationRecord]:
-        return self.db.query(NotificationRecord).filter(
-            NotificationRecord.recipient_role == role,
-            NotificationRecord.recipient_id == recipient_id
-        ).order_by(NotificationRecord.sent_at.desc()).all()
+        query = self.db.query(NotificationRecord).filter(
+            NotificationRecord.recipient_role == role.upper()
+        )
+        if recipient_id and recipient_id != "ALL":
+            # Match exact or normalized telephone/id
+            clean_rec = recipient_id.replace("-", "").replace(" ", "")
+            query = query.filter(
+                (NotificationRecord.recipient_id == recipient_id) |
+                (NotificationRecord.recipient_id.ilike(f"%{recipient_id}%")) |
+                (NotificationRecord.recipient_id.ilike(f"%{clean_rec}%"))
+            )
+        return query.order_by(NotificationRecord.sent_at.desc()).all()
+
+    def get_recent_notifications(self, role: Optional[str] = None, limit: int = 50) -> List[NotificationRecord]:
+        query = self.db.query(NotificationRecord)
+        if role and role != "ALL":
+            query = query.filter(NotificationRecord.recipient_role == role.upper())
+        return query.order_by(NotificationRecord.sent_at.desc()).limit(limit).all()

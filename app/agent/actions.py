@@ -290,6 +290,26 @@ class ActionExecutor:
         # Step 3: Trigger Appointment Confirmed Reminder Workflow
         self.workflow_engine.start_appointment_reminder_workflow(appt.id)
 
+        try:
+            from app.events.event_bus import SystemEvent, event_bus
+            from app.database.models import EventType
+            event_bus.publish(self.db, SystemEvent(
+                event_type=EventType.APPOINTMENT_BOOKED.value,
+                aggregate_id=appt.id,
+                hospital_id=payload.hospital_id,
+                payload={
+                    "patient_phone": payload.patient_phone,
+                    "patient_name": payload.patient_name,
+                    "doctor_id": payload.doctor_id,
+                    "doctor_name": doc.name,
+                    "hospital_id": payload.hospital_id,
+                    "hospital_name": hosp.name,
+                    "start_datetime": appt.start_datetime.isoformat()
+                }
+            ))
+        except Exception:
+            pass
+
         self.telemetry.record_turn_telemetry(
             session_id=payload.session_id,
             ai_attempt_summary="Book appointment with doctor",
@@ -330,6 +350,28 @@ class ActionExecutor:
 
         appt.status = AppointmentStatus.CANCELLED
         self.db.commit()
+
+        try:
+            from app.events.event_bus import SystemEvent, event_bus
+            from app.database.models import EventType
+            doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+            hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+            event_bus.publish(self.db, SystemEvent(
+                event_type=EventType.APPOINTMENT_CANCELLED.value,
+                aggregate_id=appt.id,
+                hospital_id=appt.hospital_id,
+                payload={
+                    "patient_phone": appt.patient_phone,
+                    "patient_name": appt.patient_name,
+                    "doctor_id": appt.doctor_id,
+                    "doctor_name": doc.name if doc else "Doctor",
+                    "hospital_id": appt.hospital_id,
+                    "hospital_name": hosp.name if hosp else "Hospital",
+                    "start_datetime": appt.start_datetime.isoformat()
+                }
+            ))
+        except Exception:
+            pass
 
         latency = (time.time() - start_t) * 1000
         self.telemetry.record_turn_telemetry(

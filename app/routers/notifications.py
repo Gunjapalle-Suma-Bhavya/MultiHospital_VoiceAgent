@@ -88,6 +88,38 @@ def get_recipient_notifications(role: str, recipient_id: str, db: Session = Depe
         "notifications": [
             {
                 "id": r.id,
+                "recipient_role": r.recipient_role,
+                "recipient_id": r.recipient_id,
+                "notification_type": r.notification_type,
+                "channel": r.channel,
+                "subject": r.subject,
+                "body": r.body,
+                "status": r.status,
+                "sent_at": r.sent_at.isoformat() if r.sent_at else None
+            }
+            for r in records
+        ]
+    }
+
+
+@router.get("/recent")
+def get_recent_notifications(
+    role: Optional[str] = None,
+    limit: int = 30,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns latest notifications across all or specific recipient roles.
+    """
+    engine = NotificationEngine(db)
+    records = engine.get_recent_notifications(role=role, limit=limit)
+    return {
+        "count": len(records),
+        "notifications": [
+            {
+                "id": r.id,
+                "recipient_role": r.recipient_role,
+                "recipient_id": r.recipient_id,
                 "notification_type": r.notification_type,
                 "channel": r.channel,
                 "subject": r.subject,

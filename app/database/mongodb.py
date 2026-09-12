@@ -16,13 +16,21 @@ MONGODB_URI = os.getenv(
 )
 DB_NAME = os.getenv("MONGODB_DB_NAME", "nexushealth_hospital_db")
 
+from concurrent.futures import ThreadPoolExecutor
+
+_mongo_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="mongo_sync")
 _mongo_client: Optional[MongoClient] = None
 
 def get_mongodb_client() -> Optional[MongoClient]:
     global _mongo_client
     if _mongo_client is None:
         try:
-            _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+            _mongo_client = MongoClient(
+                MONGODB_URI,
+                serverSelectionTimeoutMS=1500,
+                connectTimeoutMS=1500,
+                socketTimeoutMS=2000
+            )
             # verify ping
             _mongo_client.admin.command('ping')
         except Exception as e:
@@ -343,11 +351,7 @@ def get_mongodb_collections_stats() -> Dict[str, Any]:
         return {"database": DB_NAME, "collections": {}, "error": str(e)}
 
 
-def sync_event_to_mongodb(event_data: Dict[str, Any]) -> None:
-    """
-    Safely project published system events and domain updates into MongoDB Atlas.
-    Guaranteed non-blocking and safe against network drops.
-    """
+def _exec_sync_event(event_data: Dict[str, Any]) -> None:
     try:
         db = get_mongo_db()
         if db is None:
@@ -398,24 +402,25 @@ def sync_event_to_mongodb(event_data: Dict[str, Any]) -> None:
                 upsert=True
             )
     except Exception as e:
-        # Never crash callers
         print(f"[MongoDB Sync Warning] Sync event failed gracefully: {e}")
 
 
-def persist_to_mongodb(collection_name: str, doc_data: Dict[str, Any], key_field: Optional[str] = None) -> None:
+def sync_event_to_mongodb(event_data: Dict[str, Any]) -> None:
     """
-    Universally and safely persists any user-entered document directly to MongoDB Atlas.
-    Supports upsert when key_field is provided, otherwise inserts.
-    Guaranteed non-blocking, exception-safe, and fail-safe.
+    Safely project published system events and domain updates into MongoDB Atlas.
+    Guaranteed non-blocking and safe against network drops.
     """
+    try:
+        _mongo_pool.submit(_exec_sync_event, dict(event_data))
+    except Exception:
+        pass
+
+
+def _exec_persist(collection_name: str, clean_doc: Dict[str, Any], key_field: Optional[str]) -> None:
     try:
         db = get_mongo_db()
         if db is None:
             return
-
-        clean_doc = dict(doc_data)
-        if "persisted_at" not in clean_doc:
-            clean_doc["persisted_at"] = datetime.now(timezone.utc).isoformat()
 
         coll = db[collection_name]
         if key_field and key_field in clean_doc and clean_doc[key_field]:
@@ -428,6 +433,21 @@ def persist_to_mongodb(collection_name: str, doc_data: Dict[str, Any], key_field
             coll.insert_one(clean_doc)
     except Exception as e:
         print(f"[MongoDB Persist Warning] Failed to persist to {collection_name}: {e}")
+
+
+def persist_to_mongodb(collection_name: str, doc_data: Dict[str, Any], key_field: Optional[str] = None) -> None:
+    """
+    Universally and safely persists any user-entered document directly to MongoDB Atlas.
+    Supports upsert when key_field is provided, otherwise inserts.
+    Guaranteed non-blocking, exception-safe, and fail-safe.
+    """
+    try:
+        clean_doc = dict(doc_data)
+        if "persisted_at" not in clean_doc:
+            clean_doc["persisted_at"] = datetime.now(timezone.utc).isoformat()
+        _mongo_pool.submit(_exec_persist, collection_name, clean_doc, key_field)
+    except Exception:
+        pass
 
 
 

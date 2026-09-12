@@ -127,6 +127,30 @@ class AppointmentService:
 
         self.db.commit()
         self._record_state_transition(appt.id, prev, appt.status.value, changed_by=changed_by, reason=f"Confirmation & EHR Sync result: {msg}")
+
+        if verified:
+            try:
+                from app.events.event_bus import SystemEvent, event_bus
+                from app.database.models import EventType, Doctor, Hospital
+                doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+                hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+                event_bus.publish(self.db, SystemEvent(
+                    event_type=EventType.APPOINTMENT_BOOKED.value,
+                    aggregate_id=appt.id,
+                    hospital_id=appt.hospital_id,
+                    payload={
+                        "patient_phone": appt.patient_phone,
+                        "patient_name": appt.patient_name,
+                        "doctor_id": appt.doctor_id,
+                        "doctor_name": doc.name if doc else "Doctor",
+                        "hospital_id": appt.hospital_id,
+                        "hospital_name": hosp.name if hosp else "Hospital",
+                        "start_datetime": appt.start_datetime.isoformat()
+                    }
+                ))
+            except Exception:
+                pass
+
         return appt
 
     def reschedule_appointment(
@@ -186,6 +210,29 @@ class AppointmentService:
 
         self.db.commit()
         self._record_state_transition(appt.id, prev, AppointmentStatus.CANCELLED.value, changed_by=changed_by, reason=reason or "Cancelled by user")
+
+        try:
+            from app.events.event_bus import SystemEvent, event_bus
+            from app.database.models import EventType, Doctor, Hospital
+            doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+            hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+            event_bus.publish(self.db, SystemEvent(
+                event_type=EventType.APPOINTMENT_CANCELLED.value,
+                aggregate_id=appt.id,
+                hospital_id=appt.hospital_id,
+                payload={
+                    "patient_phone": appt.patient_phone,
+                    "patient_name": appt.patient_name,
+                    "doctor_id": appt.doctor_id,
+                    "doctor_name": doc.name if doc else "Doctor",
+                    "hospital_id": appt.hospital_id,
+                    "hospital_name": hosp.name if hosp else "Hospital",
+                    "start_datetime": appt.start_datetime.isoformat()
+                }
+            ))
+        except Exception:
+            pass
+
         return appt
 
     def complete_appointment(self, appointment_id: str, changed_by: str = "DOCTOR") -> Appointment:
