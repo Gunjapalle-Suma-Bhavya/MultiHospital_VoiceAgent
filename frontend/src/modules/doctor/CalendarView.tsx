@@ -188,24 +188,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
 
         <div className="space-y-2 max-h-60 overflow-y-auto">
-          {allAppointments.map((appt) => {
-            const isSelected = selectedAppointmentId === appt.id;
-            const isCompleted = appt.ehr_status === 'COMPLETED';
+          {allAppointments.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500 space-y-1">
+              <div className="font-bold text-slate-300">No Patient Consultations in Queue</div>
+              <p className="text-[11px] text-slate-400">
+                Slots marked "🟢 Available" above can be booked by patients or assigned via Voice AI intake.
+              </p>
+            </div>
+          ) : (
+            allAppointments.map((appt) => {
+              const isSelected = selectedAppointmentId === appt.id;
+              const isCompleted = appt.ehr_status === 'COMPLETED';
 
-            return (
-              <div
-                key={appt.id}
-                onClick={() => onSelectAppointment(appt)}
-                className={`p-3 rounded-xl border flex items-center justify-between transition cursor-pointer ${
-                  isSelected
-                    ? 'bg-slate-800/90 border-sky-500/60 shadow'
-                    : 'bg-slate-950/60 border-slate-800 hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xs">
-                    {appt.time.split(' ')[0]}
-                  </div>
+              return (
+                <div
+                  key={appt.id}
+                  onClick={() => onSelectAppointment(appt)}
+                  className={`p-3 rounded-xl border flex items-center justify-between transition cursor-pointer ${
+                    isSelected
+                      ? 'bg-slate-800/90 border-sky-500/60 shadow'
+                      : 'bg-slate-950/60 border-slate-800 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xs">
+                      {appt.time.split(' ')[0]}
+                    </div>
                   <div>
                     <div className="text-xs font-bold text-white flex items-center gap-1.5">
                       <span>{appt.patient_name}</span>
@@ -246,7 +254,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
               </div>
             );
-          })}
+          })
+        )}
         </div>
       </div>
     </div>
