@@ -20,7 +20,7 @@ Multi-channel architecture reusable across: Web Voice, Telephone (SIP/Twilio), a
 
 import uuid
 import json
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, time, timedelta, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -193,11 +193,24 @@ class AIPatientAccessAgent:
 
         session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == sid).first()
         if not session_state:
+            # Check for recent active draft from another session for this patient
+            recent_draft = None
+            try:
+                recent_sess = self.db.query(PatientSessionState).filter(
+                    PatientSessionState.patient_id == patient.id,
+                    PatientSessionState.active_draft_booking_json.isnot(None)
+                ).order_by(PatientSessionState.updated_at.desc()).first()
+                if recent_sess:
+                    recent_draft = recent_sess.active_draft_booking_json
+            except Exception:
+                pass
+
             session_state = PatientSessionState(
                 session_id=sid,
                 patient_id=patient.id,
                 current_intent="GENERAL_INQUIRY",
-                workflow_step="INITIAL_GREETING"
+                workflow_step="INITIAL_GREETING",
+                active_draft_booking_json=recent_draft
             )
             self.db.add(session_state)
             try:
@@ -205,6 +218,17 @@ class AIPatientAccessAgent:
             except IntegrityError:
                 self.db.rollback()
                 session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == sid).first()
+        elif not session_state.active_draft_booking_json:
+            try:
+                recent_sess = self.db.query(PatientSessionState).filter(
+                    PatientSessionState.patient_id == patient.id,
+                    PatientSessionState.active_draft_booking_json.isnot(None)
+                ).order_by(PatientSessionState.updated_at.desc()).first()
+                if recent_sess:
+                    session_state.active_draft_booking_json = recent_sess.active_draft_booking_json
+                    self.db.commit()
+            except Exception:
+                pass
         capabilities_invoked.append("PERSISTENT_CONTEXT_LOADED")
 
         # 2. Safety Boundary & Non-Clinical Guardrail Check
@@ -305,17 +329,36 @@ class AIPatientAccessAgent:
             doc_obj = self.db.query(Doctor).filter(Doctor.id == active_doc_id).first()
             hosp_obj = self.db.query(Hospital).filter(Hospital.id == doc_obj.hospital_id).first() if doc_obj else None
             if doc_obj:
+                doc_name = doc_obj.name
+                hosp_name = hosp_obj.name if hosp_obj else "our regional hospital"
+                target_d = date.today() + timedelta(days=1)
+                avail_output = self.executor.check_availability(
+                    CheckAvailabilityInput(session_id=sid, patient_id=patient.id, doctor_id=active_doc_id, target_date=target_d)
+                )
+                first_slot_iso = None
+                offered_slots = []
+                if avail_output.available_slots:
+                    first_slot_iso = avail_output.available_slots[0].start_datetime.isoformat()
+                    offered_slots = [s.start_datetime.isoformat() for s in avail_output.available_slots[:4]]
+                    slot_times = ", ".join([s.start_datetime.strftime("%I:%M %p") for s in avail_output.available_slots[:4]])
+                    first_time = avail_output.available_slots[0].start_datetime.strftime("%I:%M %p")
+                    slot_phrase = f"Open consultation slots tomorrow are: {slot_times}. Shall I book the {first_time} slot for you, or do you prefer another time?"
+                else:
+                    slot_phrase = "Would you like me to check the next available weekday for an opening?"
+
                 agent_response = (
-                    f"{doc_obj.name} is a specialist in {doc_obj.specialty} with our {doc_obj.department or 'Clinical Care'} department "
-                    f"at {hosp_obj.name if hosp_obj else 'our regional hospital'}. "
-                    f"Would you like me to check their available appointment slots for tomorrow?"
+                    f"{doc_name} is a specialist in {doc_obj.specialty} with our {doc_obj.department or 'Clinical Care'} department "
+                    f"at {hosp_name}. {slot_phrase}"
                 )
                 session_state.active_draft_booking_json = json.dumps({
                     "doctor_id": doc_obj.id,
-                    "doctor_name": doc_obj.name,
+                    "doctor_name": doc_name,
                     "hospital_id": doc_obj.hospital_id,
-                    "hospital_name": hosp_obj.name if hosp_obj else "",
-                    "specialty": doc_obj.specialty
+                    "hospital_name": hosp_name,
+                    "specialty": doc_obj.specialty,
+                    "first_slot": first_slot_iso,
+                    "offered_slots": offered_slots,
+                    "stage": "SLOTS_OFFERED"
                 })
                 self.db.commit()
 
@@ -329,12 +372,20 @@ class AIPatientAccessAgent:
             action_payload = search_output.model_dump()
             if search_output.doctors:
                 top_doc = search_output.doctors[0]
+                target_d = date.today() + timedelta(days=1)
+                avail_output = self.executor.check_availability(
+                    CheckAvailabilityInput(session_id=sid, patient_id=patient.id, doctor_id=top_doc.id, target_date=target_d)
+                )
+                first_slot_iso = avail_output.available_slots[0].start_datetime.isoformat() if avail_output.available_slots else None
+
                 session_state.active_draft_booking_json = json.dumps({
                     "doctor_id": top_doc.id,
                     "doctor_name": top_doc.name,
                     "hospital_id": top_doc.hospital_id,
                     "hospital_name": top_doc.hospital_name,
-                    "specialty": top_doc.specialty
+                    "specialty": top_doc.specialty,
+                    "first_slot": first_slot_iso,
+                    "stage": "DOCTORS_RECOMMENDED"
                 })
                 self.db.commit()
 
@@ -344,7 +395,7 @@ class AIPatientAccessAgent:
                         f"I understand your concerns regarding your symptoms. Based on clinical intake triage, "
                         f"a consultation with our {inferred_spec} department is strongly recommended. "
                         f"We currently have top specialists available: {doc_list}. "
-                        f"Would you like me to reserve a priority consultation slot with one of these doctors, "
+                        f"Would you like me to reserve a priority consultation slot with {top_doc.name}, "
                         f"or check available times for tomorrow?"
                     )
                 else:
@@ -381,17 +432,19 @@ class AIPatientAccessAgent:
                 action_payload = avail_output.model_dump()
                 if avail_output.available_slots:
                     slot_times = ", ".join([s.start_datetime.strftime("%I:%M %p") for s in avail_output.available_slots[:4]])
+                    first_time = avail_output.available_slots[0].start_datetime.strftime("%I:%M %p")
                     agent_response = (
                         f"I checked the real-time hospital calendar for {doc_name} at {hosp_name}. "
                         f"We have open 30-minute consultation slots available tomorrow at: {slot_times}. "
-                        f"Each consultation includes full clinical assessment and pre-visit intake review. "
-                        f"Which time slot works best for your schedule?"
+                        f"Shall I go ahead and book the {first_time} slot for you, or do you prefer another time?"
                     )
                     session_state.active_draft_booking_json = json.dumps({
                         "doctor_id": active_doc_id,
                         "doctor_name": doc_name,
                         "hospital_id": doc_obj.hospital_id if doc_obj else active_hosp_id,
                         "hospital_name": hosp_name,
+                        "first_slot": avail_output.available_slots[0].start_datetime.isoformat(),
+                        "offered_slots": [s.start_datetime.isoformat() for s in avail_output.available_slots[:4]],
                         "stage": "SLOTS_OFFERED"
                     })
                     self.db.commit()
@@ -406,41 +459,50 @@ class AIPatientAccessAgent:
             target_dt = resolved_context.get("target_datetime")
 
             if not active_doc_id:
+                # Check patient's last doctor
+                if patient.last_doctor_id:
+                    active_doc_id = patient.last_doctor_id
+                    d_lookup = self.db.query(Doctor).filter(Doctor.id == active_doc_id).first()
+                    if d_lookup and not active_hosp_id:
+                        active_hosp_id = d_lookup.hospital_id
+                else:
+                    # Check active doctor in active hospital or network
+                    doc_cand = self.db.query(Doctor).filter(Doctor.is_active == True)
+                    if active_hosp_id:
+                        doc_cand = doc_cand.filter(Doctor.hospital_id == active_hosp_id)
+                    fallback_d = doc_cand.first()
+                    if fallback_d:
+                        active_doc_id = fallback_d.id
+                        if not active_hosp_id:
+                            active_hosp_id = fallback_d.hospital_id
+
+            if not active_doc_id:
                 agent_response = "I would be glad to help you schedule an appointment. Which physician or medical department would you like to see?"
                 capabilities_invoked.append("CLARIFICATION_PROMPTED")
-            elif not target_dt:
-                # Doctor known, but slot not chosen yet: check availability and prompt
+            else:
                 doc_obj = self.db.query(Doctor).filter(Doctor.id == active_doc_id).first()
                 hosp_obj = self.db.query(Hospital).filter(Hospital.id == doc_obj.hospital_id).first() if doc_obj else None
                 doc_name = doc_obj.name if doc_obj else "the doctor"
                 hosp_name = hosp_obj.name if hosp_obj else "our clinic"
+                booking_hosp_id = active_hosp_id or (doc_obj.hospital_id if doc_obj else None)
 
+                # Query availability to verify slot or auto-select earliest available consultation slot
                 target_d = date.today() + timedelta(days=1)
                 avail_output = self.executor.check_availability(
                     CheckAvailabilityInput(session_id=sid, patient_id=patient.id, doctor_id=active_doc_id, target_date=target_d)
                 )
-                if avail_output.available_slots:
-                    slot_times = ", ".join([s.start_datetime.strftime("%I:%M %p") for s in avail_output.available_slots[:4]])
-                    agent_response = (
-                        f"To schedule your appointment with {doc_name} at {hosp_name}, "
-                        f"open consultation slots tomorrow are: {slot_times}. Which time slot works best for you?"
-                    )
-                    session_state.active_draft_booking_json = json.dumps({
-                        "doctor_id": active_doc_id,
-                        "doctor_name": doc_name,
-                        "hospital_id": doc_obj.hospital_id if doc_obj else active_hosp_id,
-                        "hospital_name": hosp_name,
-                        "stage": "SLOTS_OFFERED"
-                    })
-                    self.db.commit()
-                else:
-                    agent_response = f"Dr. {doc_name} does not have open consultation slots tomorrow. Would you like to check an alternate day?"
-            else:
+                open_dts = [s.start_datetime for s in avail_output.available_slots] if avail_output.available_slots else []
+                if not target_dt or (open_dts and target_dt not in open_dts):
+                    if open_dts:
+                        target_dt = open_dts[0]
+                    else:
+                        target_dt = datetime.combine(target_d, time(9, 0))
+
                 book_output = self.executor.create_appointment(
                     CreateAppointmentInput(
                         session_id=sid,
                         patient_id=patient.id,
-                        hospital_id=active_hosp_id,
+                        hospital_id=booking_hosp_id,
                         doctor_id=active_doc_id,
                         patient_name=patient.full_name or "Patient",
                         patient_phone=phone,
@@ -452,20 +514,60 @@ class AIPatientAccessAgent:
                 if book_output.success:
                     capabilities_invoked.extend(["WORKFLOW_INITIATED", "EHR_ORCHESTRATED", "AUTHORITATIVE_VERIFIED"])
                     agent_response = (
-                        f"Excellent! Your appointment with {book_output.doctor_name} at {book_output.hospital_name} "
-                        f"is confirmed for {target_dt.strftime('%A, %B %d at %I:%M %p')}. "
+                        f"Certainly! I am processing that for you right now. "
+                        f"Your appointment request has been sent to {book_output.doctor_name} at {book_output.hospital_name} "
+                        f"and is confirmed for {target_dt.strftime('%A, %B %d at %I:%M %p')}. "
                         f"Your verification code is {book_output.appointment_id[:8]}. "
-                        f"Your slot is locked in the hospital EHR system. Please arrive 15 minutes early with your photo ID and insurance card. "
+                        f"Your slot is locked in the hospital EHR system and on {book_output.doctor_name}'s schedule. "
+                        f"Please arrive 15 minutes early with your photo ID and insurance card. "
                         f"Can I assist you with anything else today?"
                     )
                     session_state.active_draft_booking_json = None
                     self.db.commit()
                 else:
                     capabilities_invoked.append("ERROR_HANDLED")
-                    agent_response = f"I was unable to complete the booking: {book_output.message}. Would you like me to reserve an alternate time slot?"
+                    agent_response = f"I am processing your appointment request, but was unable to complete the booking: {book_output.message}. Would you like me to reserve an alternate consultation slot?"
 
         else:
             capabilities_invoked.append("GENERAL_CONVERSATION")
+            # If draft is still empty, see if user discussed a specialty/symptom and associate relevant doctor
+            if not session_state.active_draft_booking_json:
+                spec_to_doc = {
+                    "cardio": "DOC-JENKINS-04",
+                    "heart": "DOC-JENKINS-04",
+                    "chest": "DOC-JENKINS-04",
+                    "derma": "DOC-MARCUS-07",
+                    "skin": "DOC-MARCUS-07",
+                    "rash": "DOC-MARCUS-07",
+                    "ortho": "DOC-SHARMA-01",
+                    "bone": "DOC-SHARMA-01",
+                    "joint": "DOC-SHARMA-01",
+                    "knee": "DOC-SHARMA-01",
+                    "neuro": "DOC-VANCE-09",
+                    "headache": "DOC-VANCE-09",
+                    "gastro": "DOC-GREEN-11",
+                    "stomach": "DOC-GREEN-11",
+                    "fever": "DOC-REED-14",
+                    "cough": "DOC-REED-14"
+                }
+                lowered_u = user_utterance.lower()
+                matched_did = None
+                for kw, did in spec_to_doc.items():
+                    if kw in lowered_u:
+                        matched_did = did
+                        break
+                if matched_did:
+                    matched_doc_obj = self.db.query(Doctor).filter(Doctor.id == matched_did).first()
+                    if matched_doc_obj:
+                        session_state.active_draft_booking_json = json.dumps({
+                            "doctor_id": matched_doc_obj.id,
+                            "doctor_name": matched_doc_obj.name,
+                            "hospital_id": matched_doc_obj.hospital_id,
+                            "specialty": matched_doc_obj.specialty,
+                            "stage": "DOCTORS_RECOMMENDED"
+                        })
+                        self.db.commit()
+
             from app.voice.llm_client import live_llm_client
             if live_llm_client.is_configured():
                 llm_reply = live_llm_client.chat_completion(

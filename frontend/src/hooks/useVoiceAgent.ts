@@ -60,6 +60,7 @@ export function useVoiceAgent() {
   const handsFreeRef = useRef<boolean>(true);
   const commitAndSendRef = useRef<() => void>(() => {});
   const startVoiceRef = useRef<((onInterim?: (t: string) => void, onFinal?: (t: string) => void) => void) | null>(null);
+  const sessionIdRef = useRef<string>(`voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
   const stopSpeaking = useCallback(() => {
     audioSeqRef.current += 1;
@@ -623,6 +624,7 @@ export function useVoiceAgent() {
       const res = await apiCall('/api/voice/chat', {
         method: 'POST',
         body: JSON.stringify({
+          session_id: sessionIdRef.current,
           patient_phone: patientPhone,
           user_utterance: text,
           hospital_id: hospitalId,
@@ -637,6 +639,9 @@ export function useVoiceAgent() {
       let isEmergency = false;
 
       if (res.ok && res.data) {
+        if (res.data.session_id) {
+          sessionIdRef.current = res.data.session_id;
+        }
         replyText =
           res.data.speech_response ||
           res.data.agent_response ||
@@ -684,6 +689,12 @@ export function useVoiceAgent() {
     }
   };
 
+  const resetSession = useCallback(() => {
+    sessionIdRef.current = `voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    stopSpeaking();
+    stopVoiceRecording();
+  }, [stopSpeaking, stopVoiceRecording]);
+
   return {
     messages,
     isProcessing,
@@ -716,5 +727,7 @@ export function useVoiceAgent() {
     handsFreeMode,
     setHandsFreeMode,
     commitAndSendVoice,
+    resetSession,
+    sessionId: sessionIdRef.current,
   };
 }

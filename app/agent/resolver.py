@@ -135,6 +135,8 @@ class ContextAwareReferenceResolver:
 
     def resolve_context(self, session_id: str, patient_phone: str, user_utterance: str) -> Dict[str, Any]:
         lowered = user_utterance.lower().strip()
+        # Normalize common speech-to-text variations and typos (e.g. appointement, apointment)
+        lowered = re.sub(r'\bappoint[a-z]*\b', 'appointment', lowered)
         hospital_id = None
         doctor_id = None
         doctor_name = None
@@ -149,6 +151,20 @@ class ContextAwareReferenceResolver:
                 session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == session_id).first()
                 if session_state and session_state.active_draft_booking_json:
                     draft = json.loads(session_state.active_draft_booking_json)
+            except Exception:
+                pass
+
+        if not draft and patient_phone:
+            try:
+                pat = self.db.query(PatientProfile).filter(PatientProfile.phone_number == patient_phone).first()
+                if pat:
+                    recent = self.db.query(PatientSessionState).filter(
+                        PatientSessionState.patient_id == pat.id,
+                        PatientSessionState.active_draft_booking_json.isnot(None)
+                    ).order_by(PatientSessionState.updated_at.desc()).first()
+                    if recent and recent.active_draft_booking_json:
+                        draft = json.loads(recent.active_draft_booking_json)
+                        session_state = recent
             except Exception:
                 pass
 
@@ -223,8 +239,21 @@ class ContextAwareReferenceResolver:
             target_d = date.today() + timedelta(days=1)
             target_datetime = datetime.combine(target_d, time(14, 0))
         elif any(w in lowered for w in ["first one", "first slot", "earliest", "that slot"]):
-            target_d = date.today() + timedelta(days=1)
-            target_datetime = datetime.combine(target_d, time(9, 0))
+            if draft.get("first_slot"):
+                try:
+                    target_datetime = datetime.fromisoformat(draft["first_slot"])
+                except Exception:
+                    pass
+        elif (draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"] or doctor_id) and any(w in lowered for w in [
+            "okay book", "ok book", "okay", "ok", "yes", "sure", "go ahead", "confirm", "lock it in",
+            "book it", "book that", "yes please", "please book", "book an appointment", "book appointment",
+            "process that", "process it", "i want to book", "book with", "book that slot", "book the slot", "fine"
+        ]):
+            if draft.get("first_slot"):
+                try:
+                    target_datetime = datetime.fromisoformat(draft["first_slot"])
+                except Exception:
+                    pass
 
         # 5. Symptom Inference
         symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(user_utterance)
@@ -242,7 +271,13 @@ class ContextAwareReferenceResolver:
         # C. User selected a specific time/slot or confirmed booking with a known doctor
         elif target_datetime and doctor_id:
             intent = "BOOK_APPOINTMENT"
-        elif any(w in lowered for w in ["book that", "confirm", "reserve that", "yes please", "lock it in", "book it"]) and doctor_id:
+        elif any(w in lowered for w in [
+            "book that", "confirm", "reserve that", "yes please", "lock it in", "book it",
+            "okay book", "ok book", "yes book", "please book", "book an appointment",
+            "book appointment", "process that", "process it", "go ahead", "i want to book"
+        ]) and doctor_id:
+            intent = "BOOK_APPOINTMENT"
+        elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"]:
             intent = "BOOK_APPOINTMENT"
 
         # D. User asks for availability / slots
