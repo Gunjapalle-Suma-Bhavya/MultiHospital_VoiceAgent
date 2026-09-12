@@ -49,8 +49,22 @@ export function useVoiceAgent() {
   const lastTranscriptRef = useRef<string>('');
   const onAutoSendRef = useRef<((text: string) => void) | null>(null);
   const onInterimRef = useRef<((text: string) => void) | null>(null);
+  const serverAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSeqRef = useRef<number>(0);
+  const isProcessingRef = useRef<boolean>(false);
 
   const stopSpeaking = useCallback(() => {
+    audioSeqRef.current += 1;
+    // 1. Immediately pause and destroy any playing ElevenLabs / server audio
+    if (serverAudioRef.current) {
+      try {
+        serverAudioRef.current.pause();
+        serverAudioRef.current.currentTime = 0;
+      } catch {}
+      serverAudioRef.current = null;
+    }
+
+    // 2. Immediately cancel browser speechSynthesis
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
@@ -60,8 +74,8 @@ export function useVoiceAgent() {
         clearInterval(resumeTimer);
         resumeTimer = null;
       }
-      setIsSpeaking(false);
     }
+    setIsSpeaking(false);
   }, []);
 
   const triggerBargeIn = useCallback(() => {
@@ -77,21 +91,40 @@ export function useVoiceAgent() {
     }, 1500);
   }, [stopSpeaking]);
 
-  // Universal Server Audio Playback Fallback
+  // Universal Server Audio Playback (ElevenLabs Neural TTS)
   const playServerAudio = useCallback(async (textToSpeak: string) => {
+    const seq = ++audioSeqRef.current;
     try {
+      stopSpeaking();
       setIsSpeaking(true);
       const res = await fetch('/api/v1/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textToSpeak, language: 'en', voice: 'clinical_female' }),
       });
+      if (audioSeqRef.current !== seq) {
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
+        if (audioSeqRef.current !== seq) return;
         if (data.audio_base64) {
+          stopSpeaking(); // Ensure no overlapping audio started while waiting for network
+          setIsSpeaking(true);
           const audio = new Audio(data.audio_base64);
-          audio.onended = () => setIsSpeaking(false);
-          audio.onerror = () => setIsSpeaking(false);
+          serverAudioRef.current = audio;
+          audio.onended = () => {
+            if (serverAudioRef.current === audio) {
+              serverAudioRef.current = null;
+            }
+            setIsSpeaking(false);
+          };
+          audio.onerror = () => {
+            if (serverAudioRef.current === audio) {
+              serverAudioRef.current = null;
+            }
+            setIsSpeaking(false);
+          };
           await audio.play();
           return;
         }
@@ -100,7 +133,7 @@ export function useVoiceAgent() {
     } catch {
       setIsSpeaking(false);
     }
-  }, []);
+  }, [stopSpeaking]);
 
   // Enumerate input devices on mount
   useEffect(() => {
@@ -119,7 +152,10 @@ export function useVoiceAgent() {
     (text: string) => {
       if (isMuted || !text.trim()) return;
 
-      // Check for server-side speech synthesis fallback
+      // Always terminate any currently active speech first to guarantee zero double-voices
+      stopSpeaking();
+
+      // Check for server-side speech synthesis (ElevenLabs Neural)
       if (voiceMode === 'server' || typeof window === 'undefined' || !('speechSynthesis' in window)) {
         playServerAudio(text);
         return;
@@ -414,7 +450,9 @@ export function useVoiceAgent() {
     patientPhone = '+1-555-1234567',
     hospitalId = 'HOSP-CITY-01'
   ) => {
-    if (!text.trim()) return null;
+    if (!text.trim() || isProcessingRef.current) return null;
+    isProcessingRef.current = true;
+    setIsProcessing(true);
 
     triggerBargeIn();
 
@@ -425,7 +463,6 @@ export function useVoiceAgent() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, userMsg]);
-    setIsProcessing(true);
 
     const startTime = performance.now();
 
@@ -489,6 +526,7 @@ export function useVoiceAgent() {
       setMessages((prev) => [...prev, errorMsg]);
       return null;
     } finally {
+      isProcessingRef.current = false;
       setIsProcessing(false);
     }
   };

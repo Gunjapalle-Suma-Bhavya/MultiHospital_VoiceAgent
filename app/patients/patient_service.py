@@ -9,6 +9,7 @@ import json
 from datetime import datetime, date, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.database.models import (
     PatientProfile, Appointment, AppointmentStatus, PatientQuestionnaireResponse,
@@ -63,7 +64,23 @@ class PatientSelfServiceService:
             if external_patient_id: patient.external_patient_id = external_patient_id
             if saved_preferences: patient.saved_preferences_json = json.dumps(saved_preferences)
 
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            patient = self.db.query(PatientProfile).filter(PatientProfile.phone_number == phone_number).first()
+            if patient:
+                if full_name: patient.full_name = full_name
+                if email: patient.email = email
+                if date_of_birth: patient.date_of_birth = date_of_birth
+                if preferred_language: patient.preferred_language = preferred_language
+                if communication_preference: patient.communication_preference = communication_preference
+                if emergency_contact: patient.emergency_contact_json = json.dumps(emergency_contact)
+                if external_patient_id: patient.external_patient_id = external_patient_id
+                if saved_preferences: patient.saved_preferences_json = json.dumps(saved_preferences)
+                self.db.commit()
+            else:
+                raise
         return patient
 
     def get_patient_profile(self, patient_id_or_phone: str) -> Dict[str, Any]:
