@@ -93,23 +93,37 @@ export function useVoiceAgent() {
 
   // Universal Server Audio Playback (ElevenLabs Neural TTS)
   const playServerAudio = useCallback(async (textToSpeak: string) => {
+    // 1. Cancel previous audio and capture a fresh sequence token
+    stopSpeaking();
     const seq = ++audioSeqRef.current;
+
     try {
-      stopSpeaking();
       setIsSpeaking(true);
       const res = await fetch('/api/v1/voice/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textToSpeak, language: 'en', voice: 'clinical_female' }),
       });
+
+      // If interrupted during network fetch, drop stale audio
       if (audioSeqRef.current !== seq) {
         return;
       }
+
       if (res.ok) {
         const data = await res.json();
         if (audioSeqRef.current !== seq) return;
+
         if (data.audio_base64) {
-          stopSpeaking(); // Ensure no overlapping audio started while waiting for network
+          // Pause and clean up any previous audio element without advancing sequence
+          if (serverAudioRef.current) {
+            try {
+              serverAudioRef.current.pause();
+              serverAudioRef.current.currentTime = 0;
+            } catch {}
+            serverAudioRef.current = null;
+          }
+
           setIsSpeaking(true);
           const audio = new Audio(data.audio_base64);
           serverAudioRef.current = audio;
@@ -119,18 +133,47 @@ export function useVoiceAgent() {
             }
             setIsSpeaking(false);
           };
-          audio.onerror = () => {
+          audio.onerror = (e) => {
+            console.warn('Server audio playback error:', e);
             if (serverAudioRef.current === audio) {
               serverAudioRef.current = null;
             }
             setIsSpeaking(false);
           };
-          await audio.play();
-          return;
+
+          try {
+            await audio.play();
+            return;
+          } catch (playErr) {
+            console.warn('audio.play() failed, attempting fallback to browser speech:', playErr);
+          }
         }
       }
+
+      // Graceful fallback to browser speech synthesis if server audio is unavailable or play() was blocked
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.lang = 'en-US';
+          utterance.onend = () => setIsSpeaking(false);
+          utterance.onerror = () => setIsSpeaking(false);
+          setIsSpeaking(true);
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch {}
+      }
+
       setIsSpeaking(false);
-    } catch {
+    } catch (err) {
+      console.warn('playServerAudio caught error:', err);
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.lang = 'en-US';
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
       setIsSpeaking(false);
     }
   }, [stopSpeaking]);
