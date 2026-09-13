@@ -960,3 +960,34 @@ class ReconciliationRecord(Base):
     reconciled_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
+class UserAccount(Base):
+    """
+    Platform User Account Entity.
+    Manages authentication and role-based access for:
+    - PATIENT
+    - DOCTOR
+    - HOSPITAL_STAFF
+    - HOSPITAL_ADMIN (linked to specific hospital)
+    - PLATFORM_ADMIN (entire system admin)
+    Supports both local password authentication and Google OAuth.
+    """
+    __tablename__ = "user_accounts"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    phone_number = Column(String(50), index=True, nullable=True)
+    full_name = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
+    role = Column(String(50), nullable=False, index=True, default="PATIENT")
+    hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True, index=True)
+    hospital_name = Column(String(255), nullable=True)
+    doctor_id = Column(String(36), ForeignKey("doctors.id"), nullable=True, index=True)
+    patient_id = Column(String(36), ForeignKey("patient_profiles.id"), nullable=True, index=True)
+    auth_provider = Column(String(50), default="LOCAL")
+    google_id = Column(String(255), nullable=True, index=True)
+    avatar_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+

@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { usePlatformRouter } from './hooks/usePlatformRouter';
 import { Navbar } from './components/Navbar';
 import { CatalogSidebar } from './components/CatalogSidebar';
-import { AuthScreen } from './modules/auth/AuthScreen';
+import { LandingPage } from './modules/landing/LandingPage';
 import { PatientPortal } from './modules/patient';
 import { CatalogPage } from './api/client';
 
@@ -38,7 +38,7 @@ export const App: React.FC = () => {
   }, [route.portal, activePortal, setActivePortal]);
 
   if (!user) {
-    return <AuthScreen />;
+    return <LandingPage />;
   }
 
   const context = {

@@ -40,8 +40,10 @@ from app.routers.should_have import router as should_have_router
 from app.routers.definition_of_done import router as definition_of_done_router
 from app.routers.final_submission import router as final_submission_router
 from app.routers.mongodb_sync import router as mongodb_sync_router
+from app.routers.auth import router as auth_router
 
 __all__ = [
+    "auth_router",
     "onboarding_router",
     "admin_router",
     "doctors_router",
