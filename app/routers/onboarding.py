@@ -2,9 +2,9 @@
 Hospital Onboarding & Platform Admin Approval Router.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.config import get_db
@@ -17,13 +17,100 @@ router = APIRouter(prefix="/api/v1/onboarding", tags=["Hospital Onboarding & Adm
 
 
 class RejectHospitalInput(BaseModel):
-    reason: str
+    reason: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+    @property
+    def effective_reason(self) -> str:
+        return self.reason or self.rejection_reason or "Application rejected by Platform Super-Admin"
 
 class RequestCorrectionsInput(BaseModel):
     notes: str
 
 class SuspendHospitalInput(BaseModel):
     reason: str
+
+class HospitalRegistrationRequest(BaseModel):
+    name: str = Field(..., description="Hospital Name")
+    code: str = Field(..., description="Hospital Short Code e.g. CITYMEM")
+    contact_email: str = Field(..., description="Facility Contact Email")
+    admin_name: str = Field(..., description="Facility Administrator Full Name")
+    admin_email: str = Field(..., description="Facility Administrator Email")
+    admin_password: Optional[str] = Field(None, description="Initial administrator password")
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    organization_info: Optional[str] = None
+    departments: Optional[List[str]] = []
+    specialties: Optional[List[str]] = []
+
+
+@router.post("/register")
+def register_new_hospital(payload: HospitalRegistrationRequest, db: Session = Depends(get_db)):
+    """
+    Submits a new hospital registration request.
+    Places the facility into SUBMITTED status (is_active = False), awaiting platform admin approval.
+    Also provisions the hospital admin user account in an inactive state until approved.
+    """
+    from app.database.models import Hospital, HospitalStatus, UserAccount
+    import json
+    from app.auth.auth_service import hash_password
+
+    clean_code = payload.code.strip().upper()
+    existing_code = db.query(Hospital).filter(Hospital.code == clean_code).first()
+    if existing_code:
+        raise HTTPException(status_code=400, detail=f"A hospital with code '{clean_code}' already exists.")
+
+    existing_email = db.query(Hospital).filter(Hospital.contact_email == payload.contact_email.strip().lower()).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail=f"A hospital application with email '{payload.contact_email}' is already registered.")
+
+    hosp = Hospital(
+        name=payload.name.strip(),
+        code=clean_code,
+        contact_email=payload.contact_email.strip().lower(),
+        phone=payload.phone.strip() if payload.phone else None,
+        address=payload.address.strip() if payload.address else None,
+        organization_info=payload.organization_info.strip() if payload.organization_info else None,
+        admin_name=payload.admin_name.strip(),
+        admin_email=payload.admin_email.strip().lower(),
+        departments_json=json.dumps(payload.departments) if payload.departments else "[]",
+        specialties_json=json.dumps(payload.specialties) if payload.specialties else "[]",
+        hospital_status=HospitalStatus.SUBMITTED,
+        is_active=False
+    )
+    db.add(hosp)
+    db.commit()
+    db.refresh(hosp)
+
+    # Prepare inactive UserAccount for the facility admin
+    admin_email_clean = payload.admin_email.strip().lower()
+    user = db.query(UserAccount).filter(UserAccount.email == admin_email_clean).first()
+    if not user:
+        user = UserAccount(
+            email=admin_email_clean,
+            full_name=payload.admin_name.strip(),
+            password_hash=hash_password(payload.admin_password or "demo123"),
+            role="HOSPITAL_ADMIN",
+            hospital_id=hosp.id,
+            hospital_name=hosp.name,
+            auth_provider="LOCAL",
+            is_active=False  # Inactive until platform admin approves the hospital!
+        )
+        db.add(user)
+        db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Hospital registration for '{hosp.name}' submitted successfully. It is now awaiting approval from the Entire System Admin.",
+        "hospital": {
+            "hospital_id": hosp.id,
+            "name": hosp.name,
+            "code": hosp.code,
+            "contact_email": hosp.contact_email,
+            "status": hosp.hospital_status.value,
+            "is_active": hosp.is_active
+        }
+    }
 
 
 @router.post("/draft")
@@ -90,12 +177,25 @@ def approve_hospital(hospital_id: str, db: Session = Depends(get_db)):
 @router.post("/{hospital_id}/reject")
 def reject_hospital(hospital_id: str, payload: RejectHospitalInput, db: Session = Depends(get_db)):
     onboarding = HospitalSelfServiceOnboardingService(db)
-    hosp = onboarding.reject_hospital(hospital_id, payload.reason)
+    hosp = onboarding.reject_hospital(hospital_id, payload.effective_reason)
     return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
 
 
 # Platform Admin Review Endpoints
 admin_router = APIRouter(prefix="/api/v1/admin/hospitals", tags=["Platform Admin Approval"])
+
+@admin_router.get("")
+@admin_router.get("/")
+def admin_list_hospitals(
+    status: Optional[str] = Query(None, description="Optional status filter: PENDING, SUBMITTED, APPROVED, REJECTED"),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns list of all hospital registration requests, with aggregate counters for pending, approved, and rejected applications.
+    """
+    admin_service = PlatformAdminApprovalService(db)
+    return admin_service.list_hospital_applications(status_filter=status)
+
 
 @admin_router.get("/{hospital_id}")
 def admin_review_hospital_info(hospital_id: str, db: Session = Depends(get_db)):
@@ -110,7 +210,7 @@ def admin_approve_hospital(hospital_id: str, db: Session = Depends(get_db)):
     admin_service = PlatformAdminApprovalService(db)
     try:
         hosp = admin_service.approve_hospital(hospital_id)
-        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active}
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "hospital_status": hosp.hospital_status.value, "is_active": hosp.is_active}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -118,8 +218,8 @@ def admin_approve_hospital(hospital_id: str, db: Session = Depends(get_db)):
 def admin_reject_hospital(hospital_id: str, payload: RejectHospitalInput, db: Session = Depends(get_db)):
     admin_service = PlatformAdminApprovalService(db)
     try:
-        hosp = admin_service.reject_hospital(hospital_id, payload.reason)
-        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
+        hosp = admin_service.reject_hospital(hospital_id, payload.effective_reason)
+        return {"hospital_id": hosp.id, "status": hosp.hospital_status.value, "hospital_status": hosp.hospital_status.value, "is_active": hosp.is_active, "rejection_reason": hosp.rejection_reason}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

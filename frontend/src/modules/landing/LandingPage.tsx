@@ -42,15 +42,26 @@ export const LandingPage: React.FC = () => {
 
   // Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'demo'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'demo' | 'hospital_register'>('signin');
   const [selectedRole, setSelectedRole] = useState<UserRole>('PATIENT');
   const [selectedHospital, setSelectedHospital] = useState<string>('HOSP-CITY-01');
 
-  // Form Fields
+  // Form Fields (User Sign In / Sign Up)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+
+  // Hospital Facility Registration Form Fields
+  const [hospName, setHospName] = useState('');
+  const [hospCode, setHospCode] = useState('');
+  const [hospEmail, setHospEmail] = useState('');
+  const [hospPhone, setHospPhone] = useState('');
+  const [hospAddress, setHospAddress] = useState('');
+  const [hospAdminName, setHospAdminName] = useState('');
+  const [hospAdminEmail, setHospAdminEmail] = useState('');
+  const [hospAdminPassword, setHospAdminPassword] = useState('');
+  const [hospDepts, setHospDepts] = useState('Cardiology, Orthopedics, Emergency, General Medicine');
 
   // Status & Feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,6 +145,47 @@ export const LandingPage: React.FC = () => {
     setIsSubmitting(false);
     if (!result.success) {
       setErrorMessage(result.error || 'Registration failed.');
+    }
+  };
+
+  const handleHospitalRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hospName.trim() || !hospCode.trim() || !hospEmail.trim() || !hospAdminName.trim() || !hospAdminEmail.trim()) {
+      setErrorMessage('Please fill in all required hospital registration fields.');
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const depts = hospDepts.split(',').map((d) => d.trim()).filter(Boolean);
+      const res = await apiCall('/api/v1/onboarding/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: hospName.trim(),
+          code: hospCode.trim().toUpperCase(),
+          contact_email: hospEmail.trim().toLowerCase(),
+          admin_name: hospAdminName.trim(),
+          admin_email: hospAdminEmail.trim().toLowerCase(),
+          admin_password: hospAdminPassword || 'demo123',
+          phone: hospPhone.trim() || undefined,
+          address: hospAddress.trim() || undefined,
+          departments: depts,
+          specialties: depts,
+        }),
+      });
+
+      if (res.ok && res.data) {
+        setSuccessMessage(
+          `Application for "${hospName}" has been submitted successfully! The facility request is now pending approval by the Platform System Admin. Once approved, facility operations will be unlocked.`
+        );
+      } else {
+        setErrorMessage(res.error || 'Failed to submit hospital application.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Network error submitting hospital registration.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -248,6 +300,20 @@ export const LandingPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={() => {
+                setAuthMode('hospital_register');
+                setErrorMessage(null);
+                setSuccessMessage(null);
+                setIsAuthModalOpen(true);
+              }}
+              className="hidden lg:flex text-xs font-semibold px-3 py-2 rounded-xl text-sky-400 hover:text-white hover:bg-sky-950/50 border border-sky-500/30 transition items-center space-x-1.5 cursor-pointer"
+              title="Register a new healthcare facility"
+            >
+              <HospitalIcon className="w-3.5 h-3.5" />
+              <span>Register Hospital</span>
+            </button>
 
             <button
               onClick={() => {
@@ -477,6 +543,35 @@ export const LandingPage: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* Hospital Onboarding CTA Card */}
+          <div className="bg-gradient-to-r from-sky-950/40 via-slate-900 to-indigo-950/40 border border-sky-500/30 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+            <div className="space-y-2 text-left">
+              <div className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center space-x-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Healthcare Facility Onboarding</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-white">
+                Want to Register Your Hospital in NexusHealth?
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
+                Submit an onboarding request for your hospital. Applications are reviewed, verified, and approved directly by the Platform System Admin to ensure safety and clinical integrity.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setAuthMode('hospital_register');
+                setErrorMessage(null);
+                setSuccessMessage(null);
+                setIsAuthModalOpen(true);
+              }}
+              className="shrink-0 px-6 py-3.5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs shadow-lg shadow-sky-500/20 transition flex items-center space-x-2 cursor-pointer"
+            >
+              <HospitalIcon className="w-4 h-4" />
+              <span>Register New Hospital</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -622,21 +717,31 @@ export const LandingPage: React.FC = () => {
                 <span>NexusHealth Identity &amp; RBAC Access</span>
               </div>
               <h2 className="text-2xl font-black text-white">
-                {authMode === 'signup' ? 'Create an Account' : authMode === 'signin' ? 'Sign In to Portal' : 'Quick Demo Personas'}
+                {authMode === 'signup'
+                  ? 'Create an Account'
+                  : authMode === 'signin'
+                  ? 'Sign In to Portal'
+                  : authMode === 'hospital_register'
+                  ? 'Register Hospital Facility'
+                  : 'Quick Demo Personas'}
               </h2>
               <p className="text-xs text-slate-400">
-                Select your role and affiliated hospital to access your dedicated healthcare portal.
+                {authMode === 'hospital_register'
+                  ? 'Submit your healthcare institution application for Platform Super-Admin review and verification.'
+                  : 'Select your role and affiliated hospital to access your dedicated healthcare portal.'}
               </p>
             </div>
 
             {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
               <button
+                type="button"
                 onClick={() => {
                   setAuthMode('signin');
                   setErrorMessage(null);
+                  setSuccessMessage(null);
                 }}
-                className={`py-2 rounded-lg transition ${
+                className={`py-2 rounded-lg transition text-center ${
                   authMode === 'signin' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -644,11 +749,13 @@ export const LandingPage: React.FC = () => {
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setAuthMode('signup');
                   setErrorMessage(null);
+                  setSuccessMessage(null);
                 }}
-                className={`py-2 rounded-lg transition ${
+                className={`py-2 rounded-lg transition text-center ${
                   authMode === 'signup' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -656,11 +763,27 @@ export const LandingPage: React.FC = () => {
               </button>
 
               <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('hospital_register');
+                  setErrorMessage(null);
+                  setSuccessMessage(null);
+                }}
+                className={`py-2 rounded-lg transition text-center ${
+                  authMode === 'hospital_register' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Register Facility
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setAuthMode('demo');
                   setErrorMessage(null);
+                  setSuccessMessage(null);
                 }}
-                className={`py-2 rounded-lg transition ${
+                className={`py-2 rounded-lg transition text-center ${
                   authMode === 'demo' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -673,6 +796,28 @@ export const LandingPage: React.FC = () => {
               <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-xs text-rose-300 flex items-start space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                 <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Success Feedback Alert */}
+            {successMessage && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-xs text-emerald-300 space-y-2">
+                <div className="flex items-center space-x-2 font-bold text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Application Submitted</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">{successMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSuccessMessage(null);
+                    setAuthMode('signin');
+                  }}
+                  className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+                >
+                  <span>Proceed to Sign In</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
 
@@ -708,6 +853,164 @@ export const LandingPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+            ) : authMode === 'hospital_register' ? (
+              !successMessage && (
+                <form onSubmit={handleHospitalRegistration} className="space-y-3.5 max-h-[70vh] overflow-y-auto pr-1">
+                  <div className="bg-sky-950/40 border border-sky-500/30 rounded-xl p-3 text-xs text-sky-200">
+                    <p className="font-semibold text-sky-300 mb-0.5">Admin Approval Required</p>
+                    <p className="text-[11px] text-sky-300/80">
+                      Submitted hospital facilities are placed into a pending review queue for approval by the Platform Super-Admin. Once approved, facility operations and administrator access will be activated.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Hospital / Health System Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={hospName}
+                        onChange={(e) => setHospName(e.target.value)}
+                        placeholder="e.g. Apollo Care Medical Center"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Facility Code *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={hospCode}
+                        onChange={(e) => setHospCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. APOLLOCARE"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white uppercase font-mono focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Official Contact Email *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={hospEmail}
+                        onChange={(e) => setHospEmail(e.target.value)}
+                        placeholder="contact@apollocare.org"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">
+                        Official Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={hospPhone}
+                        onChange={(e) => setHospPhone(e.target.value)}
+                        placeholder="+1-800-555-CARE"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Facility Physical Address
+                    </label>
+                    <input
+                      type="text"
+                      value={hospAddress}
+                      onChange={(e) => setHospAddress(e.target.value)}
+                      placeholder="1200 Healthcare Way, Suite 400, Chicago, IL"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Departments &amp; Specialties (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={hospDepts}
+                      onChange={(e) => setHospDepts(e.target.value)}
+                      placeholder="Cardiology, Orthopedics, General Medicine, Pediatrics"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div className="border-t border-slate-800/80 pt-3">
+                    <p className="text-xs font-bold text-slate-200 mb-2">Hospital Administrator Initial Account</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">
+                          Administrator Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={hospAdminName}
+                          onChange={(e) => setHospAdminName(e.target.value)}
+                          placeholder="e.g. Dr. Arthur Miller"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">
+                          Admin Login Email *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={hospAdminEmail}
+                          onChange={(e) => setHospAdminEmail(e.target.value)}
+                          placeholder="arthur.admin@apollocare.org"
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="text-xs text-slate-400 block mb-1">
+                        Admin Login Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={hospAdminPassword}
+                        onChange={(e) => setHospAdminPassword(e.target.value)}
+                        placeholder="Create strong admin password (min 4 characters)"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center space-x-2 mt-4 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <>
+                        <HospitalIcon className="w-4 h-4" />
+                        <span>Submit Hospital Registration for Approval</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )
             ) : (
               <div className="space-y-5">
                 {/* 1. Google OAuth Button */}

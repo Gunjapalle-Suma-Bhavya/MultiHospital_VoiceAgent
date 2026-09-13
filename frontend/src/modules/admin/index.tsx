@@ -6,6 +6,7 @@ import {
   DollarSign,
   ShieldAlert,
   Database,
+  Building2,
 } from 'lucide-react';
 import { ObservabilityTracer } from './ObservabilityTracer';
 import { CanonicalJourneyRunner } from './CanonicalJourneyRunner';
@@ -13,18 +14,33 @@ import { AIEvaluationBoard } from './AIEvaluationBoard';
 import { ReconciliationBoard } from './ReconciliationBoard';
 import { AuditLogViewer } from './AuditLogViewer';
 import { MongoDBAtlasInspector } from './MongoDBAtlasInspector';
+import { HospitalApplicationsBoard } from './HospitalApplicationsBoard';
+import { apiCall } from '../../api/client';
 
 interface Props {
   initialTab?: string;
 }
 
-export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'telemetry' }) => {
-  const [activeTab, setActiveTab] = useState<'telemetry' | 'dod' | 'audit' | 'ai-eval' | 'mongodb'>(
-    (initialTab as any) || 'telemetry'
+export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'hospitals' }) => {
+  const [activeTab, setActiveTab] = useState<'hospitals' | 'telemetry' | 'dod' | 'audit' | 'ai-eval' | 'mongodb'>(
+    (initialTab as any) || 'hospitals'
   );
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   useEffect(() => {
-    if (initialTab && ['telemetry', 'dod', 'audit', 'ai-eval', 'mongodb'].includes(initialTab)) {
+    const fetchPending = async () => {
+      try {
+        const res = await apiCall('/api/v1/admin/hospitals?status=PENDING');
+        if (res.ok && res.data?.counts?.pending !== undefined) {
+          setPendingCount(res.data.counts.pending);
+        }
+      } catch {}
+    };
+    fetchPending();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (initialTab && ['hospitals', 'telemetry', 'dod', 'audit', 'ai-eval', 'mongodb'].includes(initialTab)) {
       setActiveTab(initialTab as any);
     }
   }, [initialTab]);
@@ -63,6 +79,23 @@ export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'telemetry' 
 
       {/* Clean Sub-Page Navigation Tabs */}
       <div className="flex border-b border-slate-800 bg-slate-900/60 p-1 rounded-2xl gap-1.5 text-xs overflow-x-auto">
+        <button
+          onClick={() => handleTabChange('hospitals')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
+            activeTab === 'hospitals'
+              ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>Hospital Requests</span>
+          {pendingCount > 0 && (
+            <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] bg-amber-400 text-slate-950 font-black animate-pulse">
+              {pendingCount} PENDING
+            </span>
+          )}
+        </button>
+
         <button
           onClick={() => handleTabChange('telemetry')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
@@ -126,6 +159,8 @@ export const PlatformAdminPortal: React.FC<Props> = ({ initialTab = 'telemetry' 
 
       {/* Dedicated Sub-Page Content */}
       <div>
+        {activeTab === 'hospitals' && <HospitalApplicationsBoard />}
+
         {activeTab === 'telemetry' && <ObservabilityTracer />}
 
         {activeTab === 'mongodb' && <MongoDBAtlasInspector />}

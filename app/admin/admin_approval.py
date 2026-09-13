@@ -14,6 +14,7 @@ Provides administrative capabilities for platform administrators:
 """
 
 import json
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -83,10 +84,92 @@ class PlatformAdminApprovalService:
             }
         }
 
+    def list_hospital_applications(self, status_filter: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Lists hospital onboarding applications with status filtering and aggregate metrics.
+        """
+        all_hospitals = self.db.query(Hospital).all()
+        pending_count = sum(1 for h in all_hospitals if h.hospital_status in (HospitalStatus.SUBMITTED, HospitalStatus.UNDER_REVIEW, HospitalStatus.DRAFT, HospitalStatus.CORRECTION_REQUESTED))
+        approved_count = sum(1 for h in all_hospitals if h.hospital_status == HospitalStatus.APPROVED)
+        rejected_count = sum(1 for h in all_hospitals if h.hospital_status == HospitalStatus.REJECTED)
+        suspended_count = sum(1 for h in all_hospitals if h.hospital_status == HospitalStatus.SUSPENDED)
+        total_count = len(all_hospitals)
+
+        if status_filter:
+            sf_upper = status_filter.upper()
+            if sf_upper == "PENDING":
+                hospitals = [h for h in all_hospitals if h.hospital_status in (HospitalStatus.SUBMITTED, HospitalStatus.UNDER_REVIEW, HospitalStatus.DRAFT, HospitalStatus.CORRECTION_REQUESTED)]
+            elif sf_upper in HospitalStatus._value2member_map_:
+                hospitals = [h for h in all_hospitals if h.hospital_status == HospitalStatus(sf_upper)]
+            else:
+                hospitals = all_hospitals
+        else:
+            hospitals = all_hospitals
+
+        # Order: pending first, then by name
+        def _sort_key(h):
+            is_pending = 0 if h.hospital_status in (HospitalStatus.SUBMITTED, HospitalStatus.UNDER_REVIEW) else 1
+            return (is_pending, str(h.name))
+
+        hospitals.sort(key=_sort_key)
+
+        results = []
+        for h in hospitals:
+            deps = []
+            if h.departments_json:
+                try:
+                    deps = json.loads(h.departments_json) if isinstance(h.departments_json, str) else h.departments_json
+                except Exception:
+                    deps = [h.departments_json]
+            specs = []
+            if h.specialties_json:
+                try:
+                    specs = json.loads(h.specialties_json) if isinstance(h.specialties_json, str) else h.specialties_json
+                except Exception:
+                    specs = [h.specialties_json]
+
+            results.append({
+                "id": h.id,
+                "hospital_id": h.id,
+                "name": h.name,
+                "code": h.code,
+                "contact_email": h.contact_email,
+                "phone": h.phone,
+                "address": h.address,
+                "organization_info": h.organization_info,
+                "admin_name": h.admin_name,
+                "admin_email": h.admin_email,
+                "admin_phone": h.admin_phone,
+                "hospital_status": h.hospital_status.value if h.hospital_status else "DRAFT",
+                "is_active": bool(h.is_active),
+                "departments": deps,
+                "specialties": specs,
+                "rejection_reason": h.rejection_reason,
+                "correction_notes": h.correction_notes,
+                "suspension_reason": h.suspension_reason,
+                "created_at": h.created_at.isoformat() if getattr(h, "created_at", None) else None,
+                "updated_at": h.updated_at.isoformat() if getattr(h, "updated_at", None) else None,
+            })
+
+        return {
+            "status": "success",
+            "total_count": total_count,
+            "counts": {
+                "pending": pending_count,
+                "approved": approved_count,
+                "rejected": rejected_count,
+                "suspended": suspended_count,
+                "total": total_count
+            },
+            "applications": results,
+            "hospitals": results
+        }
+
     def approve_hospital(self, hospital_id: str) -> Hospital:
         """
         Approves hospital application.
         Sets status = APPROVED and is_active = True.
+        Activates any affiliated UserAccounts and syncs to MongoDB.
         """
         hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
         if not hosp:
@@ -94,13 +177,44 @@ class PlatformAdminApprovalService:
 
         hosp.hospital_status = HospitalStatus.APPROVED
         hosp.is_active = True
+
+        # Activate associated facility user accounts
+        try:
+            from app.database.models import UserAccount
+            admin_users = self.db.query(UserAccount).filter(UserAccount.hospital_id == hospital_id).all()
+            for u in admin_users:
+                u.is_active = True
+        except Exception:
+            pass
+
         self.db.commit()
+
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            hosp_doc = {
+                "hospital_id": hosp.id,
+                "name": hosp.name,
+                "code": hosp.code,
+                "contact_email": hosp.contact_email,
+                "phone": hosp.phone,
+                "address": hosp.address,
+                "status": "APPROVED",
+                "is_active": True,
+                "admin_name": hosp.admin_name,
+                "admin_email": hosp.admin_email,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            persist_to_mongodb("hospitals", hosp_doc, key_field="hospital_id")
+        except Exception:
+            pass
+
         return hosp
 
     def reject_hospital(self, hospital_id: str, reason: str) -> Hospital:
         """
         Rejects hospital application.
         Sets status = REJECTED, is_active = False, and records rejection_reason.
+        Deactivates associated facility user accounts.
         """
         hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
         if not hosp:
@@ -111,7 +225,32 @@ class PlatformAdminApprovalService:
         hosp.hospital_status = HospitalStatus.REJECTED
         hosp.rejection_reason = reason
         hosp.is_active = False
+
+        try:
+            from app.database.models import UserAccount
+            admin_users = self.db.query(UserAccount).filter(UserAccount.hospital_id == hospital_id).all()
+            for u in admin_users:
+                u.is_active = False
+        except Exception:
+            pass
+
         self.db.commit()
+
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            hosp_doc = {
+                "hospital_id": hosp.id,
+                "name": hosp.name,
+                "code": hosp.code,
+                "status": "REJECTED",
+                "is_active": False,
+                "rejection_reason": reason,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            persist_to_mongodb("hospitals", hosp_doc, key_field="hospital_id")
+        except Exception:
+            pass
+
         return hosp
 
     def request_corrections(self, hospital_id: str, notes: str) -> Hospital:
