@@ -325,6 +325,26 @@ class ActionExecutor:
 
         audit_id = self._create_audit_entry(payload.session_id, payload.hospital_id, "CREATE_APPOINTMENT", payload.model_dump())
 
+        try:
+            from app.database.mongodb import persist_appointment_record
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": payload.hospital_id,
+                "hospital_name": hosp.name if hosp else "Hospital",
+                "doctor_id": payload.doctor_id,
+                "doctor_name": doc.name if doc else "Doctor",
+                "specialty": doc.specialty if doc else "General",
+                "patient_name": payload.patient_name,
+                "patient_phone": payload.patient_phone,
+                "patient_email": payload.patient_email,
+                "start_datetime": appt.start_datetime.isoformat(),
+                "end_datetime": appt.end_datetime.isoformat(),
+                "status": "CONFIRMED",
+                "is_ehr_verified": True
+            })
+        except Exception:
+            pass
+
         return CreateAppointmentOutput(
             success=True,
             action_type=ActionType.CREATE_APPOINTMENT,
@@ -385,6 +405,18 @@ class ActionExecutor:
         )
 
         audit_id = self._create_audit_entry(payload.session_id, appt.hospital_id, "CANCEL_APPOINTMENT", payload.model_dump())
+
+        try:
+            from app.database.mongodb import persist_appointment_record
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": appt.hospital_id,
+                "patient_phone": appt.patient_phone,
+                "status": "CANCELLED",
+                "external_status": "EHR_CANCELLED"
+            })
+        except Exception:
+            pass
 
         return CancelAppointmentOutput(
             success=True,

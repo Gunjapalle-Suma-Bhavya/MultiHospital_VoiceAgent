@@ -101,6 +101,30 @@ class AppointmentService:
         self.db.commit()
 
         self._record_state_transition(appt.id, None, initial_status.value, changed_by="PATIENT", reason="Initial booking request created")
+
+        try:
+            from app.database.mongodb import persist_appointment_record
+            hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+            doc = self.db.query(Doctor).filter(Doctor.id == doctor_id).first()
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": hospital_id,
+                "hospital_name": hosp.name if hosp else "Hospital",
+                "doctor_id": doctor_id,
+                "doctor_name": doc.name if doc else "Doctor",
+                "specialty": doc.specialty if doc else "General",
+                "patient_id": patient_id,
+                "patient_name": patient_name,
+                "patient_phone": patient_phone,
+                "patient_email": patient_email,
+                "start_datetime": start_datetime.isoformat(),
+                "end_datetime": end_datetime.isoformat(),
+                "status": initial_status.value if hasattr(initial_status, "value") else str(initial_status),
+                "is_ehr_verified": False
+            })
+        except Exception:
+            pass
+
         return appt
 
     def confirm_appointment(self, appointment_id: str, changed_by: str = "SYSTEM") -> Appointment:
@@ -151,6 +175,30 @@ class AppointmentService:
             except Exception:
                 pass
 
+        try:
+            from app.database.mongodb import persist_appointment_record
+            hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+            doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": appt.hospital_id,
+                "hospital_name": hosp.name if hosp else "Hospital",
+                "doctor_id": appt.doctor_id,
+                "doctor_name": doc.name if doc else "Doctor",
+                "specialty": doc.specialty if doc else "General",
+                "patient_id": appt.patient_id,
+                "patient_name": appt.patient_name,
+                "patient_phone": appt.patient_phone,
+                "start_datetime": appt.start_datetime.isoformat(),
+                "end_datetime": appt.end_datetime.isoformat(),
+                "status": appt.status.value if hasattr(appt.status, "value") else str(appt.status),
+                "external_status": appt.external_status,
+                "external_appointment_id": appt.external_appointment_id,
+                "is_ehr_verified": appt.is_ehr_verified
+            })
+        except Exception:
+            pass
+
         return appt
 
     def reschedule_appointment(
@@ -189,6 +237,30 @@ class AppointmentService:
 
         self.db.commit()
         self._record_state_transition(appt.id, prev, AppointmentStatus.RESCHEDULED.value, changed_by=changed_by, reason=reason or "Rescheduled appointment time")
+
+        try:
+            from app.database.mongodb import persist_appointment_record
+            hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+            doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": appt.hospital_id,
+                "hospital_name": hosp.name if hosp else "Hospital",
+                "doctor_id": appt.doctor_id,
+                "doctor_name": doc.name if doc else "Doctor",
+                "specialty": doc.specialty if doc else "General",
+                "patient_id": appt.patient_id,
+                "patient_name": appt.patient_name,
+                "patient_phone": appt.patient_phone,
+                "start_datetime": appt.start_datetime.isoformat(),
+                "end_datetime": appt.end_datetime.isoformat(),
+                "status": "RESCHEDULED",
+                "external_status": appt.external_status,
+                "is_ehr_verified": appt.is_ehr_verified
+            })
+        except Exception:
+            pass
+
         return appt
 
     def cancel_appointment(
@@ -233,6 +305,29 @@ class AppointmentService:
         except Exception:
             pass
 
+        try:
+            from app.database.mongodb import persist_appointment_record
+            hosp = self.db.query(Hospital).filter(Hospital.id == appt.hospital_id).first()
+            doc = self.db.query(Doctor).filter(Doctor.id == appt.doctor_id).first()
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "hospital_id": appt.hospital_id,
+                "hospital_name": hosp.name if hosp else "Hospital",
+                "doctor_id": appt.doctor_id,
+                "doctor_name": doc.name if doc else "Doctor",
+                "specialty": doc.specialty if doc else "General",
+                "patient_id": appt.patient_id,
+                "patient_name": appt.patient_name,
+                "patient_phone": appt.patient_phone,
+                "start_datetime": appt.start_datetime.isoformat(),
+                "end_datetime": appt.end_datetime.isoformat(),
+                "status": "CANCELLED",
+                "external_status": "EHR_CANCELLED",
+                "is_ehr_verified": appt.is_ehr_verified
+            })
+        except Exception:
+            pass
+
         return appt
 
     def complete_appointment(self, appointment_id: str, changed_by: str = "DOCTOR") -> Appointment:
@@ -249,6 +344,19 @@ class AppointmentService:
 
         self.db.commit()
         self._record_state_transition(appt.id, prev, AppointmentStatus.COMPLETED.value, changed_by=changed_by, reason="Consultation finished")
+
+        try:
+            from app.database.mongodb import persist_appointment_record
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "status": "COMPLETED",
+                "external_status": appt.external_status,
+                "patient_phone": appt.patient_phone,
+                "hospital_id": appt.hospital_id
+            })
+        except Exception:
+            pass
+
         return appt
 
     def mark_no_show(self, appointment_id: str, changed_by: str = "CLINIC") -> Appointment:
@@ -265,6 +373,19 @@ class AppointmentService:
 
         self.db.commit()
         self._record_state_transition(appt.id, prev, AppointmentStatus.NO_SHOW.value, changed_by=changed_by, reason="Patient did not attend appointment")
+
+        try:
+            from app.database.mongodb import persist_appointment_record
+            persist_appointment_record({
+                "appointment_id": appt.id,
+                "status": "NO_SHOW",
+                "external_status": appt.external_status,
+                "patient_phone": appt.patient_phone,
+                "hospital_id": appt.hospital_id
+            })
+        except Exception:
+            pass
+
         return appt
 
     def get_appointment_history(self, appointment_id: str) -> List[Dict[str, Any]]:

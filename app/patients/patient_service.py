@@ -81,6 +81,25 @@ class PatientSelfServiceService:
                 self.db.commit()
             else:
                 raise
+
+        try:
+            from app.database.mongodb import persist_patient_profile
+            persist_patient_profile({
+                "patient_id": patient.id,
+                "phone_number": patient.phone_number,
+                "full_name": patient.full_name,
+                "email": patient.email,
+                "date_of_birth": patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+                "preferred_language": patient.preferred_language,
+                "communication_preference": patient.communication_preference,
+                "preferred_time_window": getattr(patient, "preferred_time_window", "ANYTIME"),
+                "emergency_contact": json.loads(patient.emergency_contact_json) if patient.emergency_contact_json else {},
+                "external_patient_id": patient.external_patient_id,
+                "saved_preferences": json.loads(patient.saved_preferences_json) if patient.saved_preferences_json else {}
+            })
+        except Exception:
+            pass
+
         return patient
 
     def get_patient_profile(self, patient_id_or_phone: str) -> Dict[str, Any]:
@@ -189,6 +208,21 @@ class PatientSelfServiceService:
         )
         self.db.add(resp)
         self.db.commit()
+
+        # Persist questionnaire to MongoDB Atlas and link into patient history
+        try:
+            from app.database.mongodb import persist_questionnaire_response
+            persist_questionnaire_response({
+                "response_id": resp.id,
+                "patient_id": patient_id,
+                "phone_number": patient.phone_number if patient else None,
+                "questionnaire_id": questionnaire_id,
+                "appointment_id": appointment_id,
+                "answers": clean_answers
+            })
+        except Exception:
+            pass
+
         return resp
 
 
@@ -298,6 +332,47 @@ class PatientSelfServiceService:
             "notification_channels": channels,
             "preferred_time_window": preferred_time_window,
             "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+
+    # Aliases for cross-router compatibility
+    view_appointments = get_patient_appointments
+    submit_questionnaire = submit_questionnaire_response
+
+    def manage_communication_preferences(
+        self,
+        patient_id: str,
+        communication_preference: Optional[str] = None,
+        preferred_time_window: Optional[str] = None
+    ) -> Dict[str, Any]:
+        patient = self.db.query(PatientProfile).filter(
+            (PatientProfile.id == patient_id) | (PatientProfile.phone_number == patient_id)
+        ).first()
+        if not patient:
+            raise ValueError("Patient not found")
+        if communication_preference:
+            patient.communication_preference = communication_preference
+        if preferred_time_window:
+            patient.preferred_time_window = preferred_time_window
+        self.db.commit()
+
+        try:
+            from app.database.mongodb import persist_patient_profile
+            persist_patient_profile({
+                "patient_id": patient.id,
+                "phone_number": patient.phone_number,
+                "full_name": patient.full_name,
+                "preferred_language": patient.preferred_language,
+                "communication_preference": patient.communication_preference,
+                "preferred_time_window": getattr(patient, "preferred_time_window", "ANYTIME")
+            })
+        except Exception:
+            pass
+
+        return {
+            "patient_id": patient.id,
+            "communication_preference": patient.communication_preference,
+            "preferred_time_window": getattr(patient, "preferred_time_window", "ANYTIME"),
+            "message": "Preferences updated successfully"
         }
 
 

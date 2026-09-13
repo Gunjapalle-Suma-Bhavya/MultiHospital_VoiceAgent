@@ -42,6 +42,15 @@ app = FastAPI(
 # Initialize Database Schema
 init_db()
 
+@app.on_event("startup")
+def startup_mongodb_sync():
+    """Ensure MongoDB has baseline collections and schemas seeded."""
+    try:
+        from app.database.mongodb import seed_mongodb_data
+        seed_mongodb_data()
+    except Exception as e:
+        print(f"[MongoDB Startup Sync Warning]: {e}")
+
 # Enable CORS with Standards-Compliant Origin Whitelist
 cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if cors_origins_env:

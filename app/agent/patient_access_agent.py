@@ -766,6 +766,30 @@ class AIPatientAccessAgent:
                 }
             )
 
+        # Automatically persist conversation turn, patient history, preferences and hospital stats to MongoDB
+        try:
+            from app.database.mongodb import persist_conversation_turn
+            persist_conversation_turn(
+                session_id=sid,
+                patient_phone=phone,
+                user_utterance=user_utterance,
+                agent_response=agent_response,
+                language=language or "en",
+                intent=intent,
+                hospital_id=active_hosp_id,
+                doctor_id=active_doc_id,
+                metadata={
+                    "channel": channel,
+                    "patient_id": patient.id,
+                    "action_executed": action_executed,
+                    "workflow_step": session_state.workflow_step if session_state else None,
+                    "escalation_triggered": escalation_triggered,
+                    "capabilities_invoked": capabilities_invoked
+                }
+            )
+        except Exception as e:
+            print(f"[MongoDB Persist Voice Turn Error]: {e}")
+
         return {
             "status": "SUCCESS",
             "success": True,

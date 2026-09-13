@@ -93,12 +93,13 @@ class QuestionnaireSubmitPayload(BaseModel):
 def submit_questionnaire_intake(payload: QuestionnaireSubmitPayload, db: Session = Depends(get_db)):
     import uuid
     from datetime import datetime, timezone
-    from app.database.mongodb import persist_to_mongodb
+    from app.database.mongodb import persist_questionnaire_response, persist_to_mongodb
     from app.events.event_bus import event_bus, SystemEvent
 
     submission_id = f"SUB-{uuid.uuid4().hex[:8].upper()}"
     doc = {
         "submission_id": submission_id,
+        "questionnaire_id": submission_id,
         "specialty": payload.specialty,
         "patient_name": payload.patient_name,
         "patient_phone": payload.patient_phone,
@@ -106,8 +107,11 @@ def submit_questionnaire_intake(payload: QuestionnaireSubmitPayload, db: Session
         "status": "COMPLETED",
         "submitted_at": datetime.now(timezone.utc).isoformat()
     }
-    # 1. Persist directly to MongoDB Atlas
-    persist_to_mongodb("questionnaires", doc, key_field="submission_id")
+    # 1. Persist directly to MongoDB Atlas and link into patient_history
+    try:
+        persist_questionnaire_response(doc)
+    except Exception:
+        persist_to_mongodb("questionnaires", doc, key_field="submission_id")
 
     # 2. Publish cross-portal event
     event = SystemEvent(

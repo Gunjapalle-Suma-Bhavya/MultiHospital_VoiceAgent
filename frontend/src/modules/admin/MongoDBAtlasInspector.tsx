@@ -120,8 +120,37 @@ export const MongoDBAtlasInspector: React.FC = () => {
         </div>
 
         {/* Collection Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
-          {['appointments', 'doctors', 'patients', 'questionnaires', 'hospitals', 'events'].map((col) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-6">
+          {(
+            status?.collections
+              ? Array.from(new Set([
+                  'conversations',
+                  'patient_history',
+                  'patient_preferences',
+                  'hospital_history',
+                  'appointments',
+                  'patients',
+                  'doctors',
+                  'hospitals',
+                  'questionnaires',
+                  'clinical_encounters',
+                  'events',
+                  ...Object.keys(status.collections)
+                ]))
+              : [
+                  'conversations',
+                  'patient_history',
+                  'patient_preferences',
+                  'hospital_history',
+                  'appointments',
+                  'patients',
+                  'doctors',
+                  'hospitals',
+                  'questionnaires',
+                  'clinical_encounters',
+                  'events'
+                ]
+          ).map((col) => {
             const count = status?.collections?.[col] ?? 0;
             const isSelected = selectedCollection === col;
             return (
@@ -135,8 +164,8 @@ export const MongoDBAtlasInspector: React.FC = () => {
                 }`}
               >
                 <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 capitalize">
-                  <span>{col}</span>
-                  <Layers className="w-3 h-3 text-slate-500" />
+                  <span className="truncate pr-1">{col.replace(/_/g, ' ')}</span>
+                  <Layers className="w-3 h-3 text-slate-500 shrink-0" />
                 </div>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-lg font-bold text-white font-mono">{count}</span>

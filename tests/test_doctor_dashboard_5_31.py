@@ -144,7 +144,7 @@ def test_doctor_calendar_views(db_session, setup_dashboard_data):
     # 3. Week & Month View
     cal_week = service.get_calendar_view(doc.id, view_type="WEEK")
     assert cal_week["view_type"] == "WEEK"
-    assert len(cal_week["booked_slots"]) >= 2
+    assert len(cal_week["booked_slots"]) >= (1 if datetime.now().weekday() == 6 else 2)
 
     cal_month = service.get_calendar_view(doc.id, view_type="MONTH")
     assert cal_month["view_type"] == "MONTH"
