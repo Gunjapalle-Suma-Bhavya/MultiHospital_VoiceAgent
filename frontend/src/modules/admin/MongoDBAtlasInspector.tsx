@@ -8,6 +8,7 @@ import {
   Check,
   FileJson,
   Layers,
+  Trash2,
 } from 'lucide-react';
 
 interface MongoStatus {
@@ -58,6 +59,8 @@ export const MongoDBAtlasInspector: React.FC = () => {
     fetchDocuments(selectedCollection);
   }, [selectedCollection]);
 
+  const [clearing, setClearing] = useState(false);
+
   const handleResync = async () => {
     setSyncing(true);
     try {
@@ -66,6 +69,20 @@ export const MongoDBAtlasInspector: React.FC = () => {
       await fetchDocuments(selectedCollection);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleClearDynamicData = async () => {
+    if (!window.confirm("Purge all static/mock records? Dynamic real-time conversations and appointments will start fresh.")) {
+      return;
+    }
+    setClearing(true);
+    try {
+      await fetch('/api/v1/mongodb/clear-dynamic-data', { method: 'POST' });
+      await fetchStatus();
+      await fetchDocuments(selectedCollection);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -109,12 +126,21 @@ export const MongoDBAtlasInspector: React.FC = () => {
 
           <div className="flex items-center space-x-2">
             <button
+              onClick={handleClearDynamicData}
+              disabled={clearing}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/50 rounded-xl text-xs font-bold shadow-md transition disabled:opacity-50"
+              title="Purge mock data from conversations, appointments, and patient history"
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${clearing ? 'animate-spin' : ''}`} />
+              <span>{clearing ? 'Purging...' : 'Purge Static/Mock Data'}</span>
+            </button>
+            <button
               onClick={handleResync}
               disabled={syncing}
               className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md transition disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Syncing...' : 'Resync Clinical Baseline'}</span>
+              <span>{syncing ? 'Syncing...' : 'Sync Provider Directory'}</span>
             </button>
           </div>
         </div>

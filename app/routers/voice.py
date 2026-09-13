@@ -51,29 +51,13 @@ class TelephonyTurnInput(BaseModel):
 @router.post("/api/voice/chat")
 def voice_agent_chat_endpoint(payload: VoiceTurnInput, db: Session = Depends(get_db)):
     agent_svc = PatientAccessAgentService(db)
-    res = agent_svc.process_patient_turn(
+    return agent_svc.process_patient_turn(
         patient_phone=payload.patient_phone,
         user_utterance=payload.user_utterance,
         hospital_id=payload.hospital_id,
         session_id=payload.session_id,
         language=payload.language or "en"
     )
-    try:
-        from app.database.mongodb import persist_conversation_turn
-        persist_conversation_turn(
-            session_id=res.get("session_id") or payload.session_id or "sess_default",
-            patient_phone=payload.patient_phone,
-            user_utterance=payload.user_utterance,
-            agent_response=res.get("agent_response") or res.get("speech_response") or "",
-            language=payload.language or res.get("language", "en"),
-            intent=res.get("intent") or res.get("detected_intent"),
-            hospital_id=payload.hospital_id or res.get("hospital_id"),
-            doctor_id=res.get("doctor_id"),
-            metadata=res
-        )
-    except Exception:
-        pass
-    return res
 
 @router.post("/api/v1/telephony/inbound-call")
 def telephony_inbound_call(payload: InboundCallInput, db: Session = Depends(get_db)):
@@ -83,28 +67,12 @@ def telephony_inbound_call(payload: InboundCallInput, db: Session = Depends(get_
 @router.post("/api/v1/telephony/process-turn")
 def telephony_process_turn(payload: TelephonyTurnInput, db: Session = Depends(get_db)):
     svc = TelephonyInboundService(db)
-    res = svc.process_telephony_turn(
+    return svc.process_telephony_turn(
         session_id=payload.session_id,
         caller_phone_number=payload.caller_phone_number,
         speech_text=payload.speech_text,
         hospital_id=payload.hospital_id
     )
-    try:
-        from app.database.mongodb import persist_conversation_turn
-        persist_conversation_turn(
-            session_id=payload.session_id,
-            patient_phone=payload.caller_phone_number,
-            user_utterance=payload.speech_text,
-            agent_response=res.get("agent_response") or res.get("speech_response") or "",
-            language=res.get("language", "en"),
-            intent=res.get("intent") or res.get("detected_intent"),
-            hospital_id=payload.hospital_id or res.get("hospital_id"),
-            doctor_id=res.get("doctor_id"),
-            metadata=res
-        )
-    except Exception:
-        pass
-    return res
 
 @router.post("/api/v1/telephony/escalate")
 def telephony_escalate(session_id: str, db: Session = Depends(get_db)):

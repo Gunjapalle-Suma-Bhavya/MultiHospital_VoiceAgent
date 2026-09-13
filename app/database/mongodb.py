@@ -61,20 +61,17 @@ def get_collection(name: str):
         return db[name]
     return None
 
-def seed_mongodb_data() -> Dict[str, Any]:
+def sync_mongodb_catalog() -> Dict[str, Any]:
     """
-    Seeds comprehensive, realistic clinical data into MongoDB Atlas:
-    - Hospitals (City Memorial Hospital, St. Jude Medical, Architecture General)
-    - Doctors (Dr. Sharma, Dr. Rao, Dr. Emily Watson, Dr. Lisa Chen)
-    - Patients (Marcus Aurelius, Elena Rostova, Sarah Connor)
-    - Questionnaires (Orthopedic, Cardiology, General)
-    - Real Appointments with 5-Point Verification
+    Syncs the active hospital directory and doctor roster into MongoDB Atlas.
+    Creates indexes on transactional collections for real-time dynamic queries.
+    DOES NOT insert mock conversations, mock appointments, or fake patients.
     """
     db = get_mongo_db()
     if db is None:
         return {"status": "error", "message": "MongoDB not connected"}
 
-    # 1. Hospitals Collection
+    # 1. Hospitals Catalog
     col_hospitals = db["hospitals"]
     hospitals_data = [
         {
@@ -89,7 +86,7 @@ def seed_mongodb_data() -> Dict[str, Any]:
             "operating_hours": "Mon-Fri: 08:00 AM - 06:00 PM, Sat: 09:00 AM - 01:00 PM",
             "ehr_adapter": "EPIC_MYCHART",
             "is_active": True,
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "hospital_id": "HOSP-CARE-02",
@@ -103,13 +100,13 @@ def seed_mongodb_data() -> Dict[str, Any]:
             "operating_hours": "Mon-Fri: 09:00 AM - 05:00 PM",
             "ehr_adapter": "FHIR_R4",
             "is_active": True,
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
     ]
     for h in hospitals_data:
         col_hospitals.update_one({"hospital_id": h["hospital_id"]}, {"$set": h}, upsert=True)
 
-    # 2. Doctors Collection
+    # 2. Doctors Catalog
     col_doctors = db["doctors"]
     doctors_data = [
         {
@@ -133,7 +130,7 @@ def seed_mongodb_data() -> Dict[str, Any]:
                 "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM"
             ],
             "npi": "198234812",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "doctor_id": "DOC-RAO-02",
@@ -155,7 +152,7 @@ def seed_mongodb_data() -> Dict[str, Any]:
                 "10:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "04:30 PM"
             ],
             "npi": "174829103",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "doctor_id": "DOC-CHEN-03",
@@ -175,7 +172,7 @@ def seed_mongodb_data() -> Dict[str, Any]:
             "working_hours": "08:30 AM - 04:30 PM",
             "available_slots": ["09:00 AM", "10:00 AM", "01:00 PM", "02:00 PM"],
             "npi": "189204910",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "doctor_id": "DOC-WATSON-04",
@@ -195,376 +192,95 @@ def seed_mongodb_data() -> Dict[str, Any]:
             "working_hours": "09:00 AM - 05:00 PM",
             "available_slots": ["10:30 AM", "11:30 AM", "02:30 PM", "03:30 PM"],
             "npi": "149204859",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
     ]
     for d in doctors_data:
         col_doctors.update_one({"doctor_id": d["doctor_id"]}, {"$set": d}, upsert=True)
 
-    # 3. Patients Collection
-    col_patients = db["patients"]
-    patients_data = [
-        {
-            "patient_id": "PAT-MARCUS-01",
-            "phone_number": "+1-555-SHOULDER",
-            "full_name": "Marcus Aurelius",
-            "email": "marcus.aurelius@healthcare.net",
-            "date_of_birth": "1984-04-26",
-            "preferred_language": "English",
-            "communication_preference": "VOICE_AND_SMS",
-            "insurance": {
-                "carrier": "Blue Cross Blue Shield (PPO)",
-                "policy_number": "BCBS-994218-A",
-                "copay": "$25.00",
-                "is_verified": True
-            },
-            "allergies": ["Penicillin (Severe Rash)"],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "patient_id": "PAT-ELENA-02",
-            "phone_number": "+1-555-KNEE-99",
-            "full_name": "Elena Rostova",
-            "email": "elena.rostova@healthcare.net",
-            "date_of_birth": "1991-08-14",
-            "preferred_language": "English",
-            "communication_preference": "SMS",
-            "insurance": {
-                "carrier": "Aetna Choice POS II",
-                "policy_number": "AET-338291",
-                "copay": "$20.00",
-                "is_verified": True
-            },
-            "allergies": ["Sulfa Drugs"],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for p in patients_data:
-        col_patients.update_one({"phone_number": p["phone_number"]}, {"$set": p}, upsert=True)
+    # 3. Hospital History Profiles (clean 0-counters for dynamic tracking)
+    col_hh = db["hospital_history"]
+    for h in hospitals_data:
+        existing_hh = col_hh.find_one({"hospital_id": h["hospital_id"]})
+        if not existing_hh:
+            col_hh.insert_one({
+                "hospital_id": h["hospital_id"],
+                "name": h["name"],
+                "code": h["code"],
+                "departments": h["departments"],
+                "visiting_hours": h["operating_hours"],
+                "total_appointments_booked": 0,
+                "total_voice_inquiries": 0,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
 
-    # 4. Questionnaires Collection
-    col_questionnaires = db["questionnaires"]
-    questionnaires_data = [
-        {
-            "questionnaire_id": "Q-ORTHO-01",
-            "title": "Orthopedic Surgery Pre-Consultation Survey",
-            "specialty": "Orthopedic Surgery",
-            "version": "v2.1",
-            "status": "ACTIVE",
-            "questions": [
-                {"question_id": "Q-1", "question_text": "How long have you had this joint or musculoskeletal pain?", "response_type": "SHORT_TEXT", "is_required": True},
-                {"question_id": "Q-2", "question_text": "Rate your current pain severity from 1 (Mild) to 10 (Debilitating):", "response_type": "SHORT_TEXT", "is_required": True},
-                {"question_id": "Q-3", "question_text": "Have you had prior orthopedic surgery or joint injections?", "response_type": "YES_NO", "is_required": True},
-                {"question_id": "Q-4", "question_text": "Are you currently taking any prescription pain or blood-thinning medications?", "response_type": "YES_NO", "is_required": True}
-            ],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "questionnaire_id": "Q-CARDIO-02",
-            "title": "Cardiology Consultation & Vitals Questionnaire",
-            "specialty": "Cardiology",
-            "version": "v1.4",
-            "status": "ACTIVE",
-            "questions": [
-                {"question_id": "QC-1", "question_text": "Do you experience heart palpitations, dizziness, or lightheadedness?", "response_type": "YES_NO", "is_required": True},
-                {"question_id": "QC-2", "question_text": "Do you have a personal or family history of high blood pressure or heart disease?", "response_type": "YES_NO", "is_required": True},
-                {"question_id": "QC-3", "question_text": "Please list your current daily blood pressure or cardiovascular medications:", "response_type": "SHORT_TEXT", "is_required": True}
-            ],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for q in questionnaires_data:
-        col_questionnaires.update_one({"questionnaire_id": q["questionnaire_id"]}, {"$set": q}, upsert=True)
-
-    # 5. Real Appointments Collection
-    col_appointments = db["appointments"]
-    appts_data = [
-        {
-            "appointment_id": "APT-1024",
-            "patient_name": "Marcus Aurelius",
-            "patient_phone": "+1-555-SHOULDER",
-            "doctor_id": "DOC-SHARMA-01",
-            "doctor_name": "Dr. Sharma",
-            "specialty": "Orthopedic Surgery",
-            "hospital_id": "HOSP-CITY-01",
-            "hospital_name": "City Memorial Hospital",
-            "scheduled_time": "Today, 10:00 AM",
-            "slot_time": "10:00 AM",
-            "status": "CONFIRMED",
-            "is_ehr_verified": True,
-            "external_ehr_id": "EHR-EPIC-88421",
-            "intake_status": "COMPLETED",
-            "chief_complaint": "Acute right anterior shoulder pain lasting ~7 days",
-            "vitals": {"bp": "120/80", "hr": 74, "spo2": 98, "temp": 98.6},
-            "created_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "appointment_id": "APT-1025",
-            "patient_name": "Elena Rostova",
-            "patient_phone": "+1-555-KNEE-99",
-            "doctor_id": "DOC-SHARMA-01",
-            "doctor_name": "Dr. Sharma",
-            "specialty": "Orthopedic Surgery",
-            "hospital_id": "HOSP-CITY-01",
-            "hospital_name": "City Memorial Hospital",
-            "scheduled_time": "Today, 11:30 AM",
-            "slot_time": "11:30 AM",
-            "status": "CONFIRMED",
-            "is_ehr_verified": True,
-            "external_ehr_id": "EHR-EPIC-88422",
-            "intake_status": "PENDING",
-            "chief_complaint": "Right knee post-op swelling following lateral meniscus repair",
-            "vitals": {"bp": "118/76", "hr": 70, "spo2": 99, "temp": 98.4},
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for a in appts_data:
-        col_appointments.update_one({"appointment_id": a["appointment_id"]}, {"$set": a}, upsert=True)
-
-    # 6. Conversations Collection
-    col_conversations = db["conversations"]
-    conversations_data = [
-        {
-            "session_id": "SES-MARCUS-001",
-            "patient_phone": "+1-555-SHOULDER",
-            "patient_name": "Marcus Aurelius",
-            "user_utterance": "I've had severe anterior right shoulder pain for 7 days after playing tennis.",
-            "agent_response": "I can help with that. Based on your acute shoulder pain symptoms, I recommend an evaluation with our Orthopedic Surgery specialist, Dr. Sharma at City Memorial Hospital. We have consultation slots available tomorrow morning at 10:00 AM. Would you like to reserve this slot?",
-            "language": "en",
-            "intent": "BOOK_APPOINTMENT",
-            "extracted_symptoms": ["anterior right shoulder pain", "acute", "duration 7 days"],
-            "doctor_id": "DOC-SHARMA-01",
-            "hospital_id": "HOSP-CITY-01",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "session_id": "SES-MARCUS-001",
-            "patient_phone": "+1-555-SHOULDER",
-            "patient_name": "Marcus Aurelius",
-            "user_utterance": "Yes, please confirm the 10:00 AM consultation with Dr. Sharma.",
-            "agent_response": "Excellent. Your appointment with Dr. Sharma at City Memorial Hospital is confirmed for tomorrow at 10:00 AM. Your verification code is APT-1024. A confirmation SMS with directions has been sent to your phone.",
-            "language": "en",
-            "intent": "CONFIRM_SLOT",
-            "appointment_id": "APT-1024",
-            "verification_code": "APT-1024",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for c in conversations_data:
-        col_conversations.insert_one(c)
-
-    # 7. Patient History Collection
-    col_patient_history = db["patient_history"]
-    history_data = [
-        {
-            "phone_number": "+1-555-SHOULDER",
-            "patient_name": "Marcus Aurelius",
-            "date_of_birth": "1984-04-26",
-            "medical_history": [
-                "Mild asthma (controlled with Albuterol PRN)",
-                "Previous right rotator cuff strain (resolved in 2023)"
-            ],
-            "allergies": ["Penicillin (Severe Rash)"],
-            "recent_conversations": [
-                {
-                    "session_id": "SES-MARCUS-001",
-                    "user_utterance": "I've had severe anterior right shoulder pain for 7 days after playing tennis.",
-                    "agent_response": "Recommended Orthopedic consultation with Dr. Sharma.",
-                    "language": "en",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-            ],
-            "appointments": [
-                {
-                    "appointment_id": "APT-1024",
-                    "doctor_name": "Dr. Sharma",
-                    "specialty": "Orthopedic Surgery",
-                    "hospital_name": "City Memorial Hospital",
-                    "scheduled_time": "Today, 10:00 AM",
-                    "status": "CONFIRMED"
-                }
-            ],
-            "questionnaire_records": [
-                {
-                    "questionnaire_id": "Q-ORTHO-01",
-                    "specialty": "Orthopedic Surgery",
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                    "answers": {
-                        "pain_duration": "7 days",
-                        "pain_severity": "7/10",
-                        "prior_injections": "None",
-                        "taking_medications": "Ibuprofen 400mg"
-                    }
-                }
-            ],
-            "last_interaction": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "phone_number": "+1-555-KNEE-99",
-            "patient_name": "Elena Rostova",
-            "date_of_birth": "1991-08-14",
-            "medical_history": [
-                "Right knee arthroscopy & lateral meniscus repair (completed 4 weeks ago)"
-            ],
-            "allergies": ["Sulfa Drugs"],
-            "appointments": [
-                {
-                    "appointment_id": "APT-1025",
-                    "doctor_name": "Dr. Sharma",
-                    "specialty": "Orthopedic Surgery",
-                    "hospital_name": "City Memorial Hospital",
-                    "scheduled_time": "Today, 11:30 AM",
-                    "status": "CONFIRMED"
-                }
-            ],
-            "last_interaction": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for h in history_data:
-        col_patient_history.update_one({"phone_number": h["phone_number"]}, {"$set": h}, upsert=True)
-
-    # 8. Patient Preferences Collection
-    col_patient_preferences = db["patient_preferences"]
-    preferences_data = [
-        {
-            "phone_number": "+1-555-SHOULDER",
-            "patient_id": "PAT-MARCUS-01",
-            "full_name": "Marcus Aurelius",
-            "preferred_language": "English",
-            "preferred_hospital_id": "HOSP-CITY-01",
-            "preferred_hospital_name": "City Memorial Hospital",
-            "preferred_doctor_id": "DOC-SHARMA-01",
-            "preferred_doctor_name": "Dr. Sharma",
-            "preferred_time_window": "MORNING",
-            "communication_preference": "VOICE_AND_SMS",
-            "notification_channels": {
-                "sms": True,
-                "email": True,
-                "whatsapp": True,
-                "voice_call": False
-            },
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "phone_number": "+1-555-KNEE-99",
-            "patient_id": "PAT-ELENA-02",
-            "full_name": "Elena Rostova",
-            "preferred_language": "English",
-            "preferred_hospital_id": "HOSP-CITY-01",
-            "preferred_hospital_name": "City Memorial Hospital",
-            "preferred_doctor_id": "DOC-SHARMA-01",
-            "preferred_doctor_name": "Dr. Sharma",
-            "preferred_time_window": "AFTERNOON",
-            "communication_preference": "SMS",
-            "notification_channels": {
-                "sms": True,
-                "email": True,
-                "whatsapp": False,
-                "voice_call": False
-            },
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for pr in preferences_data:
-        col_patient_preferences.update_one({"phone_number": pr["phone_number"]}, {"$set": pr}, upsert=True)
-
-    # 9. Hospital History Collection
-    col_hospital_history = db["hospital_history"]
-    hospital_history_data = [
-        {
-            "hospital_id": "HOSP-CITY-01",
-            "name": "City Memorial Hospital",
-            "code": "CITYHOSP",
-            "onboarding_status": "APPROVED",
-            "established_year": 1985,
-            "accreditation": "Joint Commission Accredited Healthcare Institution",
-            "total_licensed_beds": 450,
-            "trauma_center_level": "Level I Trauma Center",
-            "departments": [
-                "Orthopedic Surgery & Sports Medicine",
-                "Cardiology & Interventional Catheterization",
-                "Emergency Medicine (24/7)",
-                "Diagnostic Imaging & MRI Center",
-                "Dermatology & Laser Surgery"
-            ],
-            "visiting_hours": "08:00 AM - 08:00 PM Daily (ICU: 10:00 AM - 12:00 PM)",
-            "parking_guide": "Garage A adjacent to main clinical pavilion; complimentary 30-min patient dropoff.",
-            "policies": "Masking required in oncology units; cancellation permitted up to 24h before visit without fee.",
-            "active_doctors_count": 3,
-            "total_appointments_booked": 1420,
-            "total_voice_inquiries": 3840,
-            "ehr_system": "Epic MyChart (SMART-on-FHIR R4)",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "hospital_id": "HOSP-CARE-02",
-            "name": "St. Jude Care Pavilion",
-            "code": "STJUDE",
-            "onboarding_status": "APPROVED",
-            "established_year": 1998,
-            "accreditation": "Statewide Healthcare Quality Gold Seal",
-            "total_licensed_beds": 280,
-            "trauma_center_level": "Level II Trauma Center",
-            "departments": [
-                "Cardiovascular Medicine",
-                "Thoracic Surgery",
-                "Neurology & Stroke Unit",
-                "Family Medicine & Preventive Care"
-            ],
-            "visiting_hours": "09:00 AM - 07:00 PM Daily",
-            "active_doctors_count": 2,
-            "total_appointments_booked": 890,
-            "total_voice_inquiries": 2150,
-            "ehr_system": "HL7 FHIR R4 Connector",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for hh in hospital_history_data:
-        col_hospital_history.update_one({"hospital_id": hh["hospital_id"]}, {"$set": hh}, upsert=True)
-
-    # 10. Clinical Encounters Collection
-    col_encounters = db["clinical_encounters"]
-    encounters_data = [
-        {
-            "encounter_id": "ENC-1024-SOAP",
-            "appointment_id": "APT-1024",
-            "patient_name": "Marcus Aurelius",
-            "patient_phone": "+1-555-SHOULDER",
-            "doctor_id": "DOC-SHARMA-01",
-            "doctor_name": "Dr. Sharma",
-            "specialty": "Orthopedic Surgery",
-            "soap_notes": {
-                "subjective": "Patient reports acute pain in right anterior shoulder after tennis overhead smash. No numbness.",
-                "objective": "Positive Hawkins-Kennedy test. Moderate impingement tenderness. Active forward flexion limited to 130 deg.",
-                "assessment": "Acute right subacromial bursitis and supraspinatus impingement syndrome.",
-                "plan": "Short-course oral NSAID therapy, physical therapy referral for rotator cuff strengthening, follow-up in 3 weeks."
-            },
-            "prescriptions": [
-                {"medication": "Meloxicam", "dosage": "15 mg", "frequency": "Once daily with food", "duration": "14 days"}
-            ],
-            "status": "COMPLETED",
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for enc in encounters_data:
-        col_encounters.update_one({"encounter_id": enc["encounter_id"]}, {"$set": enc}, upsert=True)
+    # 4. Create collection indexes for high performance queries
+    try:
+        db["conversations"].create_index("session_id")
+        db["conversations"].create_index("patient_phone")
+        db["appointments"].create_index("appointment_id")
+        db["appointments"].create_index("patient_phone")
+        db["patient_history"].create_index("phone_number")
+        db["patient_preferences"].create_index("phone_number")
+        db["patients"].create_index("phone_number")
+        db["questionnaires"].create_index("response_id")
+    except Exception:
+        pass
 
     return {
         "status": "success",
-        "database": DB_NAME,
-        "counts": {
-            "conversations": col_conversations.count_documents({}),
-            "patient_history": col_patient_history.count_documents({}),
-            "patient_preferences": col_patient_preferences.count_documents({}),
-            "hospital_history": col_hospital_history.count_documents({}),
-            "appointments": col_appointments.count_documents({}),
-            "patients": col_patients.count_documents({}),
-            "doctors": col_doctors.count_documents({}),
-            "hospitals": col_hospitals.count_documents({}),
-            "questionnaires": col_questionnaires.count_documents({}),
-            "clinical_encounters": col_encounters.count_documents({})
-        }
+        "message": "Hospital & Doctor catalog synced. Dynamic data collections are clean and ready for real-time traffic."
     }
+
+# Backward compatible alias
+seed_mongodb_data = sync_mongodb_catalog
+
+
+def clear_mongodb_dynamic_data() -> Dict[str, Any]:
+    """
+    Purges all static and mock records from dynamic transactional collections:
+    - conversations
+    - appointments
+    - patient_history
+    - patient_preferences
+    - patients
+    - questionnaires
+    - clinical_encounters
+    - events
+    - notifications
+    Resets hospital history counters to 0 so only real incoming patient traffic is tracked.
+    """
+    db = get_mongo_db()
+    if db is None:
+        return {"status": "error", "message": "MongoDB not connected"}
+
+    dynamic_collections = [
+        "conversations",
+        "appointments",
+        "patient_history",
+        "patient_preferences",
+        "patients",
+        "questionnaires",
+        "clinical_encounters",
+        "events",
+        "notifications"
+    ]
+    deleted = {}
+    for col in dynamic_collections:
+        res = db[col].delete_many({})
+        deleted[col] = res.deleted_count
+
+    # Reset hospital counters
+    db["hospital_history"].update_many({}, {
+        "$set": {
+            "total_appointments_booked": 0,
+            "total_voice_inquiries": 0,
+            "last_appointment_booked_at": None,
+            "last_voice_inquiry_at": None,
+            "active_patient_phones": []
+        }
+    })
+    return {"status": "success", "cleared": deleted}
 
 
 def check_mongodb_connection() -> Dict[str, Any]:

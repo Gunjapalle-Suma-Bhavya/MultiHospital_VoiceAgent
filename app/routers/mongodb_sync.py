@@ -8,6 +8,7 @@ from app.database.mongodb import (
     check_mongodb_connection,
     get_mongodb_collections_stats,
     seed_mongodb_data,
+    clear_mongodb_dynamic_data,
     get_collection,
 )
 
@@ -29,9 +30,15 @@ def get_mongodb_status() -> Dict[str, Any]:
 
 @router.post("/seed")
 def trigger_seed_mongodb() -> Dict[str, Any]:
-    """Seed or update MongoDB Atlas with baseline clinical records in JSON format."""
+    """Sync active hospital and doctor provider catalog into MongoDB."""
     result = seed_mongodb_data()
     return result
+
+
+@router.post("/clear-dynamic-data")
+def trigger_clear_dynamic_data() -> Dict[str, Any]:
+    """Wipe all mock/static records from dynamic transactional collections (conversations, appointments, patient history, preferences)."""
+    return clear_mongodb_dynamic_data()
 
 
 @router.get("/documents/{collection_name}")
