@@ -53,55 +53,32 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Role / Portal Switcher */}
-          <div className="hidden md:flex items-center space-x-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
-            <button
-              onClick={() => onSelectPortal('patient')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                activePortal === 'patient' && !isCatalogOpen
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Patient</span>
-            </button>
-
-            <button
-              onClick={() => onSelectPortal('doctor')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                activePortal === 'doctor' && !isCatalogOpen
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <Stethoscope className="w-3.5 h-3.5" />
-              <span>Doctor</span>
-            </button>
-
-            <button
-              onClick={() => onSelectPortal('hospital')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                activePortal === 'hospital' && !isCatalogOpen
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Hospital</span>
-            </button>
-
-            <button
-              onClick={() => onSelectPortal('admin')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-semibold transition ${
-                activePortal === 'admin' && !isCatalogOpen
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
-              }`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Platform SRE</span>
-            </button>
+          {/* Dedicated Role-Isolated Workspace Indicator */}
+          <div className="hidden md:flex items-center space-x-2">
+            {user.role === 'PATIENT' && (
+              <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-xs shadow-sm">
+                <User className="w-4 h-4" />
+                <span>Patient Healthcare Portal</span>
+              </div>
+            )}
+            {user.role === 'DOCTOR' && (
+              <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-400 font-bold text-xs shadow-sm">
+                <Stethoscope className="w-4 h-4" />
+                <span>Doctor Clinical Workstation</span>
+              </div>
+            )}
+            {(user.role === 'HOSPITAL_ADMIN' || user.role === 'HOSPITAL_STAFF') && (
+              <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-bold text-xs shadow-sm">
+                <Building2 className="w-4 h-4" />
+                <span>Hospital Operations &amp; EHR Portal</span>
+              </div>
+            )}
+            {user.role === 'PLATFORM_ADMIN' && (
+              <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-bold text-xs shadow-sm">
+                <ShieldAlert className="w-4 h-4" />
+                <span>Platform Super-Admin Governance</span>
+              </div>
+            )}
           </div>
 
           {/* Right Header Actions */}

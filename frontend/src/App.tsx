@@ -28,14 +28,22 @@ export const App: React.FC = () => {
 
   const isCatalog = route.portal === 'catalog';
 
-  // Sync route portal with auth active portal when navigating directly via URL
+  // Strict Role-Authorized Workspace Isolation
+  const roleAuthorizedPortal =
+    user?.role === 'PATIENT'
+      ? 'patient'
+      : user?.role === 'DOCTOR'
+      ? 'doctor'
+      : user?.role === 'PLATFORM_ADMIN'
+      ? 'admin'
+      : 'hospital';
+
+  // Force active portal to the user's role-authorized workspace
   useEffect(() => {
-    if (['patient', 'doctor', 'hospital', 'admin'].includes(route.portal)) {
-      if (route.portal !== activePortal) {
-        setActivePortal(route.portal);
-      }
+    if (user && activePortal !== roleAuthorizedPortal) {
+      setActivePortal(roleAuthorizedPortal);
     }
-  }, [route.portal, activePortal, setActivePortal]);
+  }, [user, activePortal, roleAuthorizedPortal, setActivePortal]);
 
   if (!user) {
     return <LandingPage />;
@@ -48,24 +56,19 @@ export const App: React.FC = () => {
   };
 
   const handlePortalSwitch = (portal: string) => {
-    setActivePortal(portal);
-    navigate(`/${portal}`);
+    // Only allow switching if user's role permits it
+    if (user.role === 'PLATFORM_ADMIN' || portal === roleAuthorizedPortal) {
+      setActivePortal(portal);
+      navigate(`/${portal}`);
+    }
   };
 
   const handleToggleCatalog = () => {
+    if (user.role !== 'PLATFORM_ADMIN') return;
     if (isCatalog) {
       navigate(`/${activePortal}`);
     } else {
-      navigateToCatalog(
-        user.role === 'PLATFORM_ADMIN'
-          ? 'admin'
-          : user.role === 'HOSPITAL_ADMIN'
-          ? 'hospital'
-          : user.role === 'DOCTOR'
-          ? 'doctor'
-          : 'patient',
-        'overview'
-      );
+      navigateToCatalog('admin', 'overview');
     }
   };
 
@@ -124,17 +127,17 @@ export const App: React.FC = () => {
         </div>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {(route.portal === 'patient' || activePortal === 'patient') && (
+          {roleAuthorizedPortal === 'patient' && (
             <PatientPortal initialTab={route.view} />
           )}
           <Suspense fallback={<WorkspaceLoader />}>
-            {(route.portal === 'doctor' || activePortal === 'doctor') && (
+            {roleAuthorizedPortal === 'doctor' && (
               <DoctorPortal initialTab={route.view} />
             )}
-            {(route.portal === 'hospital' || activePortal === 'hospital') && (
+            {roleAuthorizedPortal === 'hospital' && (
               <HospitalPortal initialTab={route.view} />
             )}
-            {(route.portal === 'admin' || activePortal === 'admin') && (
+            {roleAuthorizedPortal === 'admin' && (
               <PlatformAdminPortal initialTab={route.view} />
             )}
           </Suspense>

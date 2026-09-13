@@ -11,7 +11,7 @@ Provides endpoints for:
 """
 
 from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status, Query
 from pydantic import BaseModel, Field, EmailStr
 from sqlalchemy.orm import Session
 
@@ -219,3 +219,75 @@ def logout_account():
     Logs out the current user and clears session tokens.
     """
     return {"status": "success", "message": "Successfully logged out."}
+
+
+@router.get("/users")
+def list_platform_users(
+    role: Optional[str] = Query(None, description="Optional role filter"),
+    hospital_id: Optional[str] = Query(None, description="Optional hospital filter"),
+    db: Session = Depends(get_db)
+):
+    """
+    Lists registered user accounts for the Platform Admin User Authentication & RBAC board.
+    """
+    query = db.query(UserAccount)
+    if role and role.upper() != "ALL":
+        query = query.filter(UserAccount.role == role.upper())
+    if hospital_id:
+        query = query.filter(UserAccount.hospital_id == hospital_id)
+
+    users = query.order_by(UserAccount.created_at.desc()).all()
+
+    return {
+        "status": "success",
+        "total_count": len(users),
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "full_name": u.full_name,
+                "role": u.role,
+                "hospital_id": u.hospital_id,
+                "hospital_name": u.hospital_name,
+                "auth_provider": u.auth_provider,
+                "is_active": bool(u.is_active),
+                "created_at": u.created_at.isoformat() if u.created_at else None
+            }
+            for u in users
+        ]
+    }
+
+
+@router.post("/users/{user_id}/toggle-active")
+def toggle_user_active(user_id: str, db: Session = Depends(get_db)):
+    """
+    Toggles user active state (activation / deactivation).
+    """
+    user = db.query(UserAccount).filter(UserAccount.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found")
+
+    user.is_active = not bool(user.is_active)
+    db.commit()
+    db.refresh(user)
+
+    # Sync to MongoDB Atlas if available
+    try:
+        from app.database.mongodb import persist_to_mongodb
+        persist_to_mongodb("users", {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "hospital_id": user.hospital_id,
+            "is_active": user.is_active
+        }, key_field="id")
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "user_id": user.id,
+        "is_active": user.is_active,
+        "message": f"User account is now {'active' if user.is_active else 'deactivated'}."
+    }

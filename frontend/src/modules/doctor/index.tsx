@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Users,
-  ShieldAlert,
   Calendar,
   Stethoscope,
+  Ban,
+  ClipboardList,
+  User,
   CheckCircle2,
+  CalendarCheck,
 } from 'lucide-react';
+import { DoctorProfile } from './DoctorProfile';
 import { CalendarView } from './CalendarView';
 import { AppointmentDetail } from './AppointmentDetail';
-import { TriageDesk } from './TriageDesk';
 import { DoctorAvailability } from './DoctorAvailability';
+import { DoctorBlockedSlots } from './DoctorBlockedSlots';
+import { DoctorQuestionnaireBuilder } from './DoctorQuestionnaireBuilder';
 import { EncounterModal } from './EncounterModal';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
@@ -20,13 +25,14 @@ interface Props {
   initialTab?: string;
 }
 
-export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
+export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
   const { user } = useAuth();
   const { bookings } = usePlatformEvents();
 
-  const [activeTab, setActiveTab] = useState<'schedule' | 'queue' | 'triage' | 'availability'>(
-    (initialTab as any) || 'schedule'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'profile' | 'calendar' | 'hours' | 'availability' | 'blocked_slots' | 'appointments' | 'questionnaires'
+  >((initialTab as any) || 'profile');
+
   const [doctorId, setDoctorId] = useState(user?.doctor_id || 'DOC-SHARMA-01');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedAppt, setSelectedAppt] = useState<any>(null);
@@ -38,7 +44,18 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
   });
 
   useEffect(() => {
-    if (initialTab && ['schedule', 'queue', 'triage', 'availability'].includes(initialTab)) {
+    if (
+      initialTab &&
+      [
+        'profile',
+        'calendar',
+        'hours',
+        'availability',
+        'blocked_slots',
+        'appointments',
+        'questionnaires',
+      ].includes(initialTab)
+    ) {
       setActiveTab(initialTab as any);
     }
   }, [initialTab]);
@@ -83,7 +100,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
           </div>
           <div>
             <div className="text-xs font-bold text-sky-400 uppercase tracking-wider">
-              Clinical Practice Workstation
+              Doctor Clinical Workstation
             </div>
             <h2 className="text-xl font-extrabold text-white">
               {doctorId === 'DOC-RAO-02' ? 'Dr. Rao — Cardiology' : 'Dr. Sharma — Orthopedic Surgery'}
@@ -99,7 +116,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
           <select
             value={doctorId}
             onChange={(e) => setDoctorId(e.target.value)}
-            className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-sky-500"
+            className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-sky-500 cursor-pointer"
           >
             <option value="DOC-SHARMA-01">Dr. Sharma (Orthopedic Surgery)</option>
             <option value="DOC-RAO-02">Dr. Rao (Cardiology)</option>
@@ -110,39 +127,39 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
       {/* Clean Sub-Page Navigation Tabs */}
       <div className="flex border-b border-slate-800 bg-slate-900/60 p-1 rounded-2xl gap-1.5 text-xs overflow-x-auto">
         <button
-          onClick={() => handleTabChange('schedule')}
+          onClick={() => handleTabChange('profile')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'schedule'
+            activeTab === 'profile'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <User className="w-4 h-4" />
+          <span>Doctor Profile</span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('calendar')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
+            activeTab === 'calendar'
               ? 'bg-sky-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Today's Schedule &amp; Slots</span>
+          <span>Calendar</span>
         </button>
 
         <button
-          onClick={() => handleTabChange('queue')}
+          onClick={() => handleTabChange('hours')}
           className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'queue'
+            activeTab === 'hours'
               ? 'bg-sky-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Patient Consultations ({homeMetrics.appointmentsCount})</span>
-        </button>
-
-        <button
-          onClick={() => handleTabChange('triage')}
-          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'triage'
-              ? 'bg-sky-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>Emergency Triage Desk</span>
+          <Clock className="w-4 h-4" />
+          <span>Working Hours</span>
         </button>
 
         <button
@@ -153,27 +170,71 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span>Working Hours &amp; Leaves</span>
+          <CalendarCheck className="w-4 h-4" />
+          <span>Availability Rules</span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('blocked_slots')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
+            activeTab === 'blocked_slots'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Ban className="w-4 h-4" />
+          <span>Blocked Slots &amp; Leaves</span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('appointments')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
+            activeTab === 'appointments'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Appointment View ({homeMetrics.appointmentsCount})</span>
+        </button>
+
+        <button
+          onClick={() => handleTabChange('questionnaires')}
+          className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
+            activeTab === 'questionnaires'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          <span>Questionnaire Creation</span>
         </button>
       </div>
 
       {/* Uncluttered Dedicated Sub-Page Content */}
       <div>
-        {activeTab === 'schedule' && (
+        {activeTab === 'profile' && <DoctorProfile doctorId={doctorId} />}
+
+        {activeTab === 'calendar' && (
           <CalendarView
             appointments={appointments}
             selectedAppointmentId={selectedAppt?.id || selectedAppt?.appointment_id}
             onSelectAppointment={(a) => {
               setSelectedAppt(a);
-              handleTabChange('queue');
+              handleTabChange('appointments');
             }}
             onOpenEncounter={(a) => setEncounterAppt(a)}
             doctorId={doctorId}
           />
         )}
 
-        {activeTab === 'queue' && (
+        {activeTab === 'hours' && <DoctorAvailability doctorId={doctorId} />}
+
+        {activeTab === 'availability' && <DoctorAvailability doctorId={doctorId} />}
+
+        {activeTab === 'blocked_slots' && <DoctorBlockedSlots doctorId={doctorId} />}
+
+        {activeTab === 'appointments' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-7">
               <CalendarView
@@ -193,9 +254,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'schedule' }) => {
           </div>
         )}
 
-        {activeTab === 'triage' && <TriageDesk />}
-
-        {activeTab === 'availability' && <DoctorAvailability doctorId={doctorId} />}
+        {activeTab === 'questionnaires' && <DoctorQuestionnaireBuilder />}
       </div>
 
       {/* Active Clinical Encounter & E-Prescription Modal */}

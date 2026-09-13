@@ -170,3 +170,59 @@ def test_invalid_role_rejection(client: TestClient):
         "role": "SUPER_HACKER_ROLE"
     })
     assert resp.status_code == 400
+
+
+def test_list_user_accounts_and_role_filtering(client: TestClient):
+    """Verifies GET /api/v1/auth/users returns user directory and supports role filtering."""
+    uid = uuid.uuid4().hex[:8]
+    patient_email = f"p_list_{uid}@example.com"
+    client.post("/api/v1/auth/signup", json={
+        "email": patient_email,
+        "password": "Password123!",
+        "full_name": "Test List Patient",
+        "role": "PATIENT"
+    })
+
+    # 1. Fetch all users
+    res_all = client.get("/api/v1/auth/users")
+    assert res_all.status_code == 200
+    data_all = res_all.json()
+    assert data_all["status"] == "success"
+    assert "users" in data_all
+    assert data_all["total_count"] >= 1
+
+    # 2. Filter by PATIENT role
+    res_patients = client.get("/api/v1/auth/users?role=PATIENT")
+    assert res_patients.status_code == 200
+    data_patients = res_patients.json()
+    assert all(u["role"] == "PATIENT" for u in data_patients["users"])
+
+
+def test_toggle_user_active_state(client: TestClient):
+    """Verifies POST /api/v1/auth/users/{user_id}/toggle-active toggles account activation status."""
+    uid = uuid.uuid4().hex[:8]
+    test_email = f"toggle_{uid}@example.com"
+    signup_res = client.post("/api/v1/auth/signup", json={
+        "email": test_email,
+        "password": "Password123!",
+        "full_name": "Toggle User",
+        "role": "PATIENT"
+    })
+    assert signup_res.status_code == 201
+
+    # Get user id from listing
+    list_res = client.get("/api/v1/auth/users")
+    user_item = next(u for u in list_res.json()["users"] if u["email"] == test_email)
+    user_id = user_item["id"]
+    initial_active = user_item["is_active"]
+
+    # Toggle to deactivated
+    toggle1 = client.post(f"/api/v1/auth/users/{user_id}/toggle-active")
+    assert toggle1.status_code == 200
+    assert toggle1.json()["is_active"] == (not initial_active)
+
+    # Toggle back to activated
+    toggle2 = client.post(f"/api/v1/auth/users/{user_id}/toggle-active")
+    assert toggle2.status_code == 200
+    assert toggle2.json()["is_active"] == initial_active
+
