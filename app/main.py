@@ -44,7 +44,13 @@ init_db()
 
 @app.on_event("startup")
 def startup_mongodb_sync():
-    """Ensure MongoDB has baseline collections and schemas seeded."""
+    """Ensure baseline accredited providers and MongoDB Atlas mirror are synced."""
+    try:
+        from app.database.seed_providers import seed_providers
+        seed_providers()
+    except Exception as e:
+        print(f"[Provider Seeding Warning]: {e}")
+
     try:
         from app.database.mongodb import seed_mongodb_data
         seed_mongodb_data()

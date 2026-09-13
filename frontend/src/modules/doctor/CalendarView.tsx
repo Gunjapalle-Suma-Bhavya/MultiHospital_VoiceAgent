@@ -79,11 +79,41 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
+  const formatSlotTime = (t: string | undefined, startDt?: string) => {
+    if (t && t.length >= 4) {
+      const parts = t.trim().split(' ');
+      const [h, m] = parts[0].split(':');
+      if (h && m) {
+        let numH = parseInt(h);
+        const ampm = parts[1] ? parts[1].toUpperCase() : (numH >= 12 ? 'PM' : 'AM');
+        if (numH > 12) numH = numH % 12;
+        if (numH === 0) numH = 12;
+        const hh = String(numH).padStart(2, '0');
+        return `${hh}:${m.padStart(2, '0')} ${ampm}`;
+      }
+      return t;
+    }
+    if (startDt) {
+      try {
+        const d = new Date(startDt);
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const hh = String(hours).padStart(2, '0');
+        return `${hh}:${minutes} ${ampm}`;
+      } catch {}
+    }
+    return '10:00 AM';
+  };
+
   // Merge context bookings with prop appointments
   const allAppointments = [
     ...bookings.map((b) => ({
       id: b.id,
-      time: b.slot_time,
+      time: formatSlotTime(b.slot_time, b.scheduled_time),
+      date: (b as any).date || (b.scheduled_time ? b.scheduled_time.split('T')[0] : new Date().toISOString().split('T')[0]),
       patient_name: b.patient_name,
       patient_phone: b.patient_phone,
       complaint: `${b.specialty} Consultation & Symptoms Examination`,
@@ -92,7 +122,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       isLive: true,
       raw: b,
     })),
-    ...appointments.filter((a) => !bookings.some((b) => b.id === a.id)),
+    ...appointments
+      .filter((a) => !bookings.some((b) => b.id === (a.id || a.appointment_id)))
+      .map((a) => {
+        const rawTime = a.time || a.slot_time;
+        const rawDate = a.date || (a.start_datetime ? a.start_datetime.split('T')[0] : '');
+        return {
+          ...a,
+          id: a.id || a.appointment_id || 'APT-LIVE',
+          time: formatSlotTime(rawTime, a.start_datetime),
+          date: rawDate,
+          patient_name: a.patient_name || a.name || 'Patient',
+          patient_phone: a.patient_phone || a.phone || 'N/A',
+          complaint: a.complaint || a.reason || 'Clinical Consultation',
+          ehr_status: a.ehr_status || a.status || 'CONFIRMED',
+        };
+      }),
   ];
 
   return (
@@ -199,6 +244,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             allAppointments.map((appt) => {
               const isSelected = selectedAppointmentId === appt.id;
               const isCompleted = appt.ehr_status === 'COMPLETED';
+              const displayTime = appt.time ? appt.time.split(' ')[0] : '10:00';
 
               return (
                 <div
@@ -212,21 +258,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xs">
-                      {appt.time.split(' ')[0]}
+                      {displayTime}
                     </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <span>{appt.patient_name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">({appt.id})</span>
-                      {appt.isLive && (
-                        <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 rounded font-semibold">
-                          Live Sync
-                        </span>
-                      )}
+                    <div>
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>{appt.patient_name}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({appt.id})</span>
+                        {appt.date && (
+                          <span className="text-[10px] text-sky-400 font-mono">📅 {appt.date}</span>
+                        )}
+                        {appt.isLive && (
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 rounded font-semibold">
+                            Live Sync
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate max-w-xs">{appt.complaint}</div>
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate max-w-xs">{appt.complaint}</div>
                   </div>
-                </div>
 
                 <div className="flex items-center space-x-2">
                   <span

@@ -90,10 +90,30 @@ class AIPatientAccessAgent:
 
         return fallback_text, False
 
+    def _get_active_physicians(self, specialty_term: Optional[str] = None) -> List[Dict[str, str]]:
+        """
+        Dynamically queries active physicians in the SQLite database.
+        Guarantees that the AI only ever mentions real doctors that exist in the system.
+        """
+        query = self.db.query(Doctor).filter(Doctor.is_active == True)
+        if specialty_term:
+            query = query.filter(Doctor.specialty.ilike(f"%{specialty_term}%"))
+        docs = query.all()
+        results = []
+        for d in docs:
+            hosp = self.db.query(Hospital).filter(Hospital.id == d.hospital_id).first()
+            results.append({
+                "id": d.id,
+                "name": d.name,
+                "specialty": d.specialty,
+                "hospital_name": hosp.name if hosp else "our partner hospital"
+            })
+        return results
+
     def _generate_rich_clinical_fallback(self, user_text: str) -> str:
         """
         Generates empathetic, comprehensive, and clinically sound patient responses
-        tailored to the patient's exact question or topic.
+        tailored to the patient's exact question or topic using only real active doctors.
         """
         text_lower = user_text.lower().strip()
 
@@ -146,68 +166,111 @@ class AIPatientAccessAgent:
 
         # 7. Dermatology / Skin / Rash
         if any(w in text_lower for w in ["rash", "skin", "eczema", "hives", "itch", "itchy", "dermatol", "acne", "mole"]):
+            docs = self._get_active_physicians("Dermatol")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                doc_mention = f"We have {names} available for consultation."
+            else:
+                doc_mention = "Our clinical dermatology team is available for comprehensive skin evaluations."
             return (
-                "I understand you are having skin concerns. Our Dermatology department specializes in diagnosing and treating rashes, dermatitis, allergies, and lesions. "
-                "We have Dr. Lisa Marcus available for consultation at City Memorial Hospital and Dr. Kevin White at Care Regional Hospital. "
-                "Would you like me to check their available appointment slots for tomorrow?"
+                f"I understand you are having skin concerns. Our Dermatology department specializes in diagnosing and treating rashes, dermatitis, allergies, and lesions. "
+                f"{doc_mention} Would you like me to check their available appointment slots for tomorrow?"
             )
 
         # 8. Orthopedic / Joint / Spine / Bone / Knee
         if any(w in text_lower for w in ["knee", "shoulder", "bone", "joint", "fracture", "sprain", "ortho", "arthritis", "back pain", "spine", "hip", "ankle"]):
+            docs = self._get_active_physicians("Ortho")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                doc_mention = f"We have {names} available for in-depth evaluations."
+            else:
+                doc_mention = "Our Orthopedic specialists are available for in-depth evaluations."
             return (
-                "I understand you are experiencing orthopedic pain or mobility discomfort. "
-                "Our Orthopedic and Sports Medicine departments specialize in joint evaluations, spine care, and rehabilitative therapy. "
-                "We have Dr. Sharma available for in-depth evaluations at City Memorial Hospital and Dr. Rao at Care Regional Hospital. "
-                "Would you like me to check available consultation slots for you tomorrow?"
+                f"I understand you are experiencing orthopedic pain or mobility discomfort. "
+                f"Our Orthopedic and Sports Medicine departments specialize in joint evaluations, spine care, and rehabilitative therapy. "
+                f"{doc_mention} Would you like me to check available consultation slots for you tomorrow?"
             )
 
         # 9. Cardiology / Heart / Chest
         if any(w in text_lower for w in ["heart", "cardio", "chest", "palpitation", "bp", "blood pressure", "hypertension", "cholesterol"]):
+            docs = self._get_active_physicians("Cardio")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                doc_mention = f"Our Cardiology Center led by {names} offers comprehensive cardiac assessments and preventive consultations."
+            else:
+                doc_mention = "Our Cardiology Center offers comprehensive cardiac assessments and preventive consultations."
             return (
-                "Thank you for reaching out regarding your cardiovascular symptoms. "
-                "Our Cardiology Center led by Dr. Sarah Jenkins and Dr. David Chen offers comprehensive cardiac assessments and preventive consultations. "
-                "Please note that if you are experiencing severe or crushing chest pressure, you should seek emergency medical care or call 911 immediately. "
-                "Otherwise, would you like me to book a consultation slot with our cardiology team this week?"
+                f"Thank you for reaching out regarding your cardiovascular symptoms. "
+                f"{doc_mention} "
+                f"Please note that if you are experiencing severe or crushing chest pressure, you should seek emergency medical care or call 911 immediately. "
+                f"Otherwise, would you like me to book a consultation slot with our cardiology team this week?"
             )
 
         # 10. Neurological / Headache / Migraine / Dizziness
         if any(w in text_lower for w in ["headache", "migraine", "dizzy", "dizziness", "numbness", "tingling", "vertigo", "vision"]):
+            docs = self._get_active_physicians("Neuro")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                doc_mention = f"Our Neurology Center led by {names} provides comprehensive evaluations of migraines, neuropathy, and balance issues."
+            else:
+                doc_mention = "Our Neurology Center provides comprehensive evaluations of migraines, neuropathy, and balance issues."
             return (
-                "I hear your concern regarding persistent headaches or neurological symptoms. "
-                "Our Neurology Center led by Dr. Amanda Vance and Dr. Vikram Malhotra provides comprehensive evaluations of migraines, neuropathy, and balance issues. "
-                "Would you like me to check open consultation times for tomorrow?"
+                f"I hear your concern regarding persistent headaches or neurological symptoms. "
+                f"{doc_mention} Would you like me to check open consultation times for tomorrow?"
             )
 
         # 11. Gastroenterology / Stomach / Digestive
         if any(w in text_lower for w in ["stomach", "vomit", "nausea", "abdomen", "belly", "acid reflux", "digestive", "bowel"]):
+            docs = self._get_active_physicians("Gastro")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                lead_name = docs[0]['name']
+                doc_mention = f"Our Gastroenterology specialists, {names}, offer comprehensive evaluations for gastrointestinal and reflux issues. Be sure to stay hydrated and note when your symptoms began. Would you like me to check available appointment times with {lead_name}?"
+            else:
+                doc_mention = "Our Gastroenterology specialists offer comprehensive evaluations for gastrointestinal and reflux issues. Be sure to stay hydrated and note when your symptoms began. Would you like me to check available appointment times?"
             return (
-                "I'm sorry to hear that you are experiencing digestive discomfort. "
-                "Our Gastroenterology specialists, Dr. Rachel Green and Dr. Robert Kim, offer comprehensive evaluations for gastrointestinal and reflux issues. "
-                "Be sure to stay hydrated and note when your symptoms began. Would you like me to check available appointment times with Dr. Green?"
+                f"I'm sorry to hear that you are experiencing digestive discomfort. {doc_mention}"
             )
 
         # 12. General Illness / Fever / Cold / Infection
         if any(w in text_lower for w in ["fever", "cough", "cold", "flu", "infection", "throat", "sick", "chills"]):
+            docs = self._get_active_physicians("General") or self._get_active_physicians("Internal")
+            if docs:
+                names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in docs[:2]])
+                lead_name = docs[0]['name']
+                doc_mention = f"our Internal Medicine team, including {names}, provides same-day appointments and lab diagnostics. Would you like me to schedule a consultation with {lead_name} at our outpatient clinic?"
+            else:
+                doc_mention = "our Internal Medicine team provides same-day appointments and lab diagnostics. Would you like me to schedule a consultation at our outpatient clinic?"
             return (
-                "I'm sorry to hear that you are feeling unwell. For fever, respiratory concerns, or viral symptoms, "
-                "our Internal Medicine team, including Dr. Emily Watson and Dr. Marcus Reed, provides same-day appointments and lab diagnostics. "
-                "Would you like me to schedule a consultation with Dr. Watson at our outpatient clinic?"
+                f"I'm sorry to hear that you are feeling unwell. For fever, respiratory concerns, or viral symptoms, {doc_mention}"
             )
 
         # 13. Doctor / Specialist Overview
         if any(w in text_lower for w in ["doctor", "specialist", "physician", "who is", "who are", "staff"]):
+            all_docs = self._get_active_physicians()
+            if all_docs:
+                doc_summary = ", ".join([f"{d['name']} ({d['specialty']})" for d in all_docs[:5]])
+                return (
+                    f"Our multi-hospital network features top board-certified physicians across {doc_summary}. "
+                    f"Which medical specialty or condition can I help you find an appointment for today?"
+                )
             return (
-                "Our multi-hospital network features top board-certified physicians across Orthopedics (Dr. Sharma), "
-                "Cardiology (Dr. Jenkins), Dermatology (Dr. Marcus), Neurology (Dr. Vance), Gastroenterology (Dr. Green), "
-                "and Internal Medicine (Dr. Watson). Which medical specialty or condition can I help you find an appointment for today?"
+                "Our multi-hospital network features board-certified physicians across primary and specialty care. "
+                "Which medical specialty or condition can I help you find an appointment for today?"
             )
 
         # 14. Default Empathic Clinical Problem Fallback
+        fallback_docs = self._get_active_physicians()[:2]
+        if fallback_docs:
+            names = " and ".join([f"{d['name']} at {d['hospital_name']}" for d in fallback_docs])
+            spec_mention = f"evaluation with our physicians, including {names}."
+        else:
+            spec_mention = "evaluation with our physicians at City Memorial Hospital or Care Regional Hospital."
         return (
-            "I hear your healthcare concern and I am here to help you get the right care. "
-            "Based on the symptoms you have described, our clinical team strongly recommends an evaluation with our physicians "
-            "at City Memorial Hospital or Care Regional Hospital. We have top board-certified specialists available for consultation tomorrow. "
-            "Would you like me to book an appointment with our specialist, or check available consultation slots?"
+            f"I hear your healthcare concern and I am here to help you get the right care. "
+            f"Based on the symptoms you have described, our clinical team strongly recommends an {spec_mention} "
+            f"We have top board-certified specialists available for consultation tomorrow. "
+            f"Would you like me to book an appointment with our specialist, or check available consultation slots?"
         )
 
     def process_patient_turn(

@@ -63,7 +63,7 @@ def get_collection(name: str):
 
 def sync_mongodb_catalog() -> Dict[str, Any]:
     """
-    Syncs the active hospital directory and doctor roster into MongoDB Atlas.
+    Syncs the active hospital directory and doctor roster from SQLite into MongoDB Atlas.
     Creates indexes on transactional collections for real-time dynamic queries.
     DOES NOT insert mock conversations, mock appointments, or fake patients.
     """
@@ -71,166 +71,100 @@ def sync_mongodb_catalog() -> Dict[str, Any]:
     if db is None:
         return {"status": "error", "message": "MongoDB not connected"}
 
-    # 1. Hospitals Catalog
-    col_hospitals = db["hospitals"]
-    hospitals_data = [
-        {
-            "hospital_id": "HOSP-CITY-01",
-            "name": "City Memorial Hospital",
-            "code": "CITYHOSP",
-            "status": "APPROVED",
-            "address": "1000 Healthcare Way, Suite 400, Metro City",
-            "phone": "+1-800-CITY-HOSP",
-            "departments": ["Orthopedic Surgery", "Cardiology", "Emergency Medicine", "Pediatrics", "Diagnostic Imaging"],
-            "specialties": ["Orthopedic Surgery", "Cardiology", "Dermatology", "Neurology", "Pediatrics"],
-            "operating_hours": "Mon-Fri: 08:00 AM - 06:00 PM, Sat: 09:00 AM - 01:00 PM",
-            "ehr_adapter": "EPIC_MYCHART",
-            "is_active": True,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "hospital_id": "HOSP-CARE-02",
-            "name": "St. Jude Care Pavilion",
-            "code": "STJUDE",
-            "status": "APPROVED",
-            "address": "250 Wellness Blvd, Pavilion West",
-            "phone": "+1-888-ST-JUDE",
-            "departments": ["Cardiovascular Medicine", "Thoracic Surgery", "General Practice"],
-            "specialties": ["Cardiology", "Internal Medicine", "Oncology"],
-            "operating_hours": "Mon-Fri: 09:00 AM - 05:00 PM",
-            "ehr_adapter": "FHIR_R4",
-            "is_active": True,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for h in hospitals_data:
-        col_hospitals.update_one({"hospital_id": h["hospital_id"]}, {"$set": h}, upsert=True)
+    from app.database.config import SessionLocal
+    from app.database.models import Hospital, Doctor
+    import json
 
-    # 2. Doctors Catalog
-    col_doctors = db["doctors"]
-    doctors_data = [
-        {
-            "doctor_id": "DOC-SHARMA-01",
-            "hospital_id": "HOSP-CITY-01",
-            "hospital_name": "City Memorial Hospital",
-            "name": "Dr. Sharma",
-            "specialty": "Orthopedic Surgery",
-            "department": "Orthopedic Surgery",
-            "qualifications": "MD, FACS, Board Certified Orthopedic Surgeon",
-            "experience_years": 15,
-            "languages": ["English", "Hindi"],
-            "consultation_type": "IN_PERSON",
-            "default_appointment_duration": 30,
-            "status": "ACTIVE",
-            "rating": 4.9,
-            "bio": "Specializes in joint preservation, arthroscopy, and sports trauma rehabilitation.",
-            "working_hours": "09:00 AM - 05:00 PM",
-            "available_slots": [
-                "09:00 AM", "09:30 AM", "10:30 AM", "11:00 AM", 
-                "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM"
-            ],
-            "npi": "198234812",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "doctor_id": "DOC-RAO-02",
-            "hospital_id": "HOSP-CITY-01",
-            "hospital_name": "City Memorial Hospital",
-            "name": "Dr. Rao",
-            "specialty": "Cardiology",
-            "department": "Cardiology",
-            "qualifications": "MD, FACC, Board Certified Cardiologist",
-            "experience_years": 12,
-            "languages": ["English", "Telugu", "Spanish"],
-            "consultation_type": "HYBRID",
-            "default_appointment_duration": 30,
-            "status": "ACTIVE",
-            "rating": 4.8,
-            "bio": "Specializing in preventive cardiology, coronary interventions, and arrhythmia management.",
-            "working_hours": "09:00 AM - 05:00 PM",
-            "available_slots": [
-                "10:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "04:30 PM"
-            ],
-            "npi": "174829103",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "doctor_id": "DOC-CHEN-03",
-            "hospital_id": "HOSP-CITY-01",
-            "hospital_name": "City Memorial Hospital",
-            "name": "Dr. Lisa Chen",
-            "specialty": "Dermatology",
-            "department": "Dermatology",
-            "qualifications": "MD, FAAD, Dermatology Fellow",
-            "experience_years": 9,
-            "languages": ["English", "Mandarin"],
-            "consultation_type": "VIDEO",
-            "default_appointment_duration": 20,
-            "status": "ACTIVE",
-            "rating": 4.95,
-            "bio": "Expert in inflammatory skin pathologies, clinical dermoscopy, and tele-dermatology.",
-            "working_hours": "08:30 AM - 04:30 PM",
-            "available_slots": ["09:00 AM", "10:00 AM", "01:00 PM", "02:00 PM"],
-            "npi": "189204910",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        },
-        {
-            "doctor_id": "DOC-WATSON-04",
-            "hospital_id": "HOSP-CARE-02",
-            "hospital_name": "St. Jude Care Pavilion",
-            "name": "Dr. Emily Watson",
-            "specialty": "Neurology",
-            "department": "Neurosciences",
-            "qualifications": "MD, PhD, Clinical Neurophysiology",
-            "experience_years": 14,
-            "languages": ["English"],
-            "consultation_type": "IN_PERSON",
-            "default_appointment_duration": 45,
-            "status": "ACTIVE",
-            "rating": 4.9,
-            "bio": "Comprehensive neurological evaluations, migraine clinics, and neuromuscular disorders.",
-            "working_hours": "09:00 AM - 05:00 PM",
-            "available_slots": ["10:30 AM", "11:30 AM", "02:30 PM", "03:30 PM"],
-            "npi": "149204859",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-    ]
-    for d in doctors_data:
-        col_doctors.update_one({"doctor_id": d["doctor_id"]}, {"$set": d}, upsert=True)
-
-    # 3. Hospital History Profiles (clean 0-counters for dynamic tracking)
-    col_hh = db["hospital_history"]
-    for h in hospitals_data:
-        existing_hh = col_hh.find_one({"hospital_id": h["hospital_id"]})
-        if not existing_hh:
-            col_hh.insert_one({
-                "hospital_id": h["hospital_id"],
-                "name": h["name"],
-                "code": h["code"],
-                "departments": h["departments"],
-                "visiting_hours": h["operating_hours"],
-                "total_appointments_booked": 0,
-                "total_voice_inquiries": 0,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            })
-
-    # 4. Create collection indexes for high performance queries
+    sqlite_db = SessionLocal()
     try:
-        db["conversations"].create_index("session_id")
-        db["conversations"].create_index("patient_phone")
-        db["appointments"].create_index("appointment_id")
-        db["appointments"].create_index("patient_phone")
-        db["patient_history"].create_index("phone_number")
-        db["patient_preferences"].create_index("phone_number")
-        db["patients"].create_index("phone_number")
-        db["questionnaires"].create_index("response_id")
-    except Exception:
-        pass
+        # 1. Hospitals Catalog: Dynamic from SQLite
+        col_hospitals = db["hospitals"]
+        active_hospitals = sqlite_db.query(Hospital).filter(Hospital.is_active == True).all()
+        for h in active_hospitals:
+            depts = []
+            try:
+                if h.departments_json:
+                    depts = json.loads(h.departments_json) if isinstance(h.departments_json, str) else h.departments_json
+            except Exception:
+                depts = []
+            specs = []
+            try:
+                if h.specialties_json:
+                    specs = json.loads(h.specialties_json) if isinstance(h.specialties_json, str) else h.specialties_json
+            except Exception:
+                specs = []
 
-    return {
-        "status": "success",
-        "message": "Hospital & Doctor catalog synced. Dynamic data collections are clean and ready for real-time traffic."
-    }
+            h_doc = {
+                "hospital_id": h.id,
+                "name": h.name,
+                "code": h.code,
+                "status": h.hospital_status.value if hasattr(h.hospital_status, "value") else str(h.hospital_status),
+                "address": h.address or "Regional Medical Campus",
+                "phone": h.phone or "+1-800-NEXUS-CARE",
+                "contact_email": h.contact_email,
+                "departments": depts,
+                "specialties": specs,
+                "operating_hours": "Mon-Fri: 08:00 AM - 06:00 PM, Sat: 09:00 AM - 01:00 PM",
+                "is_active": bool(h.is_active),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            col_hospitals.update_one({"hospital_id": h.id}, {"$set": h_doc}, upsert=True)
+
+        # 2. Doctors Catalog: Dynamic from SQLite
+        col_doctors = db["doctors"]
+        active_doctors = sqlite_db.query(Doctor).filter(Doctor.is_active == True).all()
+        for d in active_doctors:
+            hosp = sqlite_db.query(Hospital).filter(Hospital.id == d.hospital_id).first()
+            d_doc = {
+                "doctor_id": d.id,
+                "hospital_id": d.hospital_id,
+                "hospital_name": hosp.name if hosp else "NexusHealth Hospital",
+                "name": d.name,
+                "specialty": d.specialty,
+                "department": d.department or d.specialty,
+                "default_appointment_duration": d.default_appointment_duration or 30,
+                "status": d.doctor_status.value if hasattr(d.doctor_status, "value") else str(d.doctor_status),
+                "is_active": bool(d.is_active),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            col_doctors.update_one({"doctor_id": d.id}, {"$set": d_doc}, upsert=True)
+
+        # 3. Hospital History Profiles (clean counters for dynamic tracking)
+        col_hh = db["hospital_history"]
+        for h in active_hospitals:
+            existing_hh = col_hh.find_one({"hospital_id": h.id})
+            if not existing_hh:
+                col_hh.insert_one({
+                    "hospital_id": h.id,
+                    "name": h.name,
+                    "code": h.code,
+                    "total_appointments_booked": 0,
+                    "total_voice_inquiries": 0,
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                })
+
+        # 4. Create collection indexes for high performance queries
+        try:
+            db["conversations"].create_index("session_id")
+            db["conversations"].create_index("patient_phone")
+            db["appointments"].create_index("appointment_id")
+            db["appointments"].create_index("patient_phone")
+            db["appointments"].create_index("doctor_id")
+            db["patient_history"].create_index("phone_number")
+            db["patient_preferences"].create_index("phone_number")
+            db["patients"].create_index("phone_number")
+            db["questionnaires"].create_index("response_id")
+        except Exception:
+            pass
+
+        return {
+            "status": "success",
+            "message": f"Synced {len(active_hospitals)} hospitals and {len(active_doctors)} doctors from SQLite to MongoDB Atlas.",
+            "synced_hospitals": len(active_hospitals),
+            "synced_doctors": len(active_doctors)
+        }
+    finally:
+        sqlite_db.close()
 
 # Backward compatible alias
 seed_mongodb_data = sync_mongodb_catalog

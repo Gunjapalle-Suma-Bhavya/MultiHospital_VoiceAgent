@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { apiCall } from '../../api/client';
 
 interface Props {
   doctorId?: string;
@@ -45,29 +46,61 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
   const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    const isDoctorRao = doctorId === 'DOC-RAO-02';
-    setName(isDoctorRao ? 'Dr. Rajesh Rao, MD' : 'Dr. Ananya Sharma, MD, FACS');
-    setSpecialty(isDoctorRao ? 'Cardiology' : 'Orthopedic Surgery');
-    setLicenseNumber(isDoctorRao ? 'MD-LIC-448291' : 'MD-LIC-889102');
-    setNpiNumber(isDoctorRao ? 'NPI-199482012' : 'NPI-198234812');
-    setConsultFee(isDoctorRao ? '180' : '150');
-    setRoomNumber(isDoctorRao ? 'Pavilion B, Room 304' : 'Ortho Wing, Suite 410');
-    setBio(
-      isDoctorRao
-        ? 'Board-certified clinical cardiologist with 14 years of experience in preventative cardiology, cardiac rehabilitation, and non-invasive electrophysiology diagnostics.'
-        : 'Board-certified orthopedic surgeon specializing in arthroscopic shoulder stabilization, rotator cuff repair, and sports medicine injury recovery.'
-    );
-    setClinicalInstructions(
-      isDoctorRao
-        ? 'Please bring recent lipid panels, ECG recordings, and list of current blood pressure medications.'
-        : 'Please wear loose clothing and bring prior MRI or X-ray imaging CDs on disk if taken outside City Memorial Hospital.'
-    );
+    const fetchProfile = async () => {
+      try {
+        const res = await apiCall(`/api/v1/doctors/${doctorId}`);
+        if (res.ok && res.data) {
+          setName(res.data.name || '');
+          setSpecialty(res.data.specialty || '');
+          setLicenseNumber(res.data.qualifications || res.data.external_provider_id || `LIC-${doctorId}`);
+          setNpiNumber(res.data.external_provider_id || `NPI-${doctorId}`);
+          setHospitalName(res.data.hospital_name || 'City Memorial Hospital');
+          setConsultDuration(String(res.data.default_appointment_duration || '30'));
+          if (res.data.bio) setBio(res.data.bio);
+          if (res.data.special_instructions) setClinicalInstructions(res.data.special_instructions);
+          return;
+        }
+      } catch (err) {}
+
+      const isDoctorRao = doctorId === 'DOC-RAO-02';
+      setName(isDoctorRao ? 'Dr. Rajesh Rao, MD' : 'Dr. Ananya Sharma, MD, FACS');
+      setSpecialty(isDoctorRao ? 'Cardiology' : 'Orthopedic Surgery');
+      setLicenseNumber(isDoctorRao ? 'MD-LIC-448291' : 'MD-LIC-889102');
+      setNpiNumber(isDoctorRao ? 'NPI-199482012' : 'NPI-198234812');
+      setConsultFee(isDoctorRao ? '180' : '150');
+      setRoomNumber(isDoctorRao ? 'Pavilion B, Room 304' : 'Ortho Wing, Suite 410');
+      setBio(
+        isDoctorRao
+          ? 'Board-certified clinical cardiologist with 14 years of experience in preventative cardiology, cardiac rehabilitation, and non-invasive electrophysiology diagnostics.'
+          : 'Board-certified orthopedic surgeon specializing in arthroscopic shoulder stabilization, rotator cuff repair, and sports medicine injury recovery.'
+      );
+      setClinicalInstructions(
+        isDoctorRao
+          ? 'Please bring recent lipid panels, ECG recordings, and list of current blood pressure medications.'
+          : 'Please wear loose clothing and bring prior MRI or X-ray imaging CDs on disk if taken outside City Memorial Hospital.'
+      );
+    };
+    fetchProfile();
   }, [doctorId]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     setFeedback(null);
+
+    try {
+      await apiCall(`/api/v1/doctors/${doctorId}/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name,
+          specialty,
+          qualifications: licenseNumber,
+          default_appointment_duration: parseInt(consultDuration) || 30,
+          bio,
+          special_instructions: clinicalInstructions,
+        }),
+      });
+    } catch {}
 
     localStorage.setItem(
       `doctor_profile_${doctorId}`,
@@ -85,10 +118,8 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
       })
     );
 
-    setTimeout(() => {
-      setIsSaving(false);
-      setFeedback('Clinician credentials and consultation parameters updated successfully.');
-    }, 350);
+    setIsSaving(false);
+    setFeedback('Clinician credentials and consultation parameters updated successfully.');
   };
 
   return (

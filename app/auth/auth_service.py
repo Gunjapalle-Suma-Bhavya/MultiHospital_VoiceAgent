@@ -17,7 +17,11 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 
-from app.database.models import UserAccount, Hospital, Doctor, PatientProfile
+from datetime import time
+from app.database.models import (
+    UserAccount, Hospital, Doctor, PatientProfile,
+    DoctorStatus, DoctorCalendar, CalendarType, DoctorWorkingHour
+)
 from app.rbac import UserRole, ROLE_PERMISSIONS_MAP
 
 
@@ -199,16 +203,76 @@ class AuthService:
                 self.db.commit()
             patient_id = pat.id
 
-        # Link Doctor if role is DOCTOR
+        # Link or provision Doctor if role is DOCTOR
         doctor_id = None
         if role_clean == "DOCTOR":
-            doc = self.db.query(Doctor).filter(Doctor.name.ilike(f"%{full_name}%")).first()
-            if doc:
-                doctor_id = doc.id
-                hospital_id = doc.hospital_id
-                hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
-                if hosp:
-                    hosp_name = hosp.name
+            doc = self.db.query(Doctor).filter(
+                (Doctor.name.ilike(f"%{full_name}%")) | (Doctor.id == f"DOC-{clean_email.split('@')[0].upper()}")
+            ).first()
+            if not doc:
+                assigned_hosp_id = hospital_id or "HOSP-CITY-01"
+                doc_code = clean_email.split('@')[0].upper().replace('.', '-')
+                new_doc_id = f"DOC-{doc_code[:8]}"
+                # Ensure unique id
+                if self.db.query(Doctor).filter(Doctor.id == new_doc_id).first():
+                    new_doc_id = f"DOC-{secrets.token_hex(4).upper()}"
+
+                doc = Doctor(
+                    id=new_doc_id,
+                    hospital_id=assigned_hosp_id,
+                    name=full_name,
+                    specialty="General Medicine",
+                    department="Clinical Practice",
+                    doctor_status=DoctorStatus.ACTIVE,
+                    is_active=True,
+                    default_appointment_duration=30
+                )
+                self.db.add(doc)
+                self.db.commit()
+
+                # Add calendar
+                cal = DoctorCalendar(
+                    doctor_id=doc.id,
+                    calendar_name=f"{full_name} Primary",
+                    calendar_type=CalendarType.HOSPITAL_CONSULTATION,
+                    is_active=True
+                )
+                self.db.add(cal)
+
+                # Add working hours for all 7 days
+                for day in range(7):
+                    wh = DoctorWorkingHour(
+                        doctor_id=doc.id,
+                        day_of_week=day,
+                        start_time=time(8, 0),
+                        end_time=time(18, 0),
+                        break_start=time(12, 0),
+                        break_end=time(13, 0)
+                    )
+                    self.db.add(wh)
+                self.db.commit()
+
+                try:
+                    from app.database.mongodb import persist_to_mongodb
+                    persist_to_mongodb("doctors", {
+                        "doctor_id": doc.id,
+                        "hospital_id": doc.hospital_id,
+                        "hospital_name": hosp_name or "NexusHealth Hospital",
+                        "name": doc.name,
+                        "specialty": doc.specialty,
+                        "department": doc.department,
+                        "default_appointment_duration": 30,
+                        "status": "ACTIVE",
+                        "is_active": True
+                    }, key_field="doctor_id")
+                except Exception:
+                    pass
+
+            doctor_id = doc.id
+            hospital_id = doc.hospital_id
+            hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+            if hosp:
+                hosp_name = hosp.name
 
         user = UserAccount(
             email=clean_email,
@@ -368,11 +432,13 @@ class AuthService:
                 doc = self.db.query(Doctor).filter(
                     (Doctor.id == identifier) | (Doctor.name.ilike(f"%{identifier}%"))
                 ).first()
+                if not doc:
+                    doc = self.db.query(Doctor).filter(Doctor.is_active == True).first()
                 user = UserAccount(
                     email=clean_email,
                     full_name=doc.name if doc else identifier,
                     role="DOCTOR",
-                    doctor_id=doc.id if doc else f"DOC-{secrets.token_hex(4)}",
+                    doctor_id=doc.id if doc else "DOC-SHARMA-01",
                     hospital_id=doc.hospital_id if doc else "HOSP-CITY-01",
                     hospital_name="City Memorial Hospital",
                     auth_provider="LOCAL",

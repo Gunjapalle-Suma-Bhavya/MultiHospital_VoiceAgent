@@ -34,6 +34,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
   >((initialTab as any) || 'profile');
 
   const [doctorId, setDoctorId] = useState(user?.doctor_id || 'DOC-SHARMA-01');
+  const [doctorList, setDoctorList] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedAppt, setSelectedAppt] = useState<any>(null);
   const [encounterAppt, setEncounterAppt] = useState<any>(null);
@@ -42,6 +43,30 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
     pendingQuestionnaires: 0,
     upcomingCount: 0,
   });
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const res = await apiCall('/api/v1/doctors');
+        if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+          setDoctorList(res.data);
+          if (user?.doctor_id) {
+            const found = res.data.find((d: any) => (d.doctor_id || d.id) === user.doctor_id);
+            if (found) {
+              setDoctorId(user.doctor_id);
+              return;
+            }
+          }
+          if (!user?.doctor_id) {
+            setDoctorId(res.data[0].doctor_id || res.data[0].id || 'DOC-SHARMA-01');
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load doctors catalog:', err);
+      }
+    };
+    fetchDoctors();
+  }, [user?.doctor_id]);
 
   useEffect(() => {
     if (
@@ -62,16 +87,30 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
 
   const loadDoctorData = async (docId: string) => {
     try {
-      const res = await apiCall(`/api/v1/doctor-dashboard/${docId}/home`);
       let list: any[] = [];
-      if (res.ok && res.data) {
-        list = res.data.today_appointments || [];
+      // 1. Fetch full live appointments for this doctor
+      const apptRes = await apiCall(`/api/v1/doctor-dashboard/${docId}/appointments`);
+      if (apptRes.ok && apptRes.data) {
+        if (Array.isArray(apptRes.data)) {
+          list = apptRes.data;
+        } else if (Array.isArray(apptRes.data.appointments)) {
+          list = apptRes.data.appointments;
+        }
+      }
+
+      // 2. Fetch summary metrics
+      const homeRes = await apiCall(`/api/v1/doctor-dashboard/${docId}/home`);
+      if (homeRes.ok && homeRes.data) {
+        if (list.length === 0) {
+          list = homeRes.data.all_appointments || homeRes.data.upcoming_appointments || homeRes.data.today_appointments || [];
+        }
         setHomeMetrics({
-          appointmentsCount: list.length + bookings.length,
-          pendingQuestionnaires: res.data.pending_questionnaires_count || 0,
-          upcomingCount: res.data.upcoming_appointments_count || 0,
+          appointmentsCount: (homeRes.data.all_appointments?.length ?? list.length) + bookings.length,
+          pendingQuestionnaires: homeRes.data.pending_questionnaires_count || 0,
+          upcomingCount: homeRes.data.upcoming_appointments_count || 0,
         });
       }
+
       setAppointments(list);
       if (list.length > 0) {
         setSelectedAppt(list[0]);
@@ -90,6 +129,8 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
     window.location.hash = `/doctor/${tab}`;
   };
 
+  const currentDoctor = doctorList.find((d) => (d.doctor_id || d.id) === doctorId);
+
   return (
     <div className="space-y-6">
       {/* Clinician Header Strip */}
@@ -103,10 +144,10 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
               Doctor Clinical Workstation
             </div>
             <h2 className="text-xl font-extrabold text-white">
-              {doctorId === 'DOC-RAO-02' ? 'Dr. Rao — Cardiology' : 'Dr. Sharma — Orthopedic Surgery'}
+              {currentDoctor ? `${currentDoctor.name} — ${currentDoctor.specialty || 'Physician'}` : (doctorId === 'DOC-RAO-02' ? 'Dr. Rao — Cardiology' : 'Dr. Sharma — Orthopedic Surgery')}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              City Memorial Hospital &bull; Consultation: 30 Mins &bull; NPI #198234812
+              {currentDoctor?.hospital_name || 'City Memorial Hospital'} &bull; Consultation: {currentDoctor?.default_appointment_duration || 30} Mins &bull; ID #{doctorId}
             </p>
           </div>
         </div>
@@ -118,8 +159,17 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
             onChange={(e) => setDoctorId(e.target.value)}
             className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 font-medium focus:ring-2 focus:ring-sky-500 cursor-pointer"
           >
-            <option value="DOC-SHARMA-01">Dr. Sharma (Orthopedic Surgery)</option>
-            <option value="DOC-RAO-02">Dr. Rao (Cardiology)</option>
+            {doctorList.map((doc) => (
+              <option key={doc.doctor_id || doc.id} value={doc.doctor_id || doc.id}>
+                {doc.name} ({doc.specialty || 'Physician'})
+              </option>
+            ))}
+            {doctorList.length === 0 && (
+              <>
+                <option value="DOC-SHARMA-01">Dr. Sharma (Orthopedic Surgery)</option>
+                <option value="DOC-RAO-02">Dr. Rao (Cardiology)</option>
+              </>
+            )}
           </select>
         </div>
       </div>
@@ -263,12 +313,12 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
           booking={{
             id: encounterAppt.id || 'APT-1024',
             doctor_id: doctorId,
-            doctor_name: doctorId === 'DOC-RAO-02' ? 'Dr. Rao' : 'Dr. Sharma',
-            patient_name: encounterAppt.patient_name || 'Marcus Aurelius',
-            patient_phone: encounterAppt.patient_phone || '+1-555-SHOULDER',
+            doctor_name: currentDoctor?.name || (doctorId === 'DOC-RAO-02' ? 'Dr. Rao' : 'Dr. Sharma'),
+            patient_name: encounterAppt.patient_name || 'Patient',
+            patient_phone: encounterAppt.patient_phone || 'N/A',
             scheduled_time: encounterAppt.time || encounterAppt.scheduled_time || '10:00 AM',
             slot_time: encounterAppt.time || '10:00 AM',
-            specialty: doctorId === 'DOC-RAO-02' ? 'Cardiology' : 'Orthopedic Surgery',
+            specialty: currentDoctor?.specialty || (doctorId === 'DOC-RAO-02' ? 'Cardiology' : 'General Medicine'),
             status: encounterAppt.ehr_status || 'CONFIRMED',
             is_ehr_verified: true,
           }}

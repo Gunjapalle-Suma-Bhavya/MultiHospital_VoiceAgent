@@ -105,6 +105,31 @@ def get_doctor_profile(doctor_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Doctor not found")
     return prof
 
+@router.get("/doctors")
+def list_doctors(hospital_id: Optional[str] = None, active_only: bool = True, db: Session = Depends(get_db)):
+    doc_service = DoctorManagementService(db)
+    from app.database.models import Doctor
+    query = db.query(Doctor)
+    if hospital_id:
+        query = query.filter(Doctor.hospital_id == hospital_id)
+    if active_only:
+        query = query.filter(Doctor.is_active == True)
+    doctors = query.all()
+    res = []
+    for d in doctors:
+        try:
+            res.append(doc_service.get_doctor_profile(d.id))
+        except Exception:
+            res.append({
+                "doctor_id": d.id,
+                "name": d.name,
+                "specialty": d.specialty,
+                "department": d.department,
+                "hospital_id": d.hospital_id,
+                "is_active": d.is_active
+            })
+    return res
+
 @router.get("/hospitals/{hospital_id}/doctors")
 def list_doctors_by_hospital(hospital_id: str, active_only: bool = True, db: Session = Depends(get_db)):
     doc_service = DoctorManagementService(db)

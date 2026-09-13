@@ -101,6 +101,22 @@ class DoctorDashboardService:
                     "patient_phone": a.patient_phone,
                     "start_datetime": a.start_datetime.isoformat(),
                     "end_datetime": a.end_datetime.isoformat(),
+                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+                    "is_ehr_verified": a.is_ehr_verified
+                }
+                for a in todays_appts
+            ],
+            "today_appointments": [
+                {
+                    "id": a.id,
+                    "patient_name": a.patient_name,
+                    "patient_phone": a.patient_phone,
+                    "start_datetime": a.start_datetime.isoformat(),
+                    "end_datetime": a.end_datetime.isoformat(),
+                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
                     "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
                     "is_ehr_verified": a.is_ehr_verified
                 }
@@ -110,10 +126,29 @@ class DoctorDashboardService:
                 {
                     "id": a.id,
                     "patient_name": a.patient_name,
+                    "patient_phone": a.patient_phone,
                     "start_datetime": a.start_datetime.isoformat(),
-                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status)
+                    "end_datetime": a.end_datetime.isoformat(),
+                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+                    "is_ehr_verified": a.is_ehr_verified
                 }
                 for a in upcoming_appts
+            ],
+            "all_appointments": [
+                {
+                    "id": a.id,
+                    "patient_name": a.patient_name,
+                    "patient_phone": a.patient_phone,
+                    "start_datetime": a.start_datetime.isoformat(),
+                    "end_datetime": a.end_datetime.isoformat(),
+                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+                    "is_ehr_verified": a.is_ehr_verified
+                }
+                for a in todays_appts + upcoming_appts
             ],
             "pending_questionnaires": pending_questionnaires,
             "recently_completed_questionnaires": [
