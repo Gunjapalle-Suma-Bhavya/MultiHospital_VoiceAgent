@@ -383,9 +383,11 @@ class ContextAwareReferenceResolver:
                     matched_od = od
                     break
 
-            # 2. Match by ordinal or option number
+            # 2. Match by ordinal or option number or pronoun
             if not matched_od:
                 if any(w in lowered for w in ["first doctor", "1st doctor", "first one", "1st one", "dr 1", "number 1", "number one", "first", "option 1", "doc 1", "doctor 1", "1"]) and len(offered_docs) >= 1:
+                    matched_od = offered_docs[0]
+                elif any(w in lowered for w in ["that doctor", "the doctor", "new doctor", "this doctor", "the new doctor", "choose that doctor", "choose the doctor", "choose that new doctor"]) and len(offered_docs) >= 1:
                     matched_od = offered_docs[0]
                 elif any(w in lowered for w in ["second doctor", "2nd doctor", "second one", "2nd one", "dr 2", "number 2", "number two", "second", "option 2", "doc 2", "doctor 2", "2"]) and len(offered_docs) >= 2:
                     matched_od = offered_docs[1]
@@ -507,9 +509,11 @@ class ContextAwareReferenceResolver:
                     matched_od = od
                     break
 
-            # 2. Match by ordinal or option number
+            # 2. Match by ordinal or option number or pronoun
             if not matched_od:
                 if any(w in lowered for w in ["first doctor", "1st doctor", "first one", "1st one", "dr 1", "number 1", "number one", "first", "option 1", "doc 1", "doctor 1", "1"]) and len(offered_docs) >= 1:
+                    matched_od = offered_docs[0]
+                elif any(w in lowered for w in ["that doctor", "the doctor", "new doctor", "this doctor", "the new doctor", "choose that doctor", "choose the doctor", "choose that new doctor"]) and len(offered_docs) >= 1:
                     matched_od = offered_docs[0]
                 elif any(w in lowered for w in ["second doctor", "2nd doctor", "second one", "2nd one", "dr 2", "number 2", "number two", "second", "option 2", "doc 2", "doctor 2", "2"]) and len(offered_docs) >= 2:
                     matched_od = offered_docs[1]
@@ -548,26 +552,34 @@ class ContextAwareReferenceResolver:
                 doctor_id = matched_od["doctor_id"]
                 doctor_name = matched_od["doctor_name"]
                 hospital_id = matched_od.get("hospital_id")
-                intent = "BOOK_APPOINTMENT"
 
-                # If user explicitly specified a time in utterance, use that
-                if not target_datetime:
-                    slots = matched_od.get("slots", [])
-                    if slots:
-                        for s in slots:
+                user_mentioned_time = bool(target_datetime) or any(w in lowered for w in [
+                    " am", " pm", ":00", ":30", "morning", "afternoon", "evening", "tomorrow at",
+                    "slot 1", "slot 2", "slot 3", "first slot", "second slot", "book it", "confirm"
+                ])
+
+                if not user_mentioned_time and not any(w in lowered for w in ["sharma", "rao"]):
+                    intent = "SHOW_DOCTOR_SLOTS"
+                else:
+                    intent = "BOOK_APPOINTMENT"
+                    # If user explicitly specified a time in utterance, use that
+                    if not target_datetime:
+                        slots = matched_od.get("slots", [])
+                        if slots:
+                            for s in slots:
+                                try:
+                                    parsed_t = datetime.strptime(s.strip(), "%I:%M %p").time()
+                                    target_datetime = datetime.combine(target_d, parsed_t)
+                                    break
+                                except Exception:
+                                    pass
+                        if not target_datetime and matched_od.get("first_slot_iso"):
                             try:
-                                parsed_t = datetime.strptime(s.strip(), "%I:%M %p").time()
-                                target_datetime = datetime.combine(target_d, parsed_t)
-                                break
+                                target_datetime = datetime.fromisoformat(matched_od["first_slot_iso"])
                             except Exception:
                                 pass
-                    if not target_datetime and matched_od.get("first_slot_iso"):
-                        try:
-                            target_datetime = datetime.fromisoformat(matched_od["first_slot_iso"])
-                        except Exception:
-                            pass
-                    if not target_datetime:
-                        target_datetime = datetime.combine(target_d, time(16, 0))
+                        if not target_datetime:
+                            target_datetime = datetime.combine(target_d, time(16, 0))
 
         elif draft.get("stage") == "DOCTORS_RECOMMENDED":
             # Patient choosing from recommended doctors

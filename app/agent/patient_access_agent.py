@@ -83,6 +83,7 @@ class AIPatientAccessAgent:
             else:
                 intake_rec.intake_answers_json = json.dumps(answers)
                 intake_rec.patient_reported_summary = summary_str
+            self.db.commit()
 
             # Ensure appointment is verified and status confirmed
             appt = self.db.query(Appointment).filter(Appointment.id == appt_id).first()
@@ -92,6 +93,7 @@ class AIPatientAccessAgent:
                     doctor_id = appt.doctor_id
                 if not hospital_id and appt.hospital_id:
                     hospital_id = appt.hospital_id
+                self.db.commit()
 
         # 2. Update/create PatientQuestionnaireResponse
         hq = self.db.query(HospitalQuestionnaire).filter(HospitalQuestionnaire.hospital_id == (hospital_id or "HOSP-CITY-01")).first()
@@ -1072,22 +1074,70 @@ class AIPatientAccessAgent:
                     action_payload = {"specialty": spec_to_offer, "doctors": doctors_with_slots}
                     capabilities_invoked.extend(["TOOL_SELECTION_SEARCH", "TOOL_SELECTION_AVAILABILITY", "DISCOVERY_EXECUTED"])
                 else:
-                    agent_response = (
-                        f"I understand you've been having {symptom_phrase}. Based on your symptoms, "
-                        f"consulting {title} would be recommended for scheduling purposes, "
-                        f"and I'll help you book an appointment. Would you like me to show the available doctors?"
+                    search_output = self.executor.search_doctors(
+                        SearchDoctorsInput(session_id=sid, patient_id=patient.id, hospital_id=None, specialty=spec_to_offer)
                     )
-                    was_llm_generated = False
-                    session_state.active_draft_booking_json = json.dumps({
-                        "stage": "SYMPTOM_OFFER_DOCTORS",
-                        "specialty": spec_to_offer,
-                        "symptom": symptom_phrase,
-                        "hospital_id": active_hosp_id
-                    })
-                    self.db.commit()
-                    action_executed = "SYMPTOM_TRIAGE"
-                    action_payload = {"inferred_specialty": spec_to_offer, "symptom": symptom_phrase, "action": "OFFER_AVAILABLE_DOCTORS"}
-                    capabilities_invoked.extend(["TOOL_SELECTION_SEARCH", "DISCOVERY_EXECUTED"])
+                    docs = list(search_output.doctors or [])
+                    if not docs:
+                        all_active = self.db.query(Doctor).join(Hospital).filter(
+                            Doctor.is_active == True,
+                            Doctor.doctor_status == DoctorStatus.ACTIVE,
+                            Hospital.is_active == True,
+                            Hospital.hospital_status == HospitalStatus.APPROVED
+                        ).all()
+                        all_active.reverse()
+                        docs = list(all_active)
+
+                    if docs:
+                        lines = [
+                            f"I understand you are experiencing {symptom_phrase}. Based on your symptoms, "
+                            f"consulting {title} is recommended for scheduling purposes. "
+                            f"Here are the available specialists:"
+                        ]
+                        offered_doctors = []
+                        for idx, doc in enumerate(docs[:3], start=1):
+                            h_name = getattr(doc, 'hospital_name', None)
+                            if not h_name:
+                                h_rec = self.db.query(Hospital).filter(Hospital.id == doc.hospital_id).first()
+                                h_name = h_rec.name if h_rec else "Regional Hospital"
+                            lines.append(f"{idx}. {doc.name} ({h_name})")
+                            offered_doctors.append({
+                                "doctor_id": doc.id,
+                                "doctor_name": doc.name,
+                                "hospital_id": doc.hospital_id,
+                                "hospital_name": h_name,
+                                "specialty": doc.specialty
+                            })
+                        lines.append("Which doctor would you like to consult?")
+                        agent_response = "\n".join(lines)
+                        was_llm_generated = False
+                        session_state.active_draft_booking_json = json.dumps({
+                            "stage": "DOCTORS_OFFERED",
+                            "specialty": spec_to_offer,
+                            "symptom": symptom_phrase,
+                            "doctors": offered_doctors
+                        })
+                        self.db.commit()
+                        action_executed = "SHOW_AVAILABLE_DOCTORS"
+                        action_payload = {"specialty": spec_to_offer, "symptom": symptom_phrase, "doctors": offered_doctors}
+                        capabilities_invoked.extend(["TOOL_SELECTION_SEARCH", "DISCOVERY_EXECUTED"])
+                    else:
+                        agent_response = (
+                            f"I understand you've been having {symptom_phrase}. Based on your symptoms, "
+                            f"consulting {title} would be recommended for scheduling purposes, "
+                            f"and I'll help you book an appointment. Would you like me to show the available doctors?"
+                        )
+                        was_llm_generated = False
+                        session_state.active_draft_booking_json = json.dumps({
+                            "stage": "SYMPTOM_OFFER_DOCTORS",
+                            "specialty": spec_to_offer,
+                            "symptom": symptom_phrase,
+                            "hospital_id": active_hosp_id
+                        })
+                        self.db.commit()
+                        action_executed = "SYMPTOM_TRIAGE"
+                        action_payload = {"inferred_specialty": spec_to_offer, "symptom": symptom_phrase, "action": "OFFER_AVAILABLE_DOCTORS"}
+                        capabilities_invoked.extend(["TOOL_SELECTION_SEARCH", "DISCOVERY_EXECUTED"])
 
             # Case 2: Patient requested to show doctors after symptom triage
             elif is_followup_show_request:

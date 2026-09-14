@@ -4,6 +4,7 @@ Patient Profile, Self-Service, Appointments & Questionnaire Router.
 
 from typing import Optional, Dict, Any, List
 from datetime import datetime, date
+import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -169,6 +170,24 @@ def list_appointments(
         d_str = a.start_datetime.strftime("%Y-%m-%d") if a.start_datetime else ""
         sched_str = a.start_datetime.strftime("%b %d, %Y at %I:%M %p") if a.start_datetime else "Today"
 
+        from app.database.models import PatientIntakeRecord, PatientQuestionnaireResponse
+        intake = db.query(PatientIntakeRecord).filter(PatientIntakeRecord.appointment_id == a.id).first()
+        q_resp = db.query(PatientQuestionnaireResponse).filter(
+            PatientQuestionnaireResponse.appointment_id == a.id
+        ).order_by(PatientQuestionnaireResponse.submitted_at.desc()).first()
+
+        intake_ans = {}
+        if q_resp and q_resp.answers_json:
+            try:
+                intake_ans.update(json.loads(q_resp.answers_json))
+            except Exception:
+                pass
+        if intake and intake.intake_answers_json:
+            try:
+                intake_ans.update(json.loads(intake.intake_answers_json))
+            except Exception:
+                pass
+
         results.append({
             "id": a.id,
             "appointment_id": a.id,
@@ -190,7 +209,9 @@ def list_appointments(
             "is_ehr_verified": bool(a.is_ehr_verified),
             "external_ehr_id": getattr(a, "external_ehr_id", None) or f"EHR-{a.id[:8] if a.id else 'SYNC'}",
             "is_booked": True,
-            "complaint": getattr(a, "reason_for_visit", None) or (f"{doc.specialty} Consultation" if doc else "Medical Consultation")
+            "complaint": getattr(a, "reason_for_visit", None) or (intake.patient_reported_summary if intake else (f"{doc.specialty} Consultation" if doc else "Medical Consultation")),
+            "intake_answers": intake_ans,
+            "intake_summary": intake.patient_reported_summary if intake else None
         })
 
     return {

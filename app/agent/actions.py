@@ -121,11 +121,28 @@ class ActionExecutor:
         if payload.hospital_id:
             query = query.filter(Doctor.hospital_id == payload.hospital_id)
         if payload.specialty:
-            query = query.filter(Doctor.specialty.ilike(f"%{payload.specialty}%"))
+            spec = payload.specialty.strip()
+            stem = spec.rstrip("y").rstrip("ic").rstrip("ist").rstrip("s")
+            specialty_filter = (
+                (Doctor.specialty.ilike(f"%{spec}%")) |
+                (Doctor.specialty.ilike(f"%{stem}%"))
+            )
         if payload.doctor_name:
             query = query.filter(Doctor.name.ilike(f"%{payload.doctor_name}%"))
-            
         doctors = query.all()
+        doctors.reverse()
+        # Fallback if no specific specialty match: retrieve all active doctors in active hospitals
+        if not doctors and payload.specialty and not payload.doctor_name:
+            fallback_query = self.db.query(Doctor).join(Hospital).filter(
+                Doctor.is_active == True,
+                Doctor.doctor_status == DoctorStatus.ACTIVE,
+                Hospital.is_active == True,
+                Hospital.hospital_status == HospitalStatus.APPROVED
+            )
+            if payload.hospital_id:
+                fallback_query = fallback_query.filter(Doctor.hospital_id == payload.hospital_id)
+            doctors = fallback_query.all()
+            doctors.reverse()
         dtos = []
         for d in doctors:
             h = self.db.query(Hospital).filter(Hospital.id == d.hospital_id).first()
