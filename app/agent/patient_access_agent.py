@@ -551,9 +551,10 @@ class AIPatientAccessAgent:
                 self._persist_previsit_responses(patient.id, appt_id, effective_hosp_id, recorded_answers, user_utterance, doctor_id=doc_id)
 
                 agent_response = (
-                    f"Thank you! I have recorded your pre-visit information for {doc_name}: "
+                    f"I have recorded your responses and sent them to the doctor ({doc_name}): "
                     f"Shoulder pain: {sh_pain}, Duration: {dur}, Previous treatment: {prev_tx}. "
-                    f"Your pre-visit questionnaire is complete. We look forward to seeing you tomorrow!"
+                    f"Your pre-visit questionnaire is complete, and your appointment is confirmed. "
+                    f"Thank you, and goodbye!"
                 )
                 session_state.active_draft_booking_json = None
                 self.db.commit()
@@ -610,10 +611,10 @@ class AIPatientAccessAgent:
                         formatted_summary = ", ".join(summary_parts)
                         time_phrase = draft_info.get("time_phrase") or "tomorrow"
                         agent_response = (
-                            f"Thank you! I have recorded your pre-visit information for {doc_name}: {formatted_summary}. "
+                            f"I have recorded your responses and sent them to the doctor ({doc_name}): {formatted_summary}. "
                             f"All of your responses have been shared directly with {doc_name}'s clinical interface. "
                             f"Your pre-visit questionnaire is complete, and your appointment is confirmed for tomorrow at {time_phrase}. "
-                            f"We look forward to seeing you tomorrow at {time_phrase}! Goodbye."
+                            f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None
                         self.db.commit()
@@ -664,10 +665,10 @@ class AIPatientAccessAgent:
                         formatted_summary = ", ".join(summary_parts)
                         time_phrase = draft_info.get("time_phrase") or "tomorrow"
                         agent_response = (
-                            f"Thank you! I have recorded your pre-visit information for {doc_name}: {formatted_summary}. "
+                            f"I have recorded your responses and sent them to the doctor ({doc_name}): {formatted_summary}. "
                             f"All of your responses have been shared directly with {doc_name}'s clinical interface. "
                             f"Your pre-visit questionnaire is complete, and your appointment is confirmed for tomorrow at {time_phrase}. "
-                            f"We look forward to seeing you tomorrow at {time_phrase}! Goodbye."
+                            f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None
                         self.db.commit()
@@ -676,7 +677,7 @@ class AIPatientAccessAgent:
                 else:
                     session_state.active_draft_booking_json = None
                     self.db.commit()
-                    agent_response = f"Your pre-visit questionnaire for {doc_name} is complete. We look forward to seeing you tomorrow!"
+                    agent_response = f"I have recorded your responses and sent them to the doctor ({doc_name}). Your pre-visit questionnaire is complete. Thank you, and goodbye!"
 
         elif intent == "CONVERSATIONAL_PAUSE":
             agent_response = "I'm listening. Take your time, and let me know whenever you are ready."
