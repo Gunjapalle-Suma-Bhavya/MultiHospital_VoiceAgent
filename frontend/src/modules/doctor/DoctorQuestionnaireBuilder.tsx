@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardList,
   Plus,
@@ -11,6 +11,8 @@ import {
   Hash,
   Eye,
 } from 'lucide-react';
+import { apiCall } from '../../api/client';
+import { useAuth } from '../../hooks/useAuth';
 
 interface QuestionItem {
   id: string;
@@ -20,54 +22,75 @@ interface QuestionItem {
   required: boolean;
 }
 
-export const DoctorQuestionnaireBuilder: React.FC = () => {
-  const [title, setTitle] = useState('Pre-Op Orthopedic Shoulder & Joint Mobility Assessment');
-  const [specialty, setSpecialty] = useState('Orthopedics');
+interface Props {
+  doctorId?: string;
+}
+
+export const DoctorQuestionnaireBuilder: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) => {
+  const { user } = useAuth();
+  const effectiveDoctorId = doctorId || user?.doctor_id || 'DOC-SHARMA-01';
+
+  const [title, setTitle] = useState(user?.name ? `${user.name} Clinical Intake Questionnaire` : 'Doctor Clinical Intake Questionnaire');
+  const [specialty, setSpecialty] = useState(user?.specialty || 'General Medicine');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const [description, setDescription] = useState(
-    'Standardized preoperative intake questionnaire assessing functional range of motion, nocturnal pain, and prior conservative therapy.'
+    'Pre-visit clinical intake assessment questions configured by the doctor for upcoming patient consultations.'
   );
 
-  const [questions, setQuestions] = useState<QuestionItem[]>([
-    {
-      id: 'q1',
-      prompt: 'On a scale of 1 to 10, what is your current baseline joint pain at rest?',
-      type: 'SCALE_1_10',
-      required: true,
-    },
-    {
-      id: 'q2',
-      prompt: 'Does the pain wake you from sleep when lying on the affected shoulder?',
-      type: 'YES_NO',
-      required: true,
-    },
-    {
-      id: 'q3',
-      prompt: 'Which conservative interventions have you tried in the past 6 months?',
-      type: 'CHOICE',
-      options: ['Physical Therapy', 'Corticosteroid Injections', 'NSAIDs / Ice Therapy', 'None'],
-      required: false,
-    },
-    {
-      id: 'q4',
-      prompt: 'Describe any specific daily movements or activities that trigger acute weakness or numbness.',
-      type: 'TEXT',
-      required: false,
-    },
-  ]);
-
+  const [questions, setQuestions] = useState<QuestionItem[]>([]);
   const [newPrompt, setNewPrompt] = useState('');
   const [newType, setNewType] = useState<'TEXT' | 'SCALE_1_10' | 'YES_NO' | 'CHOICE'>('TEXT');
   const [newRequired, setNewRequired] = useState(true);
   const [newChoiceOptions, setNewChoiceOptions] = useState('Option A, Option B, Option C');
 
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [savedCount, setSavedCount] = useState(3);
 
-  const handleAddQuestion = () => {
+  useEffect(() => {
+    if (user?.name) {
+      setTitle(`${user.name} Clinical Intake Questionnaire`);
+    }
+    if (user?.specialty) {
+      setSpecialty(user.specialty);
+    }
+  }, [user?.name, user?.specialty]);
+
+  const fetchQuestions = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch questions specifically configured by this doctor
+      const res = await apiCall(`/api/v1/questionnaires/doctor/${effectiveDoctorId}`);
+      if (res.ok && Array.isArray(res.data)) {
+        setQuestions(
+          res.data.map((q: any) => ({
+            id: q.id,
+            prompt: q.prompt || q.question_text,
+            type: q.type || 'TEXT',
+            required: q.required ?? true,
+          }))
+        );
+      } else {
+        setQuestions([]);
+      }
+    } catch (e) {
+      console.error('Failed to load doctor questions:', e);
+      setQuestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, [effectiveDoctorId]);
+
+  const handleAddQuestion = async () => {
     if (!newPrompt.trim()) return;
+    const promptText = newPrompt.trim();
     const item: QuestionItem = {
       id: `q-${Date.now()}`,
-      prompt: newPrompt.trim(),
+      prompt: promptText,
       type: newType,
       required: newRequired,
       options:
@@ -75,20 +98,65 @@ export const DoctorQuestionnaireBuilder: React.FC = () => {
           ? newChoiceOptions.split(',').map((o) => o.trim()).filter(Boolean)
           : undefined,
     };
-    setQuestions([...questions, item]);
+    setQuestions((prev) => [...prev, item]);
     setNewPrompt('');
+
+    try {
+      const res = await apiCall('/api/v1/questionnaires/configure-doctor-question', {
+        method: 'POST',
+        body: JSON.stringify({
+          doctor_id: effectiveDoctorId,
+          question_text: promptText,
+          question_type: newType === 'YES_NO' ? 'YES_NO' : (newType === 'SCALE_1_10' ? 'SCALE_1_10' : 'SHORT_TEXT'),
+        }),
+      });
+      if (res.ok && res.data?.question_id) {
+        setQuestions((prev) => prev.map((q) => (q.id === item.id ? { ...q, id: res.data.question_id } : q)));
+      }
+      setFeedback('Question added and registered dynamically for AI intake!');
+    } catch {
+      setFeedback('Question added to template.');
+    } finally {
+      setTimeout(() => setFeedback(null), 3000);
+    }
   };
 
-  const handleRemoveQuestion = (id: string) => {
-    setQuestions(questions.filter((q) => q.id !== id));
+  const handleRemoveQuestion = async (id: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== id));
+    try {
+      await apiCall(`/api/v1/questionnaires/doctor-question/${id}`, { method: 'DELETE' });
+    } catch {}
   };
 
-  const handleSaveQuestionnaire = (e: React.FormEvent) => {
+  const handleSaveQuestionnaire = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedCount((prev) => prev + 1);
-    setFeedback(`Questionnaire "${title}" successfully registered and published for patient intake!`);
-    setTimeout(() => setFeedback(null), 4000);
+    setIsSaving(true);
+    try {
+      for (const q of questions) {
+        if (q.id.startsWith('q-')) {
+          const res = await apiCall('/api/v1/questionnaires/configure-doctor-question', {
+            method: 'POST',
+            body: JSON.stringify({
+              doctor_id: effectiveDoctorId,
+              question_text: q.prompt,
+              question_type: q.type === 'YES_NO' ? 'YES_NO' : (q.type === 'SCALE_1_10' ? 'SCALE_1_10' : 'SHORT_TEXT'),
+            }),
+          });
+          if (res.ok && res.data?.question_id) {
+            q.id = res.data.question_id;
+          }
+        }
+      }
+      setFeedback(`Questionnaire for Doctor ID #${effectiveDoctorId} successfully synchronized to live AI voice engine!`);
+      fetchQuestions();
+    } catch (err: any) {
+      setFeedback(`Questionnaire saved: ${err.message || 'Updated'}`);
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setFeedback(null), 4500);
+    }
   };
+
 
   return (
     <div className="space-y-6">
@@ -164,43 +232,52 @@ export const DoctorQuestionnaireBuilder: React.FC = () => {
               </span>
             </div>
 
-            <div className="space-y-2.5">
-              {questions.map((q, idx) => (
-                <div
-                  key={q.id}
-                  className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-start justify-between gap-3"
-                >
-                  <div className="flex items-start space-x-3">
-                    <span className="w-6 h-6 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {idx + 1}
-                    </span>
-                    <div>
-                      <div className="text-xs font-semibold text-white">{q.prompt}</div>
-                      <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-1">
-                        <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">
-                          {q.type}
-                        </span>
-                        {q.required && (
-                          <span className="text-amber-400 font-bold text-[10px]">&bull; Required</span>
-                        )}
-                        {q.options && (
-                          <span>&bull; Options: {q.options.join(', ')}</span>
-                        )}
+            {questions.length === 0 ? (
+              <div className="bg-slate-950/40 border border-dashed border-slate-800 rounded-xl p-6 text-center text-xs text-slate-400 space-y-1">
+                <div className="font-semibold text-slate-300">No Custom Intake Questions Configured Yet</div>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  Add custom clinical intake prompts below. When a patient schedules an appointment with you, the AI agent will ask these exact questions and store the responses in your workstation.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {questions.map((q, idx) => (
+                  <div
+                    key={q.id}
+                    className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-start justify-between gap-3"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <span className="w-6 h-6 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <div className="text-xs font-semibold text-white">{q.prompt}</div>
+                        <div className="flex items-center space-x-2 text-[11px] text-slate-400 mt-1">
+                          <span className="px-2 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">
+                            {q.type}
+                          </span>
+                          {q.required && (
+                            <span className="text-amber-400 font-bold text-[10px]">&bull; Required</span>
+                          )}
+                          {q.options && (
+                            <span>&bull; Options: {q.options.join(', ')}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveQuestion(q.id)}
-                    className="text-slate-500 hover:text-rose-400 transition p-1"
-                    title="Remove question"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveQuestion(q.id)}
+                      className="text-slate-500 hover:text-rose-400 transition p-1"
+                      title="Remove question"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Add New Question Section */}

@@ -112,6 +112,7 @@ class CreateAppointmentInput(ActionBaseInput):
 
 class CreateAppointmentOutput(ActionBaseOutput):
     appointment_id: Optional[str] = None
+    external_appointment_id: Optional[str] = None
     doctor_name: Optional[str] = None
     hospital_name: Optional[str] = None
     start_datetime: Optional[datetime] = None

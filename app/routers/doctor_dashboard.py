@@ -84,10 +84,36 @@ def get_doctor_all_appointments(doctor_id: str, db: Session = Depends(get_db)):
         Appointment.status != AppointmentStatus.CANCELLED
     ).order_by(Appointment.start_datetime.desc()).all()
 
+    from app.database.models import PatientIntakeRecord, PatientQuestionnaireResponse
+    import json
+
     formatted = []
     for a in appts:
         t_str = a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM"
         d_str = a.start_datetime.strftime("%Y-%m-%d") if a.start_datetime else ""
+
+        intake_rec = db.query(PatientIntakeRecord).filter(PatientIntakeRecord.appointment_id == a.id).first()
+        q_resp = db.query(PatientQuestionnaireResponse).filter(
+            PatientQuestionnaireResponse.appointment_id == a.id
+        ).order_by(PatientQuestionnaireResponse.submitted_at.desc()).first()
+
+        answers = {}
+        if q_resp and q_resp.answers_json:
+            try:
+                answers.update(json.loads(q_resp.answers_json))
+            except Exception:
+                pass
+        if intake_rec and intake_rec.intake_answers_json:
+            try:
+                answers.update(json.loads(intake_rec.intake_answers_json))
+            except Exception:
+                pass
+
+        has_resp = bool(answers or intake_rec or q_resp)
+        summary_text = intake_rec.patient_reported_summary if intake_rec else (
+            ", ".join([f"{k}: {v}" for k, v in answers.items()]) if answers else "None submitted"
+        )
+
         formatted.append({
             "id": a.id,
             "appointment_id": a.id,
@@ -103,7 +129,12 @@ def get_doctor_all_appointments(doctor_id: str, db: Session = Depends(get_db)):
             "slot_time": t_str,
             "complaint": getattr(a, 'reason_for_visit', None) or f"{doc.specialty} Consultation & Clinical Intake",
             "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
-            "is_ehr_verified": bool(a.is_ehr_verified)
+            "is_ehr_verified": bool(a.is_ehr_verified),
+            "has_questionnaire": has_resp,
+            "questionnaire_status": "Complete" if has_resp else "Pending",
+            "intake_answers": answers,
+            "pre_visit_summary": summary_text,
+            "is_submitted_and_verified": bool(has_resp and a.is_ehr_verified)
         })
 
     return {

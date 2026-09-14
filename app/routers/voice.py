@@ -31,12 +31,35 @@ ELEVENLABS_VOICE_MAP = {
 }
 
 
+import uuid
+from app.agent.intent_understanding import SymptomIntentResolver
+from app.agent.anaphora_and_ambiguity import AnaphoraContextResolver
+from app.agent.multi_tier_context import MultiTierContextEngine
+
 class VoiceTurnInput(BaseModel):
-    patient_phone: str = "+15551234567"
-    user_utterance: str
+    patient_phone: Optional[str] = None
+    patient_identifier: Optional[str] = None
+    user_utterance: Optional[str] = None
+    utterance: Optional[str] = None
     hospital_id: Optional[str] = None
     session_id: Optional[str] = None
     language: Optional[str] = "en"
+
+class VoiceSessionStartInput(BaseModel):
+    patient_phone: Optional[str] = None
+    patient_identifier: Optional[str] = None
+    hospital_id: Optional[str] = None
+    channel: Optional[str] = "web_voice"
+    language: Optional[str] = "en"
+
+class IntentInferInput(BaseModel):
+    utterance: str
+    language: Optional[str] = "en"
+
+class AIClarifyInput(BaseModel):
+    session_id: str
+    utterance: str
+    patient_phone: Optional[str] = None
 
 class InboundCallInput(BaseModel):
     caller_phone_number: str
@@ -50,14 +73,84 @@ class TelephonyTurnInput(BaseModel):
 
 @router.post("/api/voice/chat")
 def voice_agent_chat_endpoint(payload: VoiceTurnInput, db: Session = Depends(get_db)):
+    phone = payload.patient_phone or payload.patient_identifier or "+15551234567"
+    text = payload.user_utterance or payload.utterance or "Hello"
     agent_svc = PatientAccessAgentService(db)
     return agent_svc.process_patient_turn(
-        patient_phone=payload.patient_phone,
-        user_utterance=payload.user_utterance,
+        patient_phone=phone,
+        user_utterance=text,
         hospital_id=payload.hospital_id,
         session_id=payload.session_id,
         language=payload.language or "en"
     )
+
+@router.post("/api/v1/voice/session/start")
+def start_voice_session(payload: Optional[VoiceSessionStartInput] = None, db: Session = Depends(get_db)):
+    phone = (payload.patient_phone or payload.patient_identifier) if payload else "+15551234567"
+    phone = phone or "+15551234567"
+    lang = payload.language if payload and payload.language else "en"
+    h_id = payload.hospital_id if payload else None
+    agent_svc = PatientAccessAgentService(db)
+    new_sid = f"VOICE-SES-{uuid.uuid4().hex[:12]}"
+    initial_turn = agent_svc.process_patient_turn(
+        patient_phone=phone,
+        user_utterance="Hello",
+        hospital_id=h_id,
+        session_id=new_sid,
+        language=lang
+    )
+    return {
+        "status": "session_started",
+        "session_id": new_sid,
+        "patient_phone": phone,
+        "language": lang,
+        "greeting": initial_turn.get("agent_response") or "Welcome to NexusHealth. How can I help you today?",
+        "initial_turn": initial_turn
+    }
+
+@router.post("/api/v1/voice/turn")
+def voice_turn_endpoint(payload: VoiceTurnInput, db: Session = Depends(get_db)):
+    phone = payload.patient_phone or payload.patient_identifier or "+15551234567"
+    text = payload.user_utterance or payload.utterance or "Hello"
+    agent_svc = PatientAccessAgentService(db)
+    return agent_svc.process_patient_turn(
+        patient_phone=phone,
+        user_utterance=text,
+        hospital_id=payload.hospital_id,
+        session_id=payload.session_id,
+        language=payload.language or "en"
+    )
+
+@router.post("/api/v1/voice/inbound-phone/simulate")
+def simulate_inbound_phone(payload: InboundCallInput, db: Session = Depends(get_db)):
+    svc = TelephonyInboundService(db)
+    return svc.handle_inbound_call(payload.caller_phone_number)
+
+@router.post("/api/v1/ai/intent/infer")
+def infer_symptom_intent(payload: IntentInferInput):
+    res = SymptomIntentResolver.infer_specialty_from_utterance(payload.utterance)
+    d = res.model_dump()
+    d["specialty"] = d.get("inferred_specialty")
+    if "emergency" in str(d.get("inferred_specialty")).lower() or "emergency" in str(d.get("cautious_response")).lower():
+        d["urgency"] = "EMERGENCY"
+    elif d.get("has_symptom"):
+        d["urgency"] = "HIGH" if ("chest" in payload.utterance.lower() or "severe" in payload.utterance.lower()) else "NORMAL"
+    else:
+        d["urgency"] = "NORMAL"
+    return d
+
+@router.post("/api/v1/ai/clarify")
+def clarify_utterance(payload: AIClarifyInput, db: Session = Depends(get_db)):
+    context_engine = MultiTierContextEngine(db)
+    bundle = context_engine.get_hierarchical_context(
+        session_id=payload.session_id,
+        phone_number=payload.patient_phone
+    )
+    res = AnaphoraContextResolver.resolve_reference(
+        user_utterance=payload.utterance,
+        context_bundle=bundle
+    )
+    return res.model_dump()
 
 @router.post("/api/v1/telephony/inbound-call")
 def telephony_inbound_call(payload: InboundCallInput, db: Session = Depends(get_db)):
@@ -86,21 +179,25 @@ class SynthesizeInput(BaseModel):
     language: str = "en"
 
 
+_elevenlabs_quota_exceeded_until = 0.0
+
+
 @router.post("/api/v1/voice/synthesize")
 def synthesize_speech(payload: SynthesizeInput):
     """
     Universal server-side speech synthesis audio endpoint.
-    Calls ElevenLabs Neural TTS when an API key is provided, falling back seamlessly to local audio.
+    Calls ElevenLabs Neural TTS when an API key is provided and active, falling back seamlessly to local audio.
     """
+    global _elevenlabs_quota_exceeded_until
     start_time = time.time()
     api_key = os.getenv("ELEVENLABS_API_KEY", "")
 
-    # 1. Attempt ElevenLabs Neural TTS synthesis if key is present
-    if api_key and payload.text.strip():
+    # 1. Attempt ElevenLabs Neural TTS synthesis if key is present and not currently rate-limited/quota-exceeded
+    if api_key and payload.text.strip() and time.time() > _elevenlabs_quota_exceeded_until:
         voice_id = ELEVENLABS_VOICE_MAP.get(payload.voice.lower(), "Xb7hH8MSUJpSbSDYk0k2")
         model_id = os.getenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
         try:
-            with httpx.Client(timeout=8.0) as client:
+            with httpx.Client(timeout=4.0) as client:
                 res = client.post(
                     f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?optimize_streaming_latency=4&output_format=mp3_22050_32",
                     headers={
@@ -131,6 +228,8 @@ def synthesize_speech(payload: SynthesizeInput):
                         "server_latency_ms": latency_ms,
                     }
                 else:
+                    if res.status_code in (401, 429) or "quota" in res.text.lower():
+                        _elevenlabs_quota_exceeded_until = time.time() + 300
                     print(f"[ElevenLabs Warning] Status {res.status_code}: {res.text[:150]}")
         except Exception as e:
             print(f"[ElevenLabs Warning] TTS call failed, engaging local audio fallback: {e}")

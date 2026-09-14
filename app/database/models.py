@@ -58,6 +58,7 @@ class PreferredTimeWindow(str, Enum):
 
 class DoctorStatus(str, Enum):
     INVITED = "INVITED"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
     SUSPENDED = "SUSPENDED"

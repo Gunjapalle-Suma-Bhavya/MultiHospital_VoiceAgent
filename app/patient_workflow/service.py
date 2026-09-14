@@ -25,6 +25,7 @@ Implements the complete 20-step patient journey:
 """
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone, timedelta, time
 from typing import Dict, Any, List, Optional
@@ -81,6 +82,9 @@ class EndToEndPatientWorkflowService:
             self.db.add(patient)
             self.db.commit()
             self.db.refresh(patient)
+        elif not patient.full_name and req.patient_name:
+            patient.full_name = req.patient_name
+            self.db.commit()
 
         trace.append({
             "step": 1,
@@ -247,52 +251,24 @@ class EndToEndPatientWorkflowService:
         # ---------------------------------------------------------------------
         # STEP 6: Find Doctors
         # ---------------------------------------------------------------------
-        # Ensure we have our canonical sample doctors available (Dr. Sharma at City Hospital & Dr. Rao at Care Hospital)
-        city_hosp = self.db.query(models.Hospital).filter(models.Hospital.code == "CITY-HOSP").first()
-        if not city_hosp:
-            city_hosp = models.Hospital(name="City Hospital", code="CITY-HOSP", hospital_status=models.HospitalStatus.APPROVED, is_active=True)
-            self.db.add(city_hosp)
-            self.db.commit()
-            self.db.refresh(city_hosp)
+        # Check if a specific hospital is requested in utterance or hospital_id
+        target_hospital = None
+        if getattr(req, "hospital_id", None):
+            target_hospital = self.db.query(models.Hospital).filter(
+                (models.Hospital.id == req.hospital_id) | (models.Hospital.code == req.hospital_id)
+            ).first()
 
-        care_hosp = self.db.query(models.Hospital).filter(models.Hospital.code == "CARE-HOSP").first()
-        if not care_hosp:
-            care_hosp = models.Hospital(name="Care Hospital", code="CARE-HOSP", hospital_status=models.HospitalStatus.APPROVED, is_active=True)
-            self.db.add(care_hosp)
-            self.db.commit()
-            self.db.refresh(care_hosp)
+        if not target_hospital and req.utterance:
+            all_hospitals = self.db.query(models.Hospital).filter(models.Hospital.is_active == True).all()
+            lower_utt = req.utterance.lower()
+            for h in all_hospitals:
+                h_name_clean = re.sub(r'[^a-zA-Z0-9\s]', '', (h.name or "")).strip().lower()
+                h_code_clean = (h.code or "").strip().lower()
+                if (h_name_clean and len(h_name_clean) >= 2 and h_name_clean in lower_utt) or \
+                   (h_code_clean and len(h_code_clean) >= 2 and re.search(r'\b' + re.escape(h_code_clean) + r'\b', lower_utt)):
+                    target_hospital = h
+                    break
 
-        # Doctors
-        doc_sharma = self.db.query(models.Doctor).filter(models.Doctor.name == "Dr. Sharma").first()
-        if not doc_sharma:
-            doc_sharma = models.Doctor(hospital_id=city_hosp.id, name="Dr. Sharma", specialty=inferred_specialty, department="Orthopedic Surgery", is_active=True)
-            self.db.add(doc_sharma)
-            self.db.commit()
-            self.db.refresh(doc_sharma)
-
-        doc_rao = self.db.query(models.Doctor).filter(models.Doctor.name == "Dr. Rao").first()
-        if not doc_rao:
-            doc_rao = models.Doctor(hospital_id=care_hosp.id, name="Dr. Rao", specialty=inferred_specialty, department="Joint & Knee Clinic", is_active=True)
-            self.db.add(doc_rao)
-            self.db.commit()
-            self.db.refresh(doc_rao)
-
-        found_doctors = [
-            {"id": doc_sharma.id, "name": doc_sharma.name, "specialty": doc_sharma.specialty, "hospital": "City Hospital", "hospital_id": city_hosp.id},
-            {"id": doc_rao.id, "name": doc_rao.name, "specialty": doc_rao.specialty, "hospital": "Care Hospital", "hospital_id": care_hosp.id},
-        ]
-
-        trace.append({
-            "step": 6,
-            "title": WORKFLOW_STEP_TITLES[6],
-            "status": "COMPLETED",
-            "doctors_found_count": len(found_doctors),
-            "doctors": found_doctors,
-        })
-
-        # ---------------------------------------------------------------------
-        # STEP 7: Check Calendars
-        # ---------------------------------------------------------------------
         # Calculate Thursday 3:00 PM and Friday 11:00 AM for this week
         days_ahead_thurs = (3 - now.weekday()) % 7
         if days_ahead_thurs == 0:
@@ -304,28 +280,189 @@ class EndToEndPatientWorkflowService:
             days_ahead_fri = 7
         friday_slot = (now + timedelta(days=days_ahead_fri)).replace(hour=11, minute=0, second=0, microsecond=0)
 
-        calendar_checks = {
-            "Dr. Sharma (City Hospital)": {
-                "working_hours": "Mon-Fri 09:00 - 17:00 (Active)",
-                "calendar": "Primary Outpatient Calendar (Active)",
-                "existing_appointments": "None conflicting at Thursday 15:00",
-                "blocked_slots": "None",
-                "leave_status": "Not on leave",
-                "appointment_duration": "30 minutes",
-                "applicable_external_availability": "FHIR Slot Available (Verified)",
-                "available_start": thursday_slot.isoformat(),
-            },
-            "Dr. Rao (Care Hospital)": {
-                "working_hours": "Mon-Fri 08:30 - 16:30 (Active)",
-                "calendar": "Specialist Consultation Calendar (Active)",
-                "existing_appointments": "None conflicting at Friday 11:00",
-                "blocked_slots": "None",
-                "leave_status": "Not on leave",
-                "appointment_duration": "30 minutes",
-                "applicable_external_availability": "Epic Mock Slot Available (Verified)",
-                "available_start": friday_slot.isoformat(),
+        if target_hospital:
+            hosp_doctors = self.db.query(models.Doctor).filter(
+                models.Doctor.hospital_id == target_hospital.id,
+                models.Doctor.is_active == True
+            ).all()
+            if not hosp_doctors:
+                doc_name = "Dr. Specialist"
+                m_doc = re.search(r'\b(doctor\s*\d+|doc\s*\d+|dr\.?\s*[a-zA-Z0-9]+)\b', req.utterance, re.IGNORECASE)
+                if m_doc:
+                    doc_name = m_doc.group(0).strip()
+                hosp_doc = models.Doctor(
+                    hospital_id=target_hospital.id,
+                    name=doc_name,
+                    specialty=inferred_specialty,
+                    department="Specialist Consultation",
+                    is_active=True
+                )
+                self.db.add(hosp_doc)
+                self.db.commit()
+                self.db.refresh(hosp_doc)
+                hosp_doctors = [hosp_doc]
+
+            # If a specific doctor name is in utterance, prioritize matching doctor
+            doc_1 = hosp_doctors[0]
+            for d in hosp_doctors:
+                d_name_clean = re.sub(r'[^a-zA-Z0-9\s]', '', d.name.lower())
+                if d_name_clean in req.utterance.lower() or d.name.lower() in req.utterance.lower():
+                    doc_1 = d
+                    break
+            
+            doc_2 = hosp_doctors[1] if len(hosp_doctors) > 1 and hosp_doctors[1].id != doc_1.id else doc_1
+
+            found_doctors = [
+                {"id": d.id, "name": d.name, "specialty": d.specialty, "hospital": target_hospital.name, "hospital_id": target_hospital.id}
+                for d in hosp_doctors[:4]
+            ]
+
+            calendar_checks = {
+                f"{doc_1.name} ({target_hospital.name})": {
+                    "working_hours": "Mon-Fri 09:00 - 17:00 (Active)",
+                    "calendar": "Primary Outpatient Calendar (Active)",
+                    "existing_appointments": "None conflicting at Thursday 15:00",
+                    "blocked_slots": "None",
+                    "leave_status": "Not on leave",
+                    "appointment_duration": "30 minutes",
+                    "applicable_external_availability": f"{target_hospital.name} Mock EHR Slot Available (Verified)",
+                    "available_start": thursday_slot.isoformat(),
+                },
+                f"{doc_2.name} ({target_hospital.name})": {
+                    "working_hours": "Mon-Fri 08:30 - 16:30 (Active)",
+                    "calendar": "Specialist Consultation Calendar (Active)",
+                    "existing_appointments": "None conflicting at Friday 11:00",
+                    "blocked_slots": "None",
+                    "leave_status": "Not on leave",
+                    "appointment_duration": "30 minutes",
+                    "applicable_external_availability": f"{target_hospital.name} Mock EHR Slot Available (Verified)",
+                    "available_start": friday_slot.isoformat(),
+                }
             }
-        }
+
+            dialogue_choices = (
+                f"I found {doc_1.name} at {target_hospital.name} on Thursday at 3 PM and Friday at 11 AM."
+                if doc_1.id == doc_2.id else
+                f"I found {doc_1.name} at {target_hospital.name} on Thursday at 3 PM and "
+                f"{doc_2.name} at {target_hospital.name} on Friday at 11 AM."
+            )
+
+            presented_options = [
+                {
+                    "index": 0,
+                    "doctor_name": doc_1.name,
+                    "hospital_name": target_hospital.name,
+                    "hospital_id": target_hospital.id,
+                    "doctor_id": doc_1.id,
+                    "day": "Thursday",
+                    "time": "3:00 PM",
+                    "slot_datetime": thursday_slot.isoformat(),
+                },
+                {
+                    "index": 1,
+                    "doctor_name": doc_2.name,
+                    "hospital_name": target_hospital.name,
+                    "hospital_id": target_hospital.id,
+                    "doctor_id": doc_2.id,
+                    "day": "Friday",
+                    "time": "11:00 AM",
+                    "slot_datetime": friday_slot.isoformat(),
+                }
+            ]
+        else:
+            # Canonical fallback: Dr. Sharma at City Hospital & Dr. Rao at Care Hospital
+            city_hosp = self.db.query(models.Hospital).filter(models.Hospital.code == "CITY-HOSP").first()
+            if not city_hosp:
+                city_hosp = models.Hospital(name="City Hospital", code="CITY-HOSP", hospital_status=models.HospitalStatus.APPROVED, is_active=True)
+                self.db.add(city_hosp)
+                self.db.commit()
+                self.db.refresh(city_hosp)
+
+            care_hosp = self.db.query(models.Hospital).filter(models.Hospital.code == "CARE-HOSP").first()
+            if not care_hosp:
+                care_hosp = models.Hospital(name="Care Hospital", code="CARE-HOSP", hospital_status=models.HospitalStatus.APPROVED, is_active=True)
+                self.db.add(care_hosp)
+                self.db.commit()
+                self.db.refresh(care_hosp)
+
+            # Doctors
+            doc_sharma = self.db.query(models.Doctor).filter(models.Doctor.name == "Dr. Sharma").first()
+            if not doc_sharma:
+                doc_sharma = models.Doctor(hospital_id=city_hosp.id, name="Dr. Sharma", specialty=inferred_specialty, department="Orthopedic Surgery", is_active=True)
+                self.db.add(doc_sharma)
+                self.db.commit()
+                self.db.refresh(doc_sharma)
+
+            doc_rao = self.db.query(models.Doctor).filter(models.Doctor.name == "Dr. Rao").first()
+            if not doc_rao:
+                doc_rao = models.Doctor(hospital_id=care_hosp.id, name="Dr. Rao", specialty=inferred_specialty, department="Joint & Knee Clinic", is_active=True)
+                self.db.add(doc_rao)
+                self.db.commit()
+                self.db.refresh(doc_rao)
+
+            found_doctors = [
+                {"id": doc_sharma.id, "name": doc_sharma.name, "specialty": doc_sharma.specialty, "hospital": "City Hospital", "hospital_id": city_hosp.id},
+                {"id": doc_rao.id, "name": doc_rao.name, "specialty": doc_rao.specialty, "hospital": "Care Hospital", "hospital_id": care_hosp.id},
+            ]
+
+            calendar_checks = {
+                "Dr. Sharma (City Hospital)": {
+                    "working_hours": "Mon-Fri 09:00 - 17:00 (Active)",
+                    "calendar": "Primary Outpatient Calendar (Active)",
+                    "existing_appointments": "None conflicting at Thursday 15:00",
+                    "blocked_slots": "None",
+                    "leave_status": "Not on leave",
+                    "appointment_duration": "30 minutes",
+                    "applicable_external_availability": "FHIR Slot Available (Verified)",
+                    "available_start": thursday_slot.isoformat(),
+                },
+                "Dr. Rao (Care Hospital)": {
+                    "working_hours": "Mon-Fri 08:30 - 16:30 (Active)",
+                    "calendar": "Specialist Consultation Calendar (Active)",
+                    "existing_appointments": "None conflicting at Friday 11:00",
+                    "blocked_slots": "None",
+                    "leave_status": "Not on leave",
+                    "appointment_duration": "30 minutes",
+                    "applicable_external_availability": "Epic Mock Slot Available (Verified)",
+                    "available_start": friday_slot.isoformat(),
+                }
+            }
+
+            dialogue_choices = (
+                f"I found Dr. Sharma at City Hospital on Thursday at 3 PM and "
+                f"Dr. Rao at Care Hospital on Friday at 11 AM."
+            )
+
+            presented_options = [
+                {
+                    "index": 0,
+                    "doctor_name": doc_sharma.name,
+                    "hospital_name": "City Hospital",
+                    "hospital_id": city_hosp.id,
+                    "doctor_id": doc_sharma.id,
+                    "day": "Thursday",
+                    "time": "3:00 PM",
+                    "slot_datetime": thursday_slot.isoformat(),
+                },
+                {
+                    "index": 1,
+                    "doctor_name": doc_rao.name,
+                    "hospital_name": "Care Hospital",
+                    "hospital_id": care_hosp.id,
+                    "doctor_id": doc_rao.id,
+                    "day": "Friday",
+                    "time": "11:00 AM",
+                    "slot_datetime": friday_slot.isoformat(),
+                }
+            ]
+
+        trace.append({
+            "step": 6,
+            "title": WORKFLOW_STEP_TITLES[6],
+            "status": "COMPLETED",
+            "doctors_found_count": len(found_doctors),
+            "doctors": found_doctors,
+        })
 
         trace.append({
             "step": 7,
@@ -342,37 +479,6 @@ class EndToEndPatientWorkflowService:
             ],
             "results": calendar_checks,
         })
-
-        # ---------------------------------------------------------------------
-        # STEP 8: Present Choices
-        # ---------------------------------------------------------------------
-        dialogue_choices = (
-            f"I found Dr. Sharma at City Hospital on Thursday at 3 PM and "
-            f"Dr. Rao at Care Hospital on Friday at 11 AM."
-        )
-
-        presented_options = [
-            {
-                "index": 0,
-                "doctor_name": doc_sharma.name,
-                "hospital_name": "City Hospital",
-                "hospital_id": city_hosp.id,
-                "doctor_id": doc_sharma.id,
-                "day": "Thursday",
-                "time": "3:00 PM",
-                "slot_datetime": thursday_slot.isoformat(),
-            },
-            {
-                "index": 1,
-                "doctor_name": doc_rao.name,
-                "hospital_name": "Care Hospital",
-                "hospital_id": care_hosp.id,
-                "doctor_id": doc_rao.id,
-                "day": "Friday",
-                "time": "11:00 AM",
-                "slot_datetime": friday_slot.isoformat(),
-            }
-        ]
 
         trace.append({
             "step": 8,
@@ -421,7 +527,7 @@ class EndToEndPatientWorkflowService:
             hospital_id=selected_option["hospital_id"],
             doctor_id=selected_option["doctor_id"],
             patient_id=patient.id,
-            patient_name=patient.full_name,
+            patient_name=patient.full_name or req.patient_name or "Patient",
             patient_phone=patient.phone_number,
             start_datetime=target_slot_dt,
             end_datetime=target_slot_dt + timedelta(minutes=30),
@@ -434,7 +540,9 @@ class EndToEndPatientWorkflowService:
 
         ehr_booking_pipeline = {
             "scheduling_capability": "execute_create_appointment",
-            "ehr_integration_layer": "MOCK_EHR_ADAPTER",
+            "ehr_integration_layer": f"{selected_option['hospital_name']} Mock EHR Adapter",
+            "hospital_name": selected_option["hospital_name"],
+            "target_system": f"{selected_option['hospital_name']} Mock EHR",
             "resolve_patient": f"Matched Patient MRN: EXT-PAT-{patient.id[:8]}",
             "resolve_provider": f"Matched Provider NPI: EXT-DOC-{selected_option['doctor_id'][:8]}",
             "resolve_calendar": f"Matched Schedule ID: SCHED-{selected_option['doctor_id'][:6]}",
@@ -466,14 +574,14 @@ class EndToEndPatientWorkflowService:
             "match_time": True,
             "match_status": True,
             "external_appointment_id": ext_appt_id,
-            "authoritative_system": "EXTERNAL_HEALTHCARE_SYSTEM_EHR",
+            "authoritative_system": f"{selected_option['hospital_name']} Mock EHR",
             "is_verified": True,
         }
 
         # Store verification record
         iver = models.IntegrationVerificationRecord(
             appointment_id=appt.id,
-            external_system="MOCK_EHR",
+            external_system=f"{selected_option['hospital_name']} Mock EHR",
             external_appointment_id=ext_appt_id,
             is_verified=True,
             verification_details_json=json.dumps(five_point_match)
@@ -711,7 +819,8 @@ class EndToEndPatientWorkflowService:
                 "scheduled_reminder": True,
             },
             "ehr_integration_analytics": {
-                "adapter": "MOCK_EHR",
+                "adapter": f"{selected_option['hospital_name']} Mock EHR Adapter",
+                "target_system": f"{selected_option['hospital_name']} Mock EHR",
                 "sync_status": "SUCCESS",
                 "5_point_match": True,
             },

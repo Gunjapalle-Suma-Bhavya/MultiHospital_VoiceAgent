@@ -19,8 +19,67 @@ def execute_discovery_search(payload: DiscoveryRequest, db: Session = Depends(ge
     engine = HospitalDoctorDiscoveryEngine(db)
     return engine.execute_discovery(payload)
 
+@router.get("/discovery/doctors")
+def discover_doctors(
+    query: Optional[str] = "",
+    specialty: Optional[str] = None,
+    hospital_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    from app.database.models import Doctor, Hospital
+    q = db.query(Doctor).filter(Doctor.is_active == True)
+    if hospital_id:
+        q = q.filter(Doctor.hospital_id == hospital_id)
+    if specialty:
+        q = q.filter(Doctor.specialty.ilike(f"%{specialty}%"))
+    if query:
+        q = q.filter(Doctor.name.ilike(f"%{query}%") | Doctor.specialty.ilike(f"%{query}%"))
+    doctors = q.all()
+    res = []
+    for d in doctors:
+        hosp = db.query(Hospital).filter(Hospital.id == d.hospital_id).first()
+        res.append({
+            "doctor_id": d.id,
+            "id": d.id,
+            "name": d.name,
+            "specialty": d.specialty,
+            "department": d.department,
+            "hospital_id": d.hospital_id,
+            "hospital_name": hosp.name if hosp else "Hospital",
+            "experience_years": d.experience_years,
+            "default_appointment_duration": d.default_appointment_duration,
+            "is_active": d.is_active
+        })
+    return {"total": len(res), "doctors": res}
+
+@router.get("/discovery/hospitals")
+def discover_hospitals(
+    query: Optional[str] = "",
+    db: Session = Depends(get_db)
+):
+    from app.database.models import Hospital
+    q = db.query(Hospital).filter(Hospital.is_active == True)
+    if query:
+        q = q.filter(Hospital.name.ilike(f"%{query}%"))
+    hospitals = q.all()
+    res = []
+    for h in hospitals:
+        res.append({
+            "hospital_id": h.id,
+            "id": h.id,
+            "name": h.name,
+            "code": h.code,
+            "is_active": h.is_active
+        })
+    return {"total": len(res), "hospitals": res}
+
 @router.get("/capabilities/list")
 def list_capabilities(db: Session = Depends(get_db)):
+    registry = CapabilityRegistry(db)
+    return {"registered_capabilities": registry.get_registered_capabilities()}
+
+@router.get("/ai/capabilities")
+def list_ai_capabilities(db: Session = Depends(get_db)):
     registry = CapabilityRegistry(db)
     return {"registered_capabilities": registry.get_registered_capabilities()}
 

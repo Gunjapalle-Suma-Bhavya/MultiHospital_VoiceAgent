@@ -135,9 +135,10 @@ export const api = {
   // Telemetry & SRE
   getGoldenSignals: () => apiCall('/api/v1/should-have/golden-signals'),
   getCostEstimate: () => apiCall('/api/v1/should-have/cost-estimate'),
-  getAuditTrail: (limit = 50, offset = 0, category?: string) => {
+  getAuditTrail: (limit = 50, offset = 0, category?: string, hospitalId?: string) => {
     const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
     if (category) qs.append('category', category);
+    if (hospitalId) qs.append('hospital_id', hospitalId);
     return apiCall(`/api/v1/audit/trail?${qs.toString()}`);
   },
 
@@ -225,10 +226,92 @@ export const api = {
     }),
   approveHospital: (hospitalId: string) =>
     apiCall(`/api/v1/admin/hospitals/${hospitalId}/approve`, { method: 'POST' }),
+  getHospitalStatus: (hospitalId: string) =>
+    apiCall(`/api/v1/auth/hospital-status/${encodeURIComponent(hospitalId)}`),
   draftHospital: (payload: { name: string; code: string; contact_email: string; admin_name: string; admin_email: string }) =>
     apiCall('/api/v1/onboarding/draft', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
   getDiscrepancies: () => apiCall('/api/v1/should-have/reconciliation/discrepancies'),
+
+  // Part 5 & Part 6: EHR Integration, Workflows, AI Telemetry, Operational Monitoring, Analytics
+  getAIActivity: (params?: { hospital_id?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.hospital_id) qs.append('hospital_id', params.hospital_id);
+    if (params?.limit) qs.append('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiCall(`/api/v1/ai/activity${query}`);
+  },
+
+  getEHRSyncLogs: (params?: { hospital_id?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.hospital_id) qs.append('hospital_id', params.hospital_id);
+    if (params?.limit) qs.append('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiCall(`/api/v1/ehr/sync-logs${query}`);
+  },
+
+  reconcileEHR: (hospitalId?: string) =>
+    apiCall('/api/v1/ehr/reconcile', {
+      method: 'POST',
+      body: JSON.stringify(hospitalId ? { hospital_id: hospitalId } : {}),
+    }),
+
+  getWorkflowInstances: (params?: { hospital_id?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.hospital_id) qs.append('hospital_id', params.hospital_id);
+    if (params?.status) qs.append('status', params.status);
+    if (params?.limit) qs.append('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiCall(`/api/v1/workflows/instances${query}`);
+  },
+
+  processDueWorkflows: () =>
+    apiCall('/api/v1/workflows/process-due', { method: 'POST' }),
+
+  triggerWorkflowStep: (instanceId: string, action?: string) =>
+    apiCall(`/api/v1/workflows/instances/${instanceId}/trigger-step`, {
+      method: 'POST',
+      body: JSON.stringify({ action: action || 'advance' }),
+    }),
+
+  getOperationalMonitoring: (hospitalId?: string) => {
+    const query = hospitalId ? `?hospital_id=${encodeURIComponent(hospitalId)}` : '';
+    return apiCall(`/api/v1/monitoring/operational${query}`);
+  },
+
+  getPlatformAnalytics: () =>
+    apiCall('/api/v1/analytics/dashboard/platform'),
+
+  getHospitalAnalytics: (hospitalId: string) =>
+    apiCall(`/api/v1/analytics/dashboard/hospital/${encodeURIComponent(hospitalId)}`),
+
+  getAIEvaluationDashboard: () =>
+    apiCall('/api/v1/ai/evaluation-framework/dashboard'),
+
+  runAIEvaluation: (sampleSize = 50) =>
+    apiCall('/api/v1/ai/evaluation-framework/run', {
+      method: 'POST',
+      body: JSON.stringify({ sample_size: sampleSize }),
+    }),
+
+  getEscalationRecords: (params?: { hospital_id?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.hospital_id) qs.append('hospital_id', params.hospital_id);
+    if (params?.status) qs.append('status', params.status);
+    if (params?.limit) qs.append('limit', String(params.limit));
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return apiCall(`/api/v1/escalation/records${query}`);
+  },
+
+  resolveEscalationRecord: (recordId: string, resolutionNotes: string, operatorId?: string) =>
+    apiCall(`/api/v1/escalation/${encodeURIComponent(recordId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({
+        resolution_status: 'RESOLVED',
+        operator_notes: resolutionNotes,
+        operator_id: operatorId || 'admin_user',
+      }),
+    }),
 };

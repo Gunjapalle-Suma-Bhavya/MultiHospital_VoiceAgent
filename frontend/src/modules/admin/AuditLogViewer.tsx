@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
 import { ShieldCheck, Lock, RotateCcw, Filter, FileText, ChevronRight, Check } from 'lucide-react';
 
-export const AuditLogViewer: React.FC = () => {
+interface Props {
+  hospitalId?: string;
+}
+
+export const AuditLogViewer: React.FC<Props> = ({ hospitalId }) => {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>('');
@@ -10,7 +14,7 @@ export const AuditLogViewer: React.FC = () => {
 
   const loadAuditLogs = async () => {
     setLoading(true);
-    const res = await api.getAuditTrail(50, 0, category || undefined);
+    const res = await api.getAuditTrail(50, 0, category || undefined, hospitalId || undefined);
     if (res.ok && res.data) {
       setEvents(res.data.events || []);
     }
@@ -19,7 +23,7 @@ export const AuditLogViewer: React.FC = () => {
 
   useEffect(() => {
     loadAuditLogs();
-  }, [category]);
+  }, [category, hospitalId]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">

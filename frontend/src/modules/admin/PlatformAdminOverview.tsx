@@ -12,7 +12,8 @@ import {
   Database,
   Cpu,
   RefreshCw,
-  Server
+  Server,
+  CalendarCheck
 } from 'lucide-react';
 import { apiCall } from '../../api/client';
 
@@ -23,14 +24,16 @@ interface Props {
 export const PlatformAdminOverview: React.FC<Props> = ({ onNavigateTab }) => {
   const [hospitalsCount, setHospitalsCount] = useState<any>({ pending: 0, approved: 0, total: 0 });
   const [usersCount, setUsersCount] = useState<number>(0);
+  const [apptsCount, setApptsCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [hospRes, usersRes] = await Promise.all([
+      const [hospRes, usersRes, apptRes] = await Promise.all([
         apiCall('/api/v1/admin/hospitals'),
-        apiCall('/api/v1/auth/users')
+        apiCall('/api/v1/auth/users'),
+        apiCall('/api/v1/appointments')
       ]);
 
       if (hospRes.ok && hospRes.data?.counts) {
@@ -38,6 +41,9 @@ export const PlatformAdminOverview: React.FC<Props> = ({ onNavigateTab }) => {
       }
       if (usersRes.ok && usersRes.data?.users) {
         setUsersCount(usersRes.data.users.length);
+      }
+      if (apptRes.ok && Array.isArray(apptRes.data?.appointments)) {
+        setApptsCount(apptRes.data.appointments.length);
       }
     } catch {
       // fallback
@@ -75,7 +81,26 @@ export const PlatformAdminOverview: React.FC<Props> = ({ onNavigateTab }) => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div 
+          onClick={() => onNavigateTab('appointments')}
+          className="bg-slate-900 border border-slate-800 hover:border-teal-500/40 rounded-2xl p-5 cursor-pointer transition shadow-lg group"
+        >
+          <div className="flex justify-between items-start">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Patient Bookings</div>
+            <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center">
+              <CalendarCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-3xl font-black text-teal-400 mt-2">
+            {apptsCount}
+          </div>
+          <div className="text-xs text-slate-400 mt-1 flex items-center justify-between">
+            <span>Cross-Hospital Visits</span>
+            <ArrowUpRight className="w-4 h-4 text-teal-400 opacity-0 group-hover:opacity-100 transition" />
+          </div>
+        </div>
+
         <div 
           onClick={() => onNavigateTab('approval')}
           className="bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-5 cursor-pointer transition shadow-lg group"
@@ -161,6 +186,26 @@ export const PlatformAdminOverview: React.FC<Props> = ({ onNavigateTab }) => {
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <button
+            onClick={() => onNavigateTab('appointments')}
+            className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/50 hover:bg-slate-800/40 text-left transition flex items-start space-x-3.5 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center flex-shrink-0">
+              <CalendarCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-bold text-white text-sm group-hover:text-teal-400 transition flex items-center space-x-1">
+                <span>Statewide Patient Bookings</span>
+                {apptsCount > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-400 text-slate-950 font-black">
+                    {apptsCount}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Inspect cross-hospital appointments, clinical intake triage, and 16-step canonical traces.</div>
+            </div>
+          </button>
+
           <button
             onClick={() => onNavigateTab('approval')}
             className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 hover:bg-slate-800/40 text-left transition flex items-start space-x-3.5 group"

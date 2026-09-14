@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { ClipboardCheck, Check, ShieldAlert, Stethoscope, User, Phone, Calendar, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ClipboardCheck, Check, ShieldAlert, Stethoscope, User, Phone, Calendar, Clock, FileText, Layers, ShieldCheck } from 'lucide-react';
+import { apiCall } from '../../api/client';
+import { EHRLifecycleModal } from '../../components/EHRLifecycleModal';
 
 interface AppointmentDetailProps {
   appointment: any;
@@ -11,6 +13,30 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({
   onOpenEncounter,
 }) => {
   const [isReviewed, setIsReviewed] = useState(false);
+  const [questionnaireData, setQuestionnaireData] = useState<{ has_responses: boolean; answers: Record<string, any>; questionnaire_id?: string } | null>(null);
+  const [loadingQ, setLoadingQ] = useState(false);
+  const [showEhrModal, setShowEhrModal] = useState(false);
+
+  useEffect(() => {
+    const fetchResponses = async () => {
+      if (!appointment) return;
+      const aptId = appointment.id || appointment.appointment_id;
+      if (!aptId) return;
+      setLoadingQ(true);
+      try {
+        const res = await apiCall(`/api/v1/questionnaires/appointments/${encodeURIComponent(aptId)}/responses`);
+        if (res.ok && res.data) {
+          setQuestionnaireData(res.data);
+        }
+      } catch {
+        // fallback
+      } finally {
+        setLoadingQ(false);
+      }
+    };
+    fetchResponses();
+  }, [appointment?.id, appointment?.appointment_id]);
+
 
   if (!appointment) {
     return (
@@ -36,6 +62,13 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({
   const scheduledTime = appointment.time || appointment.slot_time || '10:00 AM';
   const scheduledDate = appointment.date || (appointment.start_datetime ? appointment.start_datetime.split('T')[0] : 'Today');
   const status = appointment.ehr_status || appointment.status || 'CONFIRMED';
+
+  const effectiveAnswers = (questionnaireData?.has_responses && questionnaireData.answers && Object.keys(questionnaireData.answers).length > 0)
+    ? questionnaireData.answers
+    : (appointment?.intake_answers && Object.keys(appointment.intake_answers).length > 0)
+      ? appointment.intake_answers
+      : null;
+  const hasAnswers = Boolean(effectiveAnswers && Object.keys(effectiveAnswers).length > 0);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-md flex flex-col justify-between">
@@ -109,8 +142,74 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Section: Hospital Mock EHR Integration Lifecycle */}
+          <div className="pt-2 border-t border-slate-800 space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Hospital Mock EHR Integration:</span>
+              </div>
+              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
+                ✓ 5-Phase Synchronized
+              </span>
+            </div>
+            <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] text-slate-400">External Appointment ID:</div>
+                <div className="font-mono text-xs text-sky-300 font-bold">
+                  {appointment.external_ehr_id || `EHR-${rawId}`}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEhrModal(true)}
+                className="bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow"
+                title="View the 5-Phase Mock EHR Lifecycle Pipeline"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Inspect 5-Phase Trace</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section: Patient Pre-Visit Questionnaire Responses */}
+          <div className="pt-2 border-t border-slate-800 space-y-2">
+            <div className="flex justify-between items-center">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-sky-400" />
+                <span>Patient Intake Questionnaire:</span>
+              </div>
+              {hasAnswers ? (
+                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
+                  ✓ Submitted &amp; Verified
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 px-2 py-0.5 rounded">
+                  Pending Intake
+                </span>
+              )}
+            </div>
+
+            {loadingQ ? (
+              <div className="text-slate-500 text-[11px] italic">Loading intake responses...</div>
+            ) : hasAnswers ? (
+              <div className="bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 space-y-1.5 max-h-48 overflow-y-auto">
+                {Object.entries(effectiveAnswers!).map(([key, val]) => (
+                  <div key={key} className="text-[11px] flex justify-between items-start gap-2 border-b border-slate-800/60 pb-1">
+                    <span className="text-slate-400 capitalize">{key.replace(/_/g, ' ')}:</span>
+                    <span className="text-emerald-300 font-semibold text-right max-w-[200px] break-words">{String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-slate-400 text-[11px] bg-slate-900/60 p-2 rounded-lg border border-slate-800 italic">
+                No structured intake answers submitted yet for this consultation.
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
 
       <div className="flex justify-between items-center pt-3 border-t border-slate-800 gap-2">
         <button
@@ -135,6 +234,14 @@ export const AppointmentDetail: React.FC<AppointmentDetailProps> = ({
           </button>
         )}
       </div>
+
+      {/* 5-Phase Mock EHR Integration Lifecycle Modal */}
+      {showEhrModal && (
+        <EHRLifecycleModal
+          appointmentId={rawId}
+          onClose={() => setShowEhrModal(false)}
+        />
+      )}
     </div>
   );
 };

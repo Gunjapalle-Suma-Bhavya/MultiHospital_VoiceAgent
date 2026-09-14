@@ -81,6 +81,139 @@ class DoctorManagementService:
         doc.doctor_status = DoctorStatus.ACTIVE
         doc.is_active = True
         doc.profile_completed = True
+
+        # Activate associated user account so doctor can log in
+        try:
+            from app.database.models import UserAccount
+            users = self.db.query(UserAccount).filter(UserAccount.doctor_id == doc.id).all()
+            for u in users:
+                u.is_active = True
+        except Exception:
+            pass
+
+        self.db.commit()
+        return doc
+
+    def approve_doctor(self, hospital_id: str, doctor_id: str) -> Doctor:
+        """
+        Hospital-admin approval of doctor credentialing request.
+        Sets status = ACTIVE, is_active = True, initializes primary calendar and working hours,
+        activates the linked UserAccount so doctor can log in, and syncs to MongoDB.
+        """
+        doc = self.db.query(Doctor).filter(Doctor.id == doctor_id).first()
+        if not doc:
+            raise ValueError(f"Doctor '{doctor_id}' not found.")
+
+        if doc.hospital_id != hospital_id:
+            raise ValueError(f"Doctor belongs to hospital '{doc.hospital_id}', cannot be approved by hospital '{hospital_id}'.")
+
+        hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+        if not hosp or hosp.hospital_status != HospitalStatus.APPROVED or not hosp.is_active:
+            raise ValueError(f"Cannot approve doctor: Hospital '{hospital_id}' is not currently in APPROVED and active status.")
+
+        doc.doctor_status = DoctorStatus.ACTIVE
+        doc.is_active = True
+        doc.profile_completed = True
+
+        # Ensure DoctorCalendar exists
+        try:
+            from app.database.models import DoctorCalendar, CalendarType, DoctorWorkingHour
+            from datetime import time
+            cal = self.db.query(DoctorCalendar).filter(DoctorCalendar.doctor_id == doc.id).first()
+            if not cal:
+                cal = DoctorCalendar(
+                    doctor_id=doc.id,
+                    calendar_name=f"{doc.name} Primary Consultation",
+                    calendar_type=CalendarType.HOSPITAL_CONSULTATION,
+                    is_active=True
+                )
+                self.db.add(cal)
+
+            # Ensure working hours exist for 7 days
+            existing_wh = self.db.query(DoctorWorkingHour).filter(DoctorWorkingHour.doctor_id == doc.id).all()
+            if not existing_wh:
+                for day in range(7):
+                    wh = DoctorWorkingHour(
+                        doctor_id=doc.id,
+                        day_of_week=day,
+                        start_time=time(8, 0),
+                        end_time=time(18, 0),
+                        break_start=time(12, 0),
+                        break_end=time(13, 0)
+                    )
+                    self.db.add(wh)
+        except Exception as e:
+            print(f"Error provisioning doctor calendar/hours: {e}")
+
+        # Activate associated user account
+        try:
+            from app.database.models import UserAccount
+            users = self.db.query(UserAccount).filter(UserAccount.doctor_id == doc.id).all()
+            for u in users:
+                u.is_active = True
+                u.hospital_id = hosp.id
+                u.hospital_name = hosp.name
+        except Exception as e:
+            print(f"Error activating doctor user account: {e}")
+
+        self.db.commit()
+
+        # Sync to MongoDB and emit event
+        try:
+            from app.database.mongodb import persist_to_mongodb
+            persist_to_mongodb("doctors", {
+                "doctor_id": doc.id,
+                "hospital_id": doc.hospital_id,
+                "hospital_name": hosp.name,
+                "name": doc.name,
+                "specialty": doc.specialty,
+                "department": doc.department,
+                "status": "ACTIVE",
+                "is_active": True,
+                "qualifications": doc.qualifications,
+                "experience_years": doc.experience_years,
+                "bio": doc.bio
+            }, key_field="doctor_id")
+        except Exception:
+            pass
+
+        try:
+            from app.events.event_bus import event_bus, SystemEvent
+            from app.database.models import EventType
+            event_bus.publish(SystemEvent(
+                event_type=EventType.DOCTOR_ADDED,
+                payload={"doctor_id": doc.id, "hospital_id": hosp.id, "name": doc.name, "status": "ACTIVE"}
+            ))
+        except Exception:
+            pass
+
+        return doc
+
+    def reject_doctor(self, hospital_id: str, doctor_id: str, reason: Optional[str] = None) -> Doctor:
+        """
+        Rejects a doctor registration request for the specified hospital.
+        """
+        doc = self.db.query(Doctor).filter(Doctor.id == doctor_id).first()
+        if not doc:
+            raise ValueError(f"Doctor '{doctor_id}' not found.")
+
+        if doc.hospital_id != hospital_id:
+            raise ValueError(f"Doctor belongs to hospital '{doc.hospital_id}', cannot be rejected by hospital '{hospital_id}'.")
+
+        doc.doctor_status = DoctorStatus.INACTIVE
+        doc.is_active = False
+        if reason:
+            doc.special_instructions = f"REJECTED: {reason}"
+
+        # Deactivate associated user account
+        try:
+            from app.database.models import UserAccount
+            users = self.db.query(UserAccount).filter(UserAccount.doctor_id == doc.id).all()
+            for u in users:
+                u.is_active = False
+        except Exception:
+            pass
+
         self.db.commit()
         return doc
 

@@ -163,62 +163,124 @@ class ContextAwareReferenceResolver:
                         PatientSessionState.active_draft_booking_json.isnot(None)
                     ).order_by(PatientSessionState.updated_at.desc()).first()
                     if recent and recent.active_draft_booking_json:
-                        draft = json.loads(recent.active_draft_booking_json)
-                        session_state = recent
+                        parsed_d = json.loads(recent.active_draft_booking_json)
+                        if parsed_d.get("stage") in ["AWAITING_SLOT_SELECTION", "SLOTS_OFFERED"]:
+                            draft = parsed_d
+                            session_state = recent
             except Exception:
                 pass
 
-        # 2. Match Doctor by Name in Database
+        # 2. Check for symptoms / clinical concerns in current utterance early
+        symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(user_utterance)
+        inferred_spec = symptom_res.inferred_specialty if symptom_res.has_symptom else None
+
+        # 3. Match Doctor by Name in Database
         active_docs = []
         try:
-            active_docs = self.db.query(Doctor).filter(Doctor.is_active == True).all()
+            from app.database.models import DoctorStatus
+            active_docs = self.db.query(Doctor).filter(
+                (Doctor.is_active == True) | (Doctor.doctor_status == DoctorStatus.ACTIVE)
+            ).all()
         except Exception:
-            pass
+            try:
+                active_docs = self.db.query(Doctor).all()
+            except Exception:
+                active_docs = []
 
         matched_doc = None
+        best_match_score = 0
         common_name_words = {"white", "green", "reed", "may", "day", "long", "young", "brown", "gray", "grey", "have", "more", "head", "well", "house"}
         for d in active_docs:
-            d_name = d.name.lower()
+            d_name = (d.name or "").lower().strip()
             clean_full = re.sub(r'^(dr\.?|doctor)\s*', '', d_name).strip()
-            last_name = clean_full.split()[-1] if clean_full else ""
+            name_parts = [p for p in clean_full.split() if not re.match(r'^[0-9a-f]{4,8}$', p, re.I) and not p.isdigit()]
+            last_name = name_parts[-1] if name_parts else ""
+            first_name = name_parts[0] if name_parts else ""
 
-            # Check exact Dr./Doctor title patterns, clean full names, or distinctive last names
-            dr_pat = rf'\b(dr\.?|doctor)\s+{re.escape(last_name)}\b'
             dr_full_pat = rf'\b(dr\.?|doctor)\s+{re.escape(clean_full)}\b'
-            if re.search(dr_full_pat, lowered) or re.search(dr_pat, lowered):
+            dr_pat = rf'\b(dr\.?|doctor)\s+{re.escape(last_name)}\b' if last_name else ""
+
+            score = 0
+            if clean_full and clean_full in lowered:
+                score = 100 + len(clean_full)
+            elif re.search(dr_full_pat, lowered):
+                score = 90 + len(clean_full)
+            elif d_name and d_name in lowered:
+                score = 80 + len(d_name)
+            elif last_name and len(last_name) >= 3 and last_name not in common_name_words and ((dr_pat and re.search(dr_pat, lowered)) or re.search(rf'\b{re.escape(last_name)}\b', lowered)):
+                score = 50 + len(last_name)
+            elif first_name and len(first_name) >= 4 and first_name not in common_name_words and re.search(rf'\b(dr\.?|doctor)\s+{re.escape(first_name)}\b', lowered):
+                score = 30 + len(first_name)
+            elif d.id.lower() in lowered:
+                score = 110
+
+            # Tie-breaker bonus if doctor is canonical accredited provider or has approved questions configured
+            if score > 0:
+                if d.id in ["DOC-SHARMA-01", "DOC-RAO-02", "DOC-GOMEZ-03", "DOC-JENKINS-04", "DOC-CHEN-05", "DOC-PATEL-06", "DOC-MARCUS-07", "DOC-WHITE-08", "DOC-VANCE-09", "DOC-MALHOTRA-10", "DOC-DOC1", "DOC-DOC3", "DOC-DOCDEM1"]:
+                    score += 25
+                try:
+                    from app.database.models import DoctorApprovedQuestion
+                    if self.db.query(DoctorApprovedQuestion.id).filter(DoctorApprovedQuestion.doctor_id == d.id).first():
+                        score += 15
+                except Exception:
+                    pass
+
+            if score > best_match_score:
+                best_match_score = score
                 matched_doc = d
-                break
-            elif clean_full and len(clean_full) >= 5 and clean_full in lowered:
-                matched_doc = d
-                break
-            elif last_name and len(last_name) >= 4 and last_name not in common_name_words and re.search(rf'\b{re.escape(last_name)}\b', lowered):
-                matched_doc = d
-                break
 
         if matched_doc:
             doctor_id = matched_doc.id
             hospital_id = matched_doc.hospital_id
             doctor_name = matched_doc.name
-        elif draft.get("doctor_id"):
+        elif draft.get("doctor_id") and (draft.get("stage") in ["SLOTS_OFFERED_FOR_DOCTOR", "QUESTIONNAIRE_PROMPT_OFFERED", "QUESTIONNAIRE_IN_PROGRESS", "DOCTOR_QUESTIONNAIRE_IN_PROGRESS"] or not symptom_res.has_symptom):
             doctor_id = draft.get("doctor_id")
             hospital_id = draft.get("hospital_id")
             doctor_name = draft.get("doctor_name")
 
-        # 3. Match Hospital Name
-        if not hospital_id:
-            try:
-                active_hosps = self.db.query(Hospital).filter(Hospital.is_active == True).all()
-                for h in active_hosps:
-                    h_name = h.name.lower()
-                    clean_hosp = re.sub(r'\b(hospital|center|medical|health|system|general|care|clinic)\b', '', h_name).strip()
-                    if clean_hosp and len(clean_hosp) >= 4 and clean_hosp in lowered:
-                        hospital_id = h.id
-                        break
-                    elif h_name in lowered:
-                        hospital_id = h.id
-                        break
-            except Exception:
-                pass
+        # 4. Match Hospital Name or Code explicitly mentioned in utterance
+        explicit_hospital = None
+        best_hosp_score = 0
+        try:
+            from app.database.models import HospitalStatus
+            active_hosps = self.db.query(Hospital).filter(
+                (Hospital.is_active == True) | (Hospital.hospital_status == HospitalStatus.APPROVED)
+            ).all()
+            for h in active_hosps:
+                h_name = (h.name or "").lower().strip()
+                h_code = (h.code or "").lower().strip()
+                clean_hosp = re.sub(r'\b(hospital|center|medical|health|system|general|care|clinic)\b', '', h_name).strip()
+
+                h_score = 0
+                # 1. Full name match (e.g. "h1 hospital", "city memorial hospital")
+                if h_name and h_name in lowered:
+                    h_score = 100 + len(h_name)
+                # 2. Code match with word boundary (e.g. "h1" in "book in h1", "h1 hospital")
+                elif h_code and re.search(rf'\b{re.escape(h_code)}\b', lowered):
+                    h_score = 95 + len(h_code)
+                # 3. Clean hospital name match (e.g. "h1", "medico")
+                elif clean_hosp and len(clean_hosp) >= 2 and re.search(rf'\b{re.escape(clean_hosp)}\b', lowered):
+                    h_score = 90 + len(clean_hosp)
+
+                if h_score > best_hosp_score:
+                    best_hosp_score = h_score
+                    explicit_hospital = h
+
+            if explicit_hospital:
+                hospital_id = explicit_hospital.id
+        except Exception:
+            pass
+
+        # If user explicitly specified a hospital, prioritize doctors from that hospital
+        if explicit_hospital and not doctor_id:
+            hosp_doc = self.db.query(Doctor).filter(
+                Doctor.hospital_id == explicit_hospital.id,
+                Doctor.is_active == True
+            ).first()
+            if hosp_doc and any(w in lowered for w in ["book", "appointment", "schedule"]):
+                doctor_id = hosp_doc.id
+                doctor_name = hosp_doc.name
+                intent = "CHECK_AVAILABILITY"
 
         # 4. Extract Date / Time / Slots
         time_match = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b', lowered)
@@ -258,11 +320,310 @@ class ContextAwareReferenceResolver:
                 except Exception:
                     pass
 
-        # 5. Symptom Inference
+        # Check for pause / interruption / hold on requests
+        if any(w in lowered for w in [
+            "wait", "hold on", "pause", "one moment", "one second", "give me a second",
+            "hang on", "stop for a moment", "just a second", "just a moment", "listen",
+            "ఆగండి", "కాసేపు ఆగండి", "ఒక్క నిమిషం"
+        ]) and not any(w in lowered for w in ["cancel", "emergency"]):
+            intent = "CONVERSATIONAL_PAUSE"
+
+        # Check for General / Normal Conversation intent
+        elif any(w in lowered for w in [
+            "normal conversation", "general conversation", "let's chat", "lets chat",
+            "can we chat", "just chat", "just talking", "talk to me", "casual chat",
+            "casual conversation", "have a conversation", "normal chat", "general chat"
+        ]) or (
+            lowered.strip() in [
+                "hello", "hi", "hey", "hello there", "good morning", "good afternoon",
+                "good evening", "how are you", "how are you doing", "namaste",
+                "హలో", "నమస్కారం", "ఎలా ఉన్నారు", "బాగున్నారా"
+            ] and not matched_doc and not any(w in lowered for w in ["pain", "fever", "appointment", "doctor", "slot"])
+        ):
+            intent = "GENERAL_CONVERSATION"
+
+        # 5. Check active draft stage for slot selection, doctor recommendation, or questionnaire
+        elif draft.get("stage") in ["SYMPTOM_OFFER_DOCTORS", "SYMPTOM_OFFER_CHECK_DOCTORS", "SYMPTOM_SPECIALTY_INFERRED"]:
+            if any(w in lowered for w in [
+                "show", "available", "doctor", "doctors", "yes", "sure", "ok", "okay", "yep", "fine", "yeah", "please",
+                "check", "please check", "show available doctors", "show doctors", "yes show", "yes please",
+                "who is available", "who are the available doctors", "what doctors are available",
+                "tell me the doctors", "which doctors are there", "show me", "show them",
+                "సరే", "అవును", "డాక్టర్లు", "చూపించండి"
+            ]):
+                intent = "SHOW_AVAILABLE_DOCTORS"
+
+        elif any(w in lowered for w in [
+            "show available doctors", "show doctors", "available doctors", "show me available doctors",
+            "who is available", "who are the available doctors", "what doctors are available",
+            "tell me the doctors", "which doctors are there", "show me the doctors", "can you show doctors",
+            "list doctors", "yes please show doctors", "yeah show doctors"
+        ]) and not any(w in lowered for w in ["slots", "time", "hour"]):
+            intent = "SHOW_AVAILABLE_DOCTORS"
+
+        elif any(w in lowered for w in [
+            "show available doctors and slots", "show me available doctors and slots", "show available doctors and their slots",
+            "show doctors and slots", "show doctors and their slots", "available doctors and slots", "available doctors and their slots",
+            "show all available doctors and slots", "show all doctors and slots"
+        ]):
+            intent = "SHOW_DOCTORS_AND_SLOTS"
+
+        elif draft.get("stage") == "DOCTORS_OFFERED":
+            # Patient is choosing from the offered list of doctors
+            offered_docs = draft.get("doctors", [])
+            matched_od = None
+
+            # 1. Match by doctor name or alias
+            for od in offered_docs:
+                doc_token = od["doctor_name"].lower().replace("dr.", "").strip()
+                tokens = [t for t in doc_token.split() if not re.match(r'^[0-9a-f]{4,8}$', t, re.I) and not t.isdigit()]
+                first_tok = tokens[0] if tokens else ""
+                last_tok = tokens[-1] if tokens else ""
+                if (doc_token and doc_token in lowered) or (last_tok and len(last_tok) >= 3 and last_tok in lowered) or (first_tok and len(first_tok) >= 4 and first_tok in lowered):
+                    matched_od = od
+                    break
+
+            # 2. Match by ordinal or option number
+            if not matched_od:
+                if any(w in lowered for w in ["first doctor", "1st doctor", "first one", "1st one", "dr 1", "number 1", "number one", "first", "option 1", "doc 1", "doctor 1", "1"]) and len(offered_docs) >= 1:
+                    matched_od = offered_docs[0]
+                elif any(w in lowered for w in ["second doctor", "2nd doctor", "second one", "2nd one", "dr 2", "number 2", "number two", "second", "option 2", "doc 2", "doctor 2", "2"]) and len(offered_docs) >= 2:
+                    matched_od = offered_docs[1]
+                elif any(w in lowered for w in ["third doctor", "3rd doctor", "third one", "3rd one", "dr 3", "number 3", "number three", "third", "option 3", "doc 3", "doctor 3", "3"]) and len(offered_docs) >= 3:
+                    matched_od = offered_docs[2]
+
+            # 3. Match by hospital facility
+            if not matched_od:
+                for od in offered_docs:
+                    h_name = od.get("hospital_name", "").lower()
+                    clean_h = re.sub(r'\b(hospital|center|medical|health|care|clinic)\b', '', h_name).strip()
+                    if (clean_h and len(clean_h) >= 3 and clean_h in lowered) or (h_name and h_name in lowered):
+                        matched_od = od
+                        break
+
+            if not matched_od and matched_doc:
+                for od in offered_docs:
+                    if od["doctor_id"] == matched_doc.id:
+                        matched_od = od
+                        break
+                if not matched_od:
+                    matched_od = {
+                        "doctor_id": matched_doc.id,
+                        "doctor_name": matched_doc.name,
+                        "hospital_id": matched_doc.hospital_id
+                    }
+
+            if matched_od:
+                doctor_id = matched_od["doctor_id"]
+                doctor_name = matched_od["doctor_name"]
+                hospital_id = matched_od.get("hospital_id")
+                if target_datetime:
+                    intent = "BOOK_APPOINTMENT"
+                else:
+                    intent = "SHOW_DOCTOR_SLOTS"
+
+        elif draft.get("stage") == "SLOTS_OFFERED_FOR_DOCTOR":
+            # Patient is choosing a time slot for the selected doctor
+            doctor_id = draft.get("doctor_id")
+            doctor_name = draft.get("doctor_name")
+            hospital_id = draft.get("hospital_id")
+            slots = draft.get("slots", [])
+            target_d = date.today() + timedelta(days=1)
+
+            slot_matched = None
+            for s in slots:
+                clean_s = s.lower().strip()
+                short_s = clean_s.lstrip('0').replace(':00', '')
+                if clean_s in lowered or short_s in lowered:
+                    slot_matched = s
+                    break
+
+            if not slot_matched and slots:
+                if any(w in lowered for w in ["first slot", "1st slot", "slot 1", "option 1", "number 1", "first", "1", "1st", "earliest", "morning"]) and len(slots) >= 1:
+                    slot_matched = slots[0]
+                elif any(w in lowered for w in ["second slot", "2nd slot", "slot 2", "option 2", "number 2", "second", "2", "2nd"]) and len(slots) >= 2:
+                    slot_matched = slots[1]
+                elif any(w in lowered for w in ["third slot", "3rd slot", "slot 3", "option 3", "number 3", "third", "3", "3rd", "afternoon"]) and len(slots) >= 3:
+                    slot_matched = slots[2]
+                elif any(w in lowered for w in ["fourth slot", "4th slot", "slot 4", "option 4", "number 4", "fourth", "4", "4th", "evening"]) and len(slots) >= 4:
+                    slot_matched = slots[3]
+
+            if not slot_matched:
+                time_match = re.search(r'\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b', lowered)
+                if time_match:
+                    hr = int(time_match.group(1))
+                    minute = int(time_match.group(2) or 0)
+                    ampm = time_match.group(3)
+                    if ampm == 'pm' and hr < 12:
+                        hr += 12
+                    elif ampm == 'am' and hr == 12:
+                        hr = 0
+                    elif not ampm and 1 <= hr <= 6:
+                        hr += 12
+                    target_datetime = datetime.combine(target_d, time(hr, minute))
+                    intent = "BOOK_APPOINTMENT"
+
+            if slot_matched:
+                try:
+                    parsed_t = datetime.strptime(slot_matched, "%I:%M %p").time()
+                    target_datetime = datetime.combine(target_d, parsed_t)
+                except Exception:
+                    target_datetime = datetime.combine(target_d, time(10, 0))
+                intent = "BOOK_APPOINTMENT"
+            elif any(w in lowered for w in [
+                "ok", "okay", "yes", "sure", "confirm", "lock it in", "book it", "please book", "book that",
+                "book an appointment", "book appointment", "fine", "సరే", "అవును", "బుక్ చేయండి"
+            ]):
+                if draft.get("first_slot"):
+                    try:
+                        target_datetime = datetime.fromisoformat(draft["first_slot"])
+                    except Exception:
+                        pass
+                if not target_datetime and slots:
+                    try:
+                        parsed_t = datetime.strptime(slots[0], "%I:%M %p").time()
+                        target_datetime = datetime.combine(target_d, parsed_t)
+                    except Exception:
+                        pass
+                if not target_datetime:
+                    target_datetime = datetime.combine(target_d, time(10, 0))
+                intent = "BOOK_APPOINTMENT"
+            elif target_datetime:
+                intent = "BOOK_APPOINTMENT"
+
+        elif draft.get("stage") == "DOCTORS_AND_SLOTS_OFFERED":
+            # Patient is choosing from the combined offered list of doctors and slots
+            offered_docs = draft.get("doctors", [])
+            target_d = date.today() + timedelta(days=1)
+            matched_od = None
+
+            # 1. Match by doctor name
+            for od in offered_docs:
+                doc_token = od["doctor_name"].lower().replace("dr.", "").strip()
+                tokens = [t for t in doc_token.split() if not re.match(r'^[0-9a-f]{4,8}$', t, re.I) and not t.isdigit()]
+                first_tok = tokens[0] if tokens else ""
+                last_tok = tokens[-1] if tokens else ""
+                if (doc_token and doc_token in lowered) or (first_tok and len(first_tok) >= 4 and first_tok in lowered) or (last_tok and len(last_tok) >= 3 and last_tok in lowered):
+                    matched_od = od
+                    break
+
+            # 2. Match by ordinal or option number
+            if not matched_od:
+                if any(w in lowered for w in ["first doctor", "1st doctor", "first one", "1st one", "dr 1", "number 1", "number one", "first", "option 1", "doc 1", "doctor 1", "1"]) and len(offered_docs) >= 1:
+                    matched_od = offered_docs[0]
+                elif any(w in lowered for w in ["second doctor", "2nd doctor", "second one", "2nd one", "dr 2", "number 2", "number two", "second", "option 2", "doc 2", "doctor 2", "2"]) and len(offered_docs) >= 2:
+                    matched_od = offered_docs[1]
+                elif any(w in lowered for w in ["third doctor", "3rd doctor", "third one", "3rd one", "dr 3", "number 3", "number three", "third", "option 3", "doc 3", "doctor 3", "3"]) and len(offered_docs) >= 3:
+                    matched_od = offered_docs[2]
+
+            # 3. Match by hospital facility
+            if not matched_od:
+                for od in offered_docs:
+                    h_name = od.get("hospital_name", "").lower()
+                    clean_h = re.sub(r'\b(hospital|center|medical|health|care|clinic)\b', '', h_name).strip()
+                    if (clean_h and len(clean_h) >= 3 and clean_h in lowered) or (h_name and h_name in lowered):
+                        matched_od = od
+                        break
+
+            # 4. Match by slot time mentioned
+            if not matched_od:
+                for od in offered_docs:
+                    slots = od.get("slots", [])
+                    for s in slots:
+                        clean_s = s.lower().strip()
+                        short_s = clean_s.lstrip('0').replace(':00', '')
+                        if clean_s in lowered or short_s in lowered:
+                            matched_od = od
+                            break
+                    if matched_od:
+                        break
+
+            if not matched_od and matched_doc:
+                for od in offered_docs:
+                    if od["doctor_id"] == matched_doc.id:
+                        matched_od = od
+                        break
+
+            if matched_od:
+                doctor_id = matched_od["doctor_id"]
+                doctor_name = matched_od["doctor_name"]
+                hospital_id = matched_od.get("hospital_id")
+                intent = "BOOK_APPOINTMENT"
+
+                # If user explicitly specified a time in utterance, use that
+                if not target_datetime:
+                    slots = matched_od.get("slots", [])
+                    if slots:
+                        for s in slots:
+                            try:
+                                parsed_t = datetime.strptime(s.strip(), "%I:%M %p").time()
+                                target_datetime = datetime.combine(target_d, parsed_t)
+                                break
+                            except Exception:
+                                pass
+                    if not target_datetime and matched_od.get("first_slot_iso"):
+                        try:
+                            target_datetime = datetime.fromisoformat(matched_od["first_slot_iso"])
+                        except Exception:
+                            pass
+                    if not target_datetime:
+                        target_datetime = datetime.combine(target_d, time(16, 0))
+
+        elif draft.get("stage") == "DOCTORS_RECOMMENDED":
+            # Patient choosing from recommended doctors
+            if draft.get("options"):
+                for opt in draft["options"]:
+                    doc_token = opt["doctor_name"].lower().replace("dr.", "").strip()
+                    first_tok = doc_token.split()[0] if doc_token.split() else ""
+                    last_tok = doc_token.split()[-1] if doc_token.split() else ""
+                    if (doc_token and doc_token in lowered) or (last_tok and len(last_tok) >= 3 and last_tok in lowered):
+                        doctor_id = opt["doctor_id"]
+                        doctor_name = opt["doctor_name"]
+                        hospital_id = opt.get("hospital_id")
+                        intent = "CHECK_AVAILABILITY"
+                        break
+                if not doctor_id and any(w in lowered for w in ["first", "first one", "first doctor", "dr 1"]):
+                    opt = draft["options"][0]
+                    doctor_id = opt["doctor_id"]
+                    doctor_name = opt["doctor_name"]
+                    hospital_id = opt.get("hospital_id")
+                    intent = "CHECK_AVAILABILITY"
+
+            if not doctor_id and matched_doc:
+                doctor_id = matched_doc.id
+                doctor_name = matched_doc.name
+                hospital_id = matched_doc.hospital_id
+                intent = "CHECK_AVAILABILITY"
+
+        elif draft.get("stage") == "AWAITING_SLOT_SELECTION" and draft.get("options"):
+            for opt in draft["options"]:
+                doc_token = opt["doctor_name"].lower().replace("dr.", "").strip()
+                time_token = opt.get("time_str", "").lower().strip()
+                if (doc_token and doc_token in lowered) or (time_token and time_token in lowered):
+                    doctor_id = opt["doctor_id"]
+                    doctor_name = opt["doctor_name"]
+                    hospital_id = opt["hospital_id"]
+                    target_d = date.today() + timedelta(days=1)
+                    hr = opt.get("hour", 16)
+                    mn = opt.get("minute", 0)
+                    target_datetime = datetime.combine(target_d, time(hr, mn))
+                    intent = "BOOK_APPOINTMENT"
+                    break
+
+        # 6. Symptom Inference
         symptom_res = SymptomIntentResolver.infer_specialty_from_utterance(user_utterance)
         inferred_spec = symptom_res.inferred_specialty if symptom_res.has_symptom else None
 
-        # 6. Context-Aware Intent Resolution
+        has_symptom_query = bool(inferred_spec) or any(w in lowered for w in [
+            "shoulder", "knee", "chest", "headache", "fever", "pain", "see a doctor",
+            "consult a doctor", "book an appointment", "start over", "new appointment"
+        ])
+
+        if draft.get("stage") in ["QUESTIONNAIRE_PROMPT_OFFERED", "QUESTIONNAIRE_IN_PROGRESS", "DOCTOR_QUESTIONNAIRE_IN_PROGRESS"]:
+            if not any(w in lowered for w in ["emergency", "crushing", "ambulance", "heart attack", "call 911", "dying", "start over", "cancel"]):
+                intent = "QUESTIONNAIRE_RESPONSE"
+
+        # 7. Context-Aware Intent Resolution
         # A. Emergency / Human Escalation Priority
         if any(w in lowered for w in [
             "emergency", "chest pain", "crushing", "ambulance", "heart attack", "human", "operator", "help right now", "call 911", "dying",
@@ -270,6 +631,25 @@ class ContextAwareReferenceResolver:
             "అత్యవసరం", "ప్రాణాపాయం", "అంబులెన్స్", "గుండెపోటు", "సహాయం చేయండి", "కాపాడండి"
         ]):
             intent = "HUMAN_ESCALATION"
+
+        elif intent in [
+            "QUESTIONNAIRE_RESPONSE",
+            "BOOK_APPOINTMENT",
+            "SHOW_AVAILABLE_DOCTORS",
+            "SHOW_DOCTOR_SLOTS",
+            "SHOW_DOCTORS_AND_SLOTS",
+            "CONVERSATIONAL_PAUSE",
+            "GENERAL_CONVERSATION"
+        ]:
+            pass
+
+        elif symptom_res.has_symptom and not matched_doc and not any(w in lowered for w in ["cancel", "raddu", "రద్దు"]):
+            intent = "SEARCH_DOCTORS"
+
+        elif draft.get("stage") == "SYMPTOM_OFFER_CHECK_DOCTORS" and intent == "SEARCH_DOCTORS":
+            pass
+        elif draft.get("stage") == "DOCTORS_RECOMMENDED" and intent == "CHECK_AVAILABILITY":
+            pass
 
         # B. Cancellation
         elif any(w in lowered for w in ["cancel", "రద్దు", "రద్దు చేయండి", "raddu"]):
@@ -287,11 +667,11 @@ class ContextAwareReferenceResolver:
             "book cheyandi", "sare book"
         ]) and doctor_id:
             intent = "BOOK_APPOINTMENT"
-        elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine", "సరే", "అవును"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTORS_RECOMMENDED", "DOCTOR_INQUIRY"]:
+        elif any(w in lowered for w in ["okay", "ok", "yes", "sure", "yep", "fine", "సరే", "అవును"]) and doctor_id and draft.get("stage") in ["SLOTS_OFFERED", "DOCTOR_INQUIRY"]:
             intent = "BOOK_APPOINTMENT"
 
-        # D. Symptom triage and medical concern detection (prioritized to directly address patient symptoms)
-        elif inferred_spec and not any(w in lowered for w in ["visiting hour", "insurance", "address", "parking"]):
+        # D. Symptom triage and medical concern detection (prioritized to directly address patient symptoms when no doctor requested)
+        elif inferred_spec and not doctor_id and not any(w in lowered for w in ["visiting hour", "insurance", "address", "parking"]):
             intent = "SEARCH_DOCTORS"
 
         # E. User asks for availability / slots

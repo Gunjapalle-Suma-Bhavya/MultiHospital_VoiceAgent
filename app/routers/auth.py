@@ -32,10 +32,16 @@ class SignUpRequest(BaseModel):
     role: str = Field("PATIENT", description="One of: PATIENT, DOCTOR, HOSPITAL_STAFF, HOSPITAL_ADMIN, PLATFORM_ADMIN")
     hospital_id: Optional[str] = Field(None, description="Affiliated Hospital ID if hospital staff/admin/doctor")
     phone_number: Optional[str] = Field(None, description="Contact phone number")
+    specialty: Optional[str] = Field(None, description="Doctor medical specialty")
+    department: Optional[str] = Field(None, description="Doctor clinical department")
+    qualifications: Optional[str] = Field(None, description="Doctor qualifications/degrees")
+    experience_years: Optional[int] = Field(None, description="Years of medical practice experience")
+    bio: Optional[str] = Field(None, description="Doctor bio or clinical focus")
 
 
 class LoginRequest(BaseModel):
-    email_or_identifier: str = Field(..., description="Email address or phone number")
+    email_or_identifier: Optional[str] = Field(None, description="Email address or phone number")
+    identifier: Optional[str] = Field(None, description="Alias for email_or_identifier")
     password: Optional[str] = Field(None, description="Password (optional for demo accounts)")
     role: Optional[str] = Field(None, description="Optional role hint for demo accounts")
     hospital_id: Optional[str] = Field(None, description="Selected Hospital ID for hospital staff/admin")
@@ -79,18 +85,224 @@ def register_account(payload: SignUpRequest, db: Session = Depends(get_db)):
             role=payload.role,
             hospital_id=payload.hospital_id,
             phone_number=payload.phone_number,
-            auth_provider="LOCAL"
+            auth_provider="LOCAL",
+            specialty=payload.specialty,
+            department=payload.department,
+            qualifications=payload.qualifications,
+            experience_years=payload.experience_years,
+            bio=payload.bio
         )
+        is_pending = session_data.get("is_pending_approval", False)
+        msg = session_data.get("message") or f"Account successfully created as {payload.role}."
         return {
-            "status": "success",
-            "message": f"Account successfully created as {payload.role}.",
-            "session": session_data,
+            "status": "pending_approval" if is_pending else "success",
+            "message": msg,
+            "session": session_data if not is_pending else None,
+            "is_pending_approval": is_pending,
             **session_data
         }
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Registration failed: {str(err)}")
+
+
+@router.get("/doctor-status/{doctor_id}")
+def get_doctor_registration_status(doctor_id: str, db: Session = Depends(get_db)):
+    """
+    Checks the real-time approval and credentialing status of a doctor.
+    If approved and active, automatically provisions and returns the active user session.
+    """
+    from app.database.models import Doctor, DoctorStatus, Hospital, UserAccount
+
+    doc = db.query(Doctor).filter(Doctor.id == doctor_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Doctor registration request '{doctor_id}' not found."
+        )
+
+    hosp = db.query(Hospital).filter(Hospital.id == doc.hospital_id).first()
+    hosp_name = hosp.name if hosp else "Affiliated Hospital"
+
+    # Check if approved
+    if doc.doctor_status == DoctorStatus.ACTIVE and doc.is_active:
+        user = db.query(UserAccount).filter(UserAccount.doctor_id == doc.id).first()
+        if not user:
+            user = db.query(UserAccount).filter(UserAccount.email == doc.id).first()
+
+        auth_service = AuthService(db)
+        session_data = None
+        if user:
+            user.is_active = True
+            db.commit()
+            session_data = auth_service.create_session_for_user(user)
+
+        return {
+            "status": "APPROVED",
+            "is_approved": True,
+            "doctor_status": "ACTIVE",
+            "is_active": True,
+            "doctor_id": doc.id,
+            "hospital_id": doc.hospital_id,
+            "hospital_name": hosp_name,
+            "name": doc.name,
+            "specialty": doc.specialty,
+            "department": doc.department,
+            "qualifications": doc.qualifications,
+            "experience_years": doc.experience_years,
+            "bio": doc.bio,
+            "message": f"Dr. {doc.name} has been approved and credentialed by {hosp_name}.",
+            "session": session_data,
+            "user": session_data
+        }
+
+    elif doc.doctor_status == DoctorStatus.PENDING_APPROVAL:
+        return {
+            "status": "PENDING_APPROVAL",
+            "is_approved": False,
+            "doctor_status": "PENDING_APPROVAL",
+            "is_active": False,
+            "doctor_id": doc.id,
+            "hospital_id": doc.hospital_id,
+            "hospital_name": hosp_name,
+            "name": doc.name,
+            "specialty": doc.specialty,
+            "department": doc.department,
+            "qualifications": doc.qualifications,
+            "experience_years": doc.experience_years,
+            "bio": doc.bio,
+            "message": f"Please wait for {hosp_name} administrator to approve your credentials."
+        }
+
+    else:
+        return {
+            "status": "REJECTED",
+            "is_approved": False,
+            "doctor_status": doc.doctor_status.value if hasattr(doc.doctor_status, 'value') else str(doc.doctor_status),
+            "is_active": False,
+            "doctor_id": doc.id,
+            "hospital_id": doc.hospital_id,
+            "hospital_name": hosp_name,
+            "name": doc.name,
+            "message": doc.special_instructions or f"Registration request for {doc.name} was rejected or deactivated."
+        }
+
+
+@router.get("/hospital-status/{hospital_id}")
+def get_hospital_registration_status(hospital_id: str, db: Session = Depends(get_db)):
+    """
+    Checks the real-time approval and accreditation status of a hospital.
+    If approved and active, automatically provisions and returns the active session.
+    """
+    from app.database.models import Hospital, HospitalStatus, UserAccount
+    import json
+
+    hosp = db.query(Hospital).filter(
+        (Hospital.id == hospital_id) | (Hospital.code == hospital_id.upper())
+    ).first()
+    if not hosp:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Hospital registration request '{hospital_id}' not found."
+        )
+
+    depts = []
+    if hosp.departments_json:
+        try:
+            depts = json.loads(hosp.departments_json)
+        except Exception:
+            pass
+
+    # Check if approved
+    if hosp.hospital_status == HospitalStatus.APPROVED and hosp.is_active:
+        user = db.query(UserAccount).filter(
+            (UserAccount.hospital_id == hosp.id) & (UserAccount.role == "HOSPITAL_ADMIN")
+        ).first()
+        if not user and hosp.admin_email:
+            user = db.query(UserAccount).filter(UserAccount.email == hosp.admin_email.strip().lower()).first()
+
+        auth_service = AuthService(db)
+        session_data = None
+        if user:
+            user.is_active = True
+            user.hospital_name = hosp.name
+            db.commit()
+            session_data = auth_service.create_session_for_user(user)
+        elif hosp.admin_email:
+            from app.auth.auth_service import hash_password
+            user = UserAccount(
+                email=hosp.admin_email.strip().lower(),
+                full_name=hosp.admin_name or f"{hosp.name} Administrator",
+                password_hash=hash_password("demo123"),
+                role="HOSPITAL_ADMIN",
+                hospital_id=hosp.id,
+                hospital_name=hosp.name,
+                auth_provider="LOCAL",
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            session_data = auth_service.create_session_for_user(user)
+
+        return {
+            "status": "APPROVED",
+            "is_approved": True,
+            "hospital_status": "APPROVED",
+            "is_active": True,
+            "hospital_id": hosp.id,
+            "hospital_name": hosp.name,
+            "code": hosp.code,
+            "contact_email": hosp.contact_email,
+            "admin_name": hosp.admin_name,
+            "admin_email": hosp.admin_email,
+            "departments": depts,
+            "message": f"Hospital '{hosp.name}' has been approved and accredited by the Platform Super-Admin.",
+            "session": session_data,
+            "user": session_data
+        }
+
+    elif hosp.hospital_status in (HospitalStatus.SUBMITTED, HospitalStatus.UNDER_REVIEW, HospitalStatus.DRAFT):
+        return {
+            "status": "PENDING_APPROVAL",
+            "is_approved": False,
+            "hospital_status": hosp.hospital_status.value,
+            "is_active": False,
+            "hospital_id": hosp.id,
+            "hospital_name": hosp.name,
+            "code": hosp.code,
+            "contact_email": hosp.contact_email,
+            "admin_name": hosp.admin_name,
+            "admin_email": hosp.admin_email,
+            "departments": depts,
+            "message": f"Please wait for the Platform Super-Admin to approve facility registration for '{hosp.name}'."
+        }
+
+    elif hosp.hospital_status == HospitalStatus.CORRECTION_REQUESTED:
+        return {
+            "status": "CORRECTION_REQUESTED",
+            "is_approved": False,
+            "hospital_status": "CORRECTION_REQUESTED",
+            "is_active": False,
+            "hospital_id": hosp.id,
+            "hospital_name": hosp.name,
+            "code": hosp.code,
+            "correction_notes": hosp.correction_notes,
+            "message": f"Corrections requested by Platform Super-Admin: {hosp.correction_notes}"
+        }
+
+    else:
+        return {
+            "status": "REJECTED",
+            "is_approved": False,
+            "hospital_status": hosp.hospital_status.value if hasattr(hosp.hospital_status, 'value') else str(hosp.hospital_status),
+            "is_active": False,
+            "hospital_id": hosp.id,
+            "hospital_name": hosp.name,
+            "code": hosp.code,
+            "rejection_reason": hosp.rejection_reason,
+            "message": hosp.rejection_reason or f"Hospital registration request for '{hosp.name}' was rejected or deactivated."
+        }
 
 
 @router.post("/login")
@@ -105,10 +317,17 @@ def login_account(payload: LoginRequest, db: Session = Depends(get_db)):
             detail=f"Invalid role '{payload.role}'. Must be one of {valid_roles}"
         )
 
+    ident = (payload.email_or_identifier or payload.identifier or "").strip()
+    if not ident:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_or_identifier or identifier is required"
+        )
+
     auth_service = AuthService(db)
     try:
         session_data = auth_service.authenticate_local(
-            email_or_identifier=payload.email_or_identifier,
+            email_or_identifier=ident,
             password=payload.password,
             role_hint=payload.role,
             hospital_id=payload.hospital_id
@@ -117,10 +336,49 @@ def login_account(payload: LoginRequest, db: Session = Depends(get_db)):
             "status": "success",
             "message": "Authentication successful.",
             "session": session_data,
+            "user": session_data,
             **session_data
         }
     except ValueError as err:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err))
+        err_str = str(err)
+        from app.database.models import Hospital, UserAccount, Doctor
+        # Check for hospital pending approval
+        if "awaiting approval from the System Admin" in err_str or "inactive" in err_str.lower():
+            target_hosp = None
+            if payload.hospital_id:
+                target_hosp = db.query(Hospital).filter(Hospital.id == payload.hospital_id).first()
+            if not target_hosp:
+                u = db.query(UserAccount).filter(UserAccount.email == payload.email_or_identifier.strip().lower()).first()
+                if u and u.hospital_id:
+                    target_hosp = db.query(Hospital).filter(Hospital.id == u.hospital_id).first()
+            if target_hosp:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "message": err_str,
+                        "is_pending_approval": True,
+                        "hospital_id": target_hosp.id,
+                        "hospital_name": target_hosp.name,
+                        "hospital_code": target_hosp.code,
+                        "role": "HOSPITAL_ADMIN"
+                    }
+                )
+        # Check for doctor pending approval
+        if "awaiting credentialing and approval by the Hospital Administrator" in err_str:
+            u = db.query(UserAccount).filter(UserAccount.email == payload.email_or_identifier.strip().lower()).first()
+            doc_id = u.doctor_id if u else None
+            h_id = u.hospital_id if u else payload.hospital_id
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "message": err_str,
+                    "is_pending_approval": True,
+                    "doctor_id": doc_id,
+                    "hospital_id": h_id,
+                    "role": "DOCTOR"
+                }
+            )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=err_str)
     except Exception as err:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Authentication failed: {str(err)}")
 

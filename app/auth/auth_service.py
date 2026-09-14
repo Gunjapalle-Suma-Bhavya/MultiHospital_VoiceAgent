@@ -10,6 +10,7 @@ Supports:
 """
 
 import os
+import json
 import uuid
 import secrets
 import hashlib
@@ -19,8 +20,8 @@ from sqlalchemy.orm import Session
 
 from datetime import time
 from app.database.models import (
-    UserAccount, Hospital, Doctor, PatientProfile,
-    DoctorStatus, DoctorCalendar, CalendarType, DoctorWorkingHour
+    UserAccount, Hospital, HospitalStatus, Doctor, PatientProfile,
+    DoctorStatus, DoctorCalendar, CalendarType, DoctorWorkingHour, ConsultationType
 )
 from app.rbac import UserRole, ROLE_PERMISSIONS_MAP
 
@@ -63,23 +64,31 @@ class AuthService:
 
     def list_hospitals(self) -> List[Dict[str, Any]]:
         """Returns list of active accredited hospitals for registration dropdowns."""
-        hospitals = self.db.query(Hospital).filter(Hospital.is_active == True).all()
-        if not hospitals:
+        hospitals = self.db.query(Hospital).filter(
+            (Hospital.is_active == True) | (Hospital.hospital_status == HospitalStatus.APPROVED)
+        ).order_by(Hospital.updated_at.desc(), Hospital.created_at.desc()).all()
+
+        seen_ids = set()
+        unique_hospitals = []
+        for h in hospitals:
+            if h.id not in seen_ids:
+                seen_ids.add(h.id)
+                unique_hospitals.append({
+                    "id": h.id,
+                    "name": h.name,
+                    "code": h.code,
+                    "status": h.hospital_status.value if h.hospital_status else "APPROVED",
+                    "departments": h.departments_json or "[]"
+                })
+
+        if not unique_hospitals:
             # Fallback to known accredited facilities
             return [
-                {"id": "HOSP-CITY-01", "name": "City Memorial Hospital", "code": "CITYHOSP"},
-                {"id": "HOSP-CARE-02", "name": "St. Jude Care Pavilion", "code": "STJUDE"},
-                {"id": "HOSP-METRO-03", "name": "Metro Health Medical Center", "code": "METRO"}
+                {"id": "HOSP-CITY-01", "name": "City Memorial Hospital", "code": "CITYMEM", "status": "APPROVED"},
+                {"id": "HOSP-CARE-02", "name": "Care Regional Hospital", "code": "CAREREG", "status": "APPROVED"},
+                {"id": "HOSP-METRO-03", "name": "Metro Health Medical Center", "code": "METROHLTH", "status": "APPROVED"}
             ]
-        return [
-            {
-                "id": h.id,
-                "name": h.name,
-                "code": h.code,
-                "departments": h.departments_json or "[]"
-            }
-            for h in hospitals
-        ]
+        return unique_hospitals
 
     def _sync_user_to_mongodb(self, user: UserAccount) -> None:
         """Asynchronously syncs user account metadata to MongoDB Atlas."""
@@ -148,9 +157,32 @@ class AuthService:
             "headers": headers
         }
 
+        # If user is a DOCTOR, attach rich clinical metadata
+        if user.role == "DOCTOR" and user.doctor_id:
+            try:
+                from app.database.models import Doctor
+                doc = self.db.query(Doctor).filter(Doctor.id == user.doctor_id).first()
+                if doc:
+                    session_data.update({
+                        "specialty": doc.specialty,
+                        "department": doc.department,
+                        "qualifications": doc.qualifications,
+                        "experience_years": doc.experience_years,
+                        "bio": doc.bio,
+                        "default_appointment_duration": doc.default_appointment_duration
+                    })
+            except Exception:
+                pass
+
         # Cache in memory
         _TOKEN_CACHE[token] = session_data
         return session_data
+
+    def create_session_for_user(self, user: UserAccount) -> Dict[str, Any]:
+        """Creates an authenticated session token and cached payload for a given active user."""
+        import uuid
+        token = f"agy-auth-{uuid.uuid4().hex[:16]}"
+        return self._format_session_response(user, token)
 
     def register_user(
         self,
@@ -162,7 +194,12 @@ class AuthService:
         phone_number: Optional[str] = None,
         auth_provider: str = "LOCAL",
         google_id: Optional[str] = None,
-        avatar_url: Optional[str] = None
+        avatar_url: Optional[str] = None,
+        specialty: Optional[str] = None,
+        department: Optional[str] = None,
+        qualifications: Optional[str] = None,
+        experience_years: Optional[int] = None,
+        bio: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Creates a new user account with role validation and hospital linkage.
@@ -181,10 +218,12 @@ class AuthService:
 
         # Resolve hospital
         hosp_name = None
+        assigned_hosp_id = hospital_id
         if hospital_id:
             hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
             if hosp:
                 hosp_name = hosp.name
+                assigned_hosp_id = hosp.id
             else:
                 hosp_name = "City Memorial Hospital"
 
@@ -203,76 +242,80 @@ class AuthService:
                 self.db.commit()
             patient_id = pat.id
 
-        # Link or provision Doctor if role is DOCTOR
+        # Provision Doctor if role is DOCTOR
         doctor_id = None
         if role_clean == "DOCTOR":
-            doc = self.db.query(Doctor).filter(
-                (Doctor.name.ilike(f"%{full_name}%")) | (Doctor.id == f"DOC-{clean_email.split('@')[0].upper()}")
-            ).first()
-            if not doc:
-                assigned_hosp_id = hospital_id or "HOSP-CITY-01"
-                doc_code = clean_email.split('@')[0].upper().replace('.', '-')
-                new_doc_id = f"DOC-{doc_code[:8]}"
-                # Ensure unique id
-                if self.db.query(Doctor).filter(Doctor.id == new_doc_id).first():
-                    new_doc_id = f"DOC-{secrets.token_hex(4).upper()}"
+            if not hospital_id:
+                raise ValueError("Please select an affiliated hospital for doctor credentialing.")
+            hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+            if not hosp:
+                raise ValueError(f"Selected hospital '{hospital_id}' does not exist.")
+            hosp_name = hosp.name
+            assigned_hosp_id = hosp.id
 
-                doc = Doctor(
-                    id=new_doc_id,
-                    hospital_id=assigned_hosp_id,
-                    name=full_name,
-                    specialty="General Medicine",
-                    department="Clinical Practice",
-                    doctor_status=DoctorStatus.ACTIVE,
-                    is_active=True,
-                    default_appointment_duration=30
-                )
-                self.db.add(doc)
-                self.db.commit()
+            doc_code = clean_email.split('@')[0].upper().replace('.', '-')
+            new_doc_id = f"DOC-{doc_code[:8]}"
+            if self.db.query(Doctor).filter(Doctor.id == new_doc_id).first():
+                new_doc_id = f"DOC-{secrets.token_hex(4).upper()}"
 
-                # Add calendar
-                cal = DoctorCalendar(
-                    doctor_id=doc.id,
-                    calendar_name=f"{full_name} Primary",
-                    calendar_type=CalendarType.HOSPITAL_CONSULTATION,
-                    is_active=True
-                )
-                self.db.add(cal)
-
-                # Add working hours for all 7 days
-                for day in range(7):
-                    wh = DoctorWorkingHour(
-                        doctor_id=doc.id,
-                        day_of_week=day,
-                        start_time=time(8, 0),
-                        end_time=time(18, 0),
-                        break_start=time(12, 0),
-                        break_end=time(13, 0)
-                    )
-                    self.db.add(wh)
-                self.db.commit()
-
-                try:
-                    from app.database.mongodb import persist_to_mongodb
-                    persist_to_mongodb("doctors", {
-                        "doctor_id": doc.id,
-                        "hospital_id": doc.hospital_id,
-                        "hospital_name": hosp_name or "NexusHealth Hospital",
-                        "name": doc.name,
-                        "specialty": doc.specialty,
-                        "department": doc.department,
-                        "default_appointment_duration": 30,
-                        "status": "ACTIVE",
-                        "is_active": True
-                    }, key_field="doctor_id")
-                except Exception:
-                    pass
+            doc = Doctor(
+                id=new_doc_id,
+                hospital_id=assigned_hosp_id,
+                name=full_name,
+                specialty=specialty or "General Medicine",
+                department=department or "Clinical Practice",
+                qualifications=qualifications or "MBBS, MD",
+                experience_years=experience_years or 5,
+                languages_json=json.dumps(["English"]),
+                consultation_type=ConsultationType.IN_PERSON,
+                default_appointment_duration=30,
+                bio=bio or f"Physician specializing in {specialty or 'General Medicine'}.",
+                doctor_status=DoctorStatus.PENDING_APPROVAL,
+                is_active=False
+            )
+            self.db.add(doc)
+            self.db.commit()
 
             doctor_id = doc.id
-            hospital_id = doc.hospital_id
-            hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
-            if hosp:
-                hosp_name = hosp.name
+
+            # Provision doctor user account in INACTIVE state pending hospital admin approval
+            user = UserAccount(
+                email=clean_email,
+                phone_number=phone_number,
+                full_name=full_name,
+                password_hash=hash_password(password) if password else None,
+                role="DOCTOR",
+                hospital_id=assigned_hosp_id,
+                hospital_name=hosp_name,
+                doctor_id=doc.id,
+                patient_id=None,
+                auth_provider=auth_provider,
+                google_id=google_id,
+                avatar_url=avatar_url,
+                is_active=False  # Doctor account requires hospital admin approval!
+            )
+            self.db.add(user)
+            self.db.commit()
+            self.db.refresh(user)
+            self._sync_user_to_mongodb(user)
+
+            return {
+                "status": "pending_approval",
+                "is_pending_approval": True,
+                "message": f"Doctor registration for {full_name} submitted successfully! Your application has been routed to the Hospital Administrator at {hosp_name} for credentialing and approval.",
+                "doctor_id": doc.id,
+                "hospital_id": assigned_hosp_id,
+                "hospital_name": hosp_name,
+                "role": "DOCTOR",
+                "name": full_name,
+                "full_name": full_name,
+                "email": clean_email,
+                "specialty": doc.specialty,
+                "department": doc.department,
+                "qualifications": doc.qualifications,
+                "experience_years": doc.experience_years,
+                "bio": doc.bio
+            }
 
         user = UserAccount(
             email=clean_email,
@@ -318,8 +361,63 @@ class AuthService:
             if user.password_hash and password:
                 if not verify_password(password, user.password_hash):
                     raise ValueError("Invalid password for this account.")
+
+            # If user belongs to a hospital role and a hospital was selected
+            effective_hosp_id = hospital_id or user.hospital_id
+            if effective_hosp_id and user.role in ("HOSPITAL_ADMIN", "HOSPITAL_STAFF"):
+                user.hospital_id = effective_hosp_id
+                target_hosp = self.db.query(Hospital).filter(Hospital.id == effective_hosp_id).first()
+                if target_hosp:
+                    user.hospital_name = target_hosp.name
+                    if target_hosp.is_active or target_hosp.hospital_status == HospitalStatus.APPROVED:
+                        user.is_active = True
+                self.db.commit()
+
+            # Check account active state against hospital / doctor approval status
+            if not user.is_active:
+                if user.role == "DOCTOR":
+                    # For doctors, check if the hospital administrator has approved their doctor profile
+                    doc = self.db.query(Doctor).filter(Doctor.id == user.doctor_id).first() if user.doctor_id else None
+                    if doc and doc.doctor_status == DoctorStatus.ACTIVE and doc.is_active:
+                        user.is_active = True
+                        self.db.commit()
+                    else:
+                        h_name = user.hospital_name or "the affiliated hospital"
+                        raise ValueError(f"Doctor account for {user.full_name} is currently awaiting credentialing and approval by the Hospital Administrator at {h_name}. Please contact your hospital administrator.")
+                elif user.hospital_id:
+                    target_hosp = self.db.query(Hospital).filter(Hospital.id == user.hospital_id).first()
+                    if target_hosp and (target_hosp.is_active or target_hosp.hospital_status == HospitalStatus.APPROVED):
+                        user.is_active = True
+                        self.db.commit()
+                    else:
+                        h_name = user.hospital_name or (target_hosp.name if target_hosp else user.hospital_id)
+                        raise ValueError(f"Hospital facility '{h_name}' is still awaiting approval from the System Admin.")
+                else:
+                    raise ValueError("Account is currently inactive. Please wait for administrator approval.")
+
             token = f"agy-auth-{uuid.uuid4().hex[:16]}"
             return self._format_session_response(user, token)
+
+        # If user is logging in as HOSPITAL_ADMIN for an approved hospital, auto-provision
+        if role_hint == "HOSPITAL_ADMIN" and hospital_id:
+            target_hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
+            if target_hosp and (target_hosp.is_active or target_hosp.hospital_status == HospitalStatus.APPROVED):
+                clean_email = identifier if "@" in identifier else f"{identifier}@hospital.org"
+                user = UserAccount(
+                    email=clean_email,
+                    full_name=target_hosp.admin_name or f"{target_hosp.name} Administrator",
+                    password_hash=hash_password(password or "demo123"),
+                    role="HOSPITAL_ADMIN",
+                    hospital_id=target_hosp.id,
+                    hospital_name=target_hosp.name,
+                    auth_provider="LOCAL",
+                    is_active=True
+                )
+                self.db.add(user)
+                self.db.commit()
+                self.db.refresh(user)
+                token = f"agy-auth-{uuid.uuid4().hex[:16]}"
+                return self._format_session_response(user, token)
 
         # Auto-provision demo personas for seamless evaluator experience
         demo_user = self._auto_provision_demo_user(email_or_identifier, role_hint, hospital_id)

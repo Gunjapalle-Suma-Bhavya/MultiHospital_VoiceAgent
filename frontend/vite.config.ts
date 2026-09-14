@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: '/static/',
+  base: command === 'build' ? '/static/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -22,10 +22,6 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
-      '/static': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-      },
     },
   },
   build: {
@@ -33,4 +29,4 @@ export default defineConfig({
     emptyOutDir: false,
     chunkSizeWarningLimit: 1500,
   },
-});
+}));

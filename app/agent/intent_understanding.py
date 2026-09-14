@@ -261,6 +261,20 @@ class SymptomInferenceResult(BaseModel):
     is_diagnostic: bool = False
 
 
+SPECIALTY_TITLE_MAP = {
+    "Neurology": "a Neurologist",
+    "Orthopedics": "an Orthopedic specialist",
+    "Cardiology": "a Cardiologist",
+    "Dermatology": "a Dermatologist",
+    "Gastroenterology": "a Gastroenterologist",
+    "Ophthalmology": "an Ophthalmologist",
+    "ENT": "an ENT specialist",
+    "Pediatrics": "a Pediatrician",
+    "General Medicine": "a General Physician",
+    "Emergency Medicine": "an Emergency Medicine physician",
+}
+
+
 class SymptomIntentResolver:
     """
     Engine inferring specialty requirements from informal patient descriptions.
@@ -282,24 +296,42 @@ class SymptomIntentResolver:
                 is_diagnostic=False
             )
 
+        import re
         matched_symptom = None
         matched_specialty = None
 
-        for symptom, specialty in SYMPTOM_TO_SPECIALTY_MAP.items():
-            if symptom in lowered:
-                matched_symptom = symptom
-                matched_specialty = specialty
-                break
+        # Sort symptoms by length descending so specific phrases ("shoulder pain") match before single words ("shoulder")
+        sorted_symptoms = sorted(SYMPTOM_TO_SPECIALTY_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+        for symptom, specialty in sorted_symptoms:
+            if len(symptom) <= 4:
+                if re.search(rf'\b{re.escape(symptom)}\b', lowered):
+                    matched_symptom = symptom
+                    matched_specialty = specialty
+                    break
+            else:
+                if symptom in lowered:
+                    matched_symptom = symptom
+                    matched_specialty = specialty
+                    break
 
         if matched_symptom and matched_specialty:
+            # Check for temporal duration (e.g. "for the last few weeks", "for two weeks", "for a few days")
+            duration_match = re.search(
+                r'\b(for (?:the )?(?:last |past )?(?:a |few |\d+ )?(?:weeks?|days?|months?))\b',
+                lowered
+            )
+            dur_phrase = f" {duration_match.group(1)}" if duration_match else ""
+            symptom_with_duration = f"{matched_symptom}{dur_phrase}"
+
+            title = SPECIALTY_TITLE_MAP.get(matched_specialty, f"a {matched_specialty} specialist")
             cautious_text = (
-                f"Based on your reported symptom of {matched_symptom}, I can assist with booking a consultation "
-                f"with an {matched_specialty} specialist. Please note that this recommendation is for appointment "
-                f"scheduling purposes only and does not constitute a medical diagnosis."
+                f"I understand you've been having {symptom_with_duration}. Based on your symptoms, "
+                f"consulting {title} would be recommended for scheduling purposes, "
+                f"and I'll help you book an appointment. Would you like me to show the available doctors?"
             )
             return SymptomInferenceResult(
                 has_symptom=True,
-                symptom_detected=matched_symptom,
+                symptom_detected=symptom_with_duration,
                 inferred_specialty=matched_specialty,
                 requires_clarification=False,
                 cautious_response=cautious_text,
@@ -311,18 +343,22 @@ class SymptomIntentResolver:
         general_health_words = [
             "problem", "issue", "trouble", "pain", "hurt", "hurting", "ache", "sick", "unwell",
             "ill", "condition", "suffering", "discomfort", "symptom", "disease", "feeling bad",
-            "not well", "not feeling good", "medical", "doctor",
+            "not well", "not feeling good",
             # Telugu general health expressions
-            "సమస్య", "నొప్పి", "బాధ", "జబ్బు", "రోగం", "రోగి", "వైద్యుడు", "డాక్టర్",
+            "సమస్య", "నొప్పి", "బాధ", "జబ్బు", "రోగం", "రోగి",
             "బాగోలేదు", "అస్వస్థత", "అనారోగ్యం", "samasya", "noppi", "badha", "roga"
         ]
         if any(w in lowered for w in general_health_words):
             return SymptomInferenceResult(
                 has_symptom=True,
-                symptom_detected="general medical concern",
+                symptom_detected="health symptoms",
                 inferred_specialty="General Medicine",
                 requires_clarification=False,
-                cautious_response="I understand you are experiencing health symptoms. I can assist you with scheduling a consultation with our General Medicine and Internal Care team.",
+                cautious_response=(
+                    "I understand you are experiencing health symptoms. Based on your symptoms, "
+                    "consulting a General Physician would be recommended for scheduling purposes, "
+                    "and I'll help you book an appointment. Would you like me to show the available doctors?"
+                ),
                 is_patient_reported_only=True,
                 is_diagnostic=False
             )

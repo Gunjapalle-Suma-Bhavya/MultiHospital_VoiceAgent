@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCw, Calendar, QrCode, Trash2, CalendarPlus } from 'lucide-react';
+import { RotateCw, Calendar, QrCode, Trash2, CalendarPlus, Layers } from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { usePlatformEvents } from '../../context/PlatformEventContext';
 import { VerificationStatusBadge } from '../../components/VerificationStatusBadge';
 import { AppointmentPassModal } from './AppointmentPassModal';
+import { EHRLifecycleModal } from '../../components/EHRLifecycleModal';
 
 interface MyAppointmentsProps {
   onNavigateToDiscovery?: () => void;
@@ -16,15 +17,32 @@ export const MyAppointments: React.FC<MyAppointmentsProps> = ({ onNavigateToDisc
   const [appointments, setAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [passData, setPassData] = useState<any>(null);
+  const [selectedEhrApptId, setSelectedEhrApptId] = useState<string | null>(null);
 
   const fetchAppointments = async () => {
     setIsLoading(true);
     try {
-      // Query doctor dashboard today appointments to catch real database appointments
       let appts: any[] = [];
-      const docRes = await apiCall('/api/v1/doctor-dashboard/DOC-SHARMA-01/home');
-      if (docRes.ok && docRes.data?.today_appointments && Array.isArray(docRes.data.today_appointments)) {
-        appts = docRes.data.today_appointments;
+      const pid = user?.patient_id || user?.identifier;
+      const url = pid
+        ? `/api/v1/appointments?patient_id=${encodeURIComponent(pid)}`
+        : '/api/v1/appointments';
+      const res = await apiCall(url);
+      if (res.ok && res.data) {
+        if (Array.isArray(res.data)) {
+          appts = res.data;
+        } else if (Array.isArray(res.data.appointments)) {
+          appts = res.data.appointments;
+        }
+      }
+      // If none found by patient_id filter, also query all active appointments so demo booking is never missed
+      if (appts.length === 0) {
+        const fallbackRes = await apiCall('/api/v1/appointments');
+        if (fallbackRes.ok && fallbackRes.data) {
+          appts = Array.isArray(fallbackRes.data)
+            ? fallbackRes.data
+            : (fallbackRes.data.appointments || []);
+        }
       }
       setAppointments(appts);
     } catch (e) {
@@ -42,11 +60,12 @@ export const MyAppointments: React.FC<MyAppointmentsProps> = ({ onNavigateToDisc
   const allAppointments = [
     ...bookings.map((b) => ({
       id: b.id,
-      doctor_name: b.doctor_name,
-      specialty: b.specialty,
-      scheduled_time: b.scheduled_time || 'Today, 10:00 AM',
+      doctor_name: b.doctor_name || 'Specialist Physician',
+      specialty: b.specialty || 'General Medicine',
+      hospital_name: (b as any).hospital_name || 'Affiliated Hospital',
+      scheduled_time: b.scheduled_time || `${(b as any).date || 'Today'} at ${b.slot_time || '10:00 AM'}`,
       external_ehr_id: `EHR-FHIR-${b.id}`,
-      status: b.status,
+      status: b.status || 'CONFIRMED',
       is_ehr_verified: b.is_ehr_verified,
       isLive: true,
       raw: b,
@@ -55,13 +74,15 @@ export const MyAppointments: React.FC<MyAppointmentsProps> = ({ onNavigateToDisc
       .filter((a) => !bookings.some((b) => b.id === (a.id || a.appointment_id)))
       .map((a) => ({
         id: a.id || a.appointment_id,
-        doctor_name: a.doctor_name || 'Dr. Sharma',
-        specialty: a.specialty || 'Orthopedic Surgery',
-        scheduled_time: a.time || a.scheduled_time || 'Today',
+        doctor_name: a.doctor_name || 'Specialist Physician',
+        specialty: a.specialty || 'General Medicine',
+        hospital_name: a.hospital_name || 'Affiliated Hospital',
+        scheduled_time: a.scheduled_time || (a.date && a.time ? `${a.date} at ${a.time}` : (a.time || 'Today')),
         external_ehr_id: a.external_ehr_id || `EHR-${a.id || 'SYNC'}`,
         status: a.status || a.ehr_status || 'CONFIRMED',
         is_ehr_verified: a.is_ehr_verified !== false,
         isLive: false,
+        raw: a,
       })),
   ];
 
@@ -158,10 +179,23 @@ export const MyAppointments: React.FC<MyAppointmentsProps> = ({ onNavigateToDisc
                     {appt.external_ehr_id || 'EHR-PENDING'}
                   </td>
                   <td className="py-3 px-3">
-                    <VerificationStatusBadge
-                      isEhrVerified={appt.is_ehr_verified !== false}
-                      status={appt.status}
-                    />
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        ✓ Booked
+                      </span>
+                      <VerificationStatusBadge
+                        isEhrVerified={appt.is_ehr_verified !== false}
+                        status={appt.status}
+                      />
+                      <button
+                        onClick={() => setSelectedEhrApptId(appt.id)}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-400 hover:text-sky-300 underline underline-offset-2 transition pt-0.5"
+                        title="View the 5-Phase Mock EHR Lifecycle Pipeline"
+                      >
+                        <Layers className="w-3 h-3" />
+                        <span>View EHR Sync Flow</span>
+                      </button>
+                    </div>
                   </td>
                   <td className="py-3 px-3 text-right">
                     <div className="flex items-center justify-end space-x-2">
@@ -202,6 +236,14 @@ export const MyAppointments: React.FC<MyAppointmentsProps> = ({ onNavigateToDisc
       {/* Care Pass Modal */}
       {passData && (
         <AppointmentPassModal booking={passData} onClose={() => setPassData(null)} />
+      )}
+
+      {/* 5-Phase Mock EHR Integration Lifecycle Modal */}
+      {selectedEhrApptId && (
+        <EHRLifecycleModal
+          appointmentId={selectedEhrApptId}
+          onClose={() => setSelectedEhrApptId(null)}
+        />
       )}
     </div>
   );

@@ -57,9 +57,9 @@ class LiveLLMClient:
     def chat_completion(
         self,
         messages: List[Dict[str, str]],
-        max_tokens: int = 250,
+        max_tokens: int = 100,
         temperature: float = 0.3,
-        timeout_sec: float = 6.0
+        timeout_sec: float = 1.8
     ) -> Optional[str]:
         """
         Sends a non-streaming chat completion request with a fast timeout.
@@ -135,6 +135,7 @@ PRIMARY CONVERSATIONAL DIRECTIVES:
    - Base your statements strictly on the verified facts provided below.
    - Mention the doctor name(s), hospital campus, specialty, appointment times, or verification code provided in the facts.
    - Never make up doctors or hospitals not listed in the facts.
+   - If a Pre-Visit Question is provided in the verified facts, you MUST verbally ask that question to the patient at the end of your response to collect their pre-visit intake.
 4. Clinical Guardrail:
    - Do NOT provide a definitive medical self-diagnosis or prescribe drugs.
    - Reassure the patient and guide them to their consultation slot or next step.

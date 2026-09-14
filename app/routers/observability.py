@@ -131,6 +131,98 @@ def finalize_trace(trace_id: str, req: FinalizeTraceRequest, db: Session = Depen
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/traces", summary="List Operational Traces (5.34)")
+def list_traces(
+    hospital_id: Optional[str] = Query(None),
+    appointment_id: Optional[str] = Query(None),
+    correlation_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """
+    Lists recorded operation traces with filtering by hospital, appointment, correlation ID, and status.
+    """
+    from app.database.models import OperationTrace, OperationTraceStep, Hospital
+    query = db.query(OperationTrace)
+    if hospital_id:
+        query = query.filter(OperationTrace.hospital_id == hospital_id)
+    if appointment_id:
+        query = query.filter(OperationTrace.appointment_id == appointment_id)
+    if correlation_id:
+        query = query.filter(OperationTrace.correlation_id == correlation_id)
+    if status:
+        query = query.filter(OperationTrace.status == status)
+
+    traces = query.order_by(OperationTrace.started_at.desc()).limit(limit).all()
+    results = []
+    for t in traces:
+        hosp = db.query(Hospital).filter(Hospital.id == t.hospital_id).first() if t.hospital_id else None
+        step_count = db.query(OperationTraceStep).filter(OperationTraceStep.trace_id == t.id).count()
+        results.append({
+            "trace_id": t.trace_id,
+            "correlation_id": t.correlation_id,
+            "session_id": t.session_id,
+            "hospital_id": t.hospital_id,
+            "hospital_name": hosp.name if hosp else (t.hospital_id or "System"),
+            "patient_id": t.patient_id,
+            "appointment_id": t.appointment_id,
+            "operation_name": t.operation_name,
+            "status": t.status,
+            "started_at": t.started_at.isoformat() if t.started_at else None,
+            "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            "total_latency_ms": t.total_latency_ms or 0.0,
+            "step_count": step_count,
+            "retries_triggered": t.retries_triggered or 0,
+            "recovery_succeeded": bool(t.recovery_succeeded),
+            "reconciliation_occurred": bool(t.reconciliation_occurred),
+            "escalated_to_human": bool(t.escalated_to_human)
+        })
+
+    return {
+        "status": "success",
+        "total": len(results),
+        "traces": results
+    }
+
+
+@router.get("/appointment/{appointment_id}", summary="Get Trace & Correlation for Appointment (5.34/5.35)")
+def get_appointment_trace(appointment_id: str, db: Session = Depends(get_db)):
+    """
+    Directly returns the operational trace and correlation timeline for a specific appointment.
+    """
+    from app.database.models import OperationTrace
+    trace = db.query(OperationTrace).filter(OperationTrace.appointment_id == appointment_id).first()
+    if not trace:
+        # Check if appointment exists, auto-generate canonical trace if missing
+        from app.database.models import Appointment, Doctor, Hospital
+        appt = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+        if not appt:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        doc = db.query(Doctor).filter(Doctor.id == appt.doctor_id).first() if appt.doctor_id else None
+        hosp = db.query(Hospital).filter(Hospital.id == appt.hospital_id).first() if appt.hospital_id else None
+        trace = TraceManager.record_canonical_booking_lifecycle(
+            db_session=db,
+            session_id=f"SESS-{appt.id[:8]}",
+            hospital_id=appt.hospital_id or "HOSP-CITY-01",
+            patient_id=appt.patient_id or "PAT-RECORDS",
+            appointment_id=appt.id,
+            doctor_id=appt.doctor_id,
+            doctor_name=doc.name if doc else "Attending Specialist",
+            hospital_name=hosp.name if hosp else "Affiliated Hospital",
+            start_datetime=appt.start_datetime.isoformat() if appt.start_datetime else None
+        )
+
+    trace_details = ObservabilityService.get_trace_details(db, trace.trace_id)
+    corr_timeline = ObservabilityService.get_correlation_timeline(db, trace.correlation_id)
+    return {
+        "status": "success",
+        "appointment_id": appointment_id,
+        "trace": trace_details,
+        "correlation_timeline": corr_timeline
+    }
+
+
 @router.get("/traces/{trace_id}", summary="Get End-to-End Operation Trace Details (5.34)")
 def get_trace_details(trace_id: str, db: Session = Depends(get_db)):
     """

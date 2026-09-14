@@ -98,16 +98,36 @@ def register_new_hospital(payload: HospitalRegistrationRequest, db: Session = De
         )
         db.add(user)
         db.commit()
+    else:
+        user.hospital_id = hosp.id
+        user.hospital_name = hosp.name
+        user.role = "HOSPITAL_ADMIN"
+        user.full_name = payload.admin_name.strip()
+        if payload.admin_password:
+            user.password_hash = hash_password(payload.admin_password)
+        user.is_active = False
+        db.commit()
 
     return {
         "status": "success",
-        "message": f"Hospital registration for '{hosp.name}' submitted successfully. It is now awaiting approval from the Entire System Admin.",
+        "is_pending_approval": True,
+        "message": f"Hospital registration for '{hosp.name}' submitted successfully. It is now awaiting approval from the Platform Super-Admin.",
+        "hospital_id": hosp.id,
+        "hospital_name": hosp.name,
+        "hospital_code": hosp.code,
+        "admin_name": hosp.admin_name,
+        "admin_email": hosp.admin_email,
         "hospital": {
+            "id": hosp.id,
             "hospital_id": hosp.id,
             "name": hosp.name,
             "code": hosp.code,
             "contact_email": hosp.contact_email,
+            "admin_name": hosp.admin_name,
+            "admin_email": hosp.admin_email,
+            "departments": payload.departments or [],
             "status": hosp.hospital_status.value,
+            "hospital_status": hosp.hospital_status.value,
             "is_active": hosp.is_active
         }
     }

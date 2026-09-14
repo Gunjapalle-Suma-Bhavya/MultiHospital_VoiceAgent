@@ -19,6 +19,7 @@ Implements the complete real-world scenario:
 """
 
 import uuid
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
@@ -27,7 +28,7 @@ from app.database.models import (
     Hospital, Doctor, PatientProfile, Appointment, AppointmentStatus,
     DoctorCalendar, EHRIntegrationConfig, EHRAdapterType, EHRSyncLog,
     PatientIntakeRecord, NotificationRecord, AuditLog, WorkflowInstance,
-    WorkflowStatus
+    WorkflowStatus, PatientQuestionnaireResponse, HospitalQuestionnaire
 )
 
 
@@ -158,10 +159,31 @@ class EndToEndScenarioService:
             intake_rec = PatientIntakeRecord(
                 appointment_id=internal_appt_id,
                 patient_reported_summary="Patient reported shoulder pain for 1 week; no prior treatment.",
-                intake_answers_json=str(responses_dict),
+                intake_answers_json=json.dumps(responses_dict),
                 is_patient_reported_only=True
             )
             db.add(intake_rec)
+
+            # Ensure hospital questionnaire exists
+            hq = db.query(HospitalQuestionnaire).filter(HospitalQuestionnaire.hospital_id == city_hosp.id).first()
+            if not hq:
+                hq = HospitalQuestionnaire(
+                    id="HQ-CITY-ORTHO",
+                    hospital_id=city_hosp.id,
+                    specialty="Orthopedics",
+                    title="Orthopedic Clinical Intake Questionnaire",
+                    questions_json=json.dumps(["Do you have shoulder pain?", "How long have you had it?", "Have you had previous treatment?"])
+                )
+                db.add(hq)
+                db.commit()
+
+            q_resp = PatientQuestionnaireResponse(
+                patient_id=patient.id,
+                questionnaire_id=hq.id,
+                appointment_id=internal_appt_id,
+                answers_json=json.dumps(responses_dict)
+            )
+            db.add(q_resp)
 
         db.commit()
 

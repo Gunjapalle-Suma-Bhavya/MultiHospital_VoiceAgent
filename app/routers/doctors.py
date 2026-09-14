@@ -51,6 +51,78 @@ def invite_doctor(hospital_id: str, payload: DoctorInviteInput, db: Session = De
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+class DoctorRejectInput(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/hospitals/{hospital_id}/doctors/{doctor_id}/approve")
+def approve_hospital_doctor(hospital_id: str, doctor_id: str, db: Session = Depends(get_db)):
+    doc_service = DoctorManagementService(db)
+    try:
+        doc = doc_service.approve_doctor(hospital_id, doctor_id)
+        return {
+            "status": "success",
+            "message": f"Dr. {doc.name} has been approved and credentialed for this hospital.",
+            "doctor_id": doc.id,
+            "name": doc.name,
+            "hospital_id": doc.hospital_id,
+            "doctor_status": doc.doctor_status.value,
+            "is_active": doc.is_active
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/hospitals/{hospital_id}/doctors/{doctor_id}/reject")
+def reject_hospital_doctor(hospital_id: str, doctor_id: str, payload: Optional[DoctorRejectInput] = None, db: Session = Depends(get_db)):
+    doc_service = DoctorManagementService(db)
+    try:
+        reason = payload.reason if payload else None
+        doc = doc_service.reject_doctor(hospital_id, doctor_id, reason=reason)
+        return {
+            "status": "success",
+            "message": f"Doctor registration for Dr. {doc.name} has been rejected.",
+            "doctor_id": doc.id,
+            "name": doc.name,
+            "hospital_id": doc.hospital_id,
+            "doctor_status": doc.doctor_status.value,
+            "is_active": doc.is_active
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/hospitals/{hospital_id}/doctor-requests")
+def list_hospital_doctor_requests(hospital_id: str, db: Session = Depends(get_db)):
+    from app.database.models import Doctor, DoctorStatus
+    pending = db.query(Doctor).filter(
+        Doctor.hospital_id == hospital_id,
+        (Doctor.doctor_status == DoctorStatus.PENDING_APPROVAL) | (Doctor.doctor_status == DoctorStatus.INVITED) | (Doctor.is_active == False)
+    ).all()
+    results = []
+    for d in pending:
+        results.append({
+            "id": d.id,
+            "name": d.name,
+            "specialty": d.specialty,
+            "department": d.department,
+            "qualifications": d.qualifications,
+            "experience_years": d.experience_years,
+            "bio": d.bio,
+            "status": d.doctor_status.value if hasattr(d.doctor_status, 'value') else str(d.doctor_status),
+            "is_active": bool(d.is_active),
+            "created_at": d.created_at.isoformat() if getattr(d, "created_at", None) else None
+        })
+    return {
+        "status": "success",
+        "hospital_id": hospital_id,
+        "count": len(results),
+        "pending_doctors": results,
+        "requests": results
+    }
+
+
 @router.post("/doctors/{doctor_id}/activate")
 def activate_doctor(doctor_id: str, db: Session = Depends(get_db)):
     doc_service = DoctorManagementService(db)
@@ -100,10 +172,17 @@ def update_doctor_profile(doctor_id: str, payload: DoctorProfileUpdateInput, db:
 @router.get("/doctors/{doctor_id}")
 def get_doctor_profile(doctor_id: str, db: Session = Depends(get_db)):
     doc_service = DoctorManagementService(db)
-    prof = doc_service.get_doctor_profile(doctor_id)
-    if not prof:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-    return prof
+    try:
+        prof = doc_service.get_doctor_profile(doctor_id)
+        if not prof:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        return prof
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Doctor '{doctor_id}' not found in registry")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/doctors")
 def list_doctors(hospital_id: Optional[str] = None, active_only: bool = True, db: Session = Depends(get_db)):
@@ -151,7 +230,11 @@ def get_doctor_availability(doctor_id: str, target_date: str, db: Session = Depe
     avail_engine = AvailabilityEngine(db)
     try:
         target_d = date.fromisoformat(target_date)
-        slots = avail_engine.get_available_slots(doctor_id, target_d)
-        return {"doctor_id": doctor_id, "target_date": target_date, "available_slots": [s.model_dump() for s in slots]}
+        if hasattr(avail_engine, "query_actual_availability"):
+            slots = avail_engine.query_actual_availability(doctor_id, target_d)
+        else:
+            slots = avail_engine.get_available_slots(doctor_id, target_d)
+        formatted = [s.model_dump() if hasattr(s, "model_dump") else s for s in slots]
+        return {"doctor_id": doctor_id, "target_date": target_date, "available_slots": formatted}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -113,8 +113,32 @@ class PlatformAdminDashboardService:
             items = [{"id": r.id, "name": r.full_name, "phone": r.phone_number, "email": r.email, "language": r.preferred_language} for r in records]
 
         elif cat == "appointments":
+            from app.database.models import OperationTrace
             records = self.db.query(Appointment).order_by(Appointment.start_datetime.desc()).limit(limit).all()
-            items = [{"id": r.id, "patient_name": r.patient_name, "start_datetime": r.start_datetime.isoformat(), "status": r.status.value if hasattr(r.status, 'value') else str(r.status), "is_ehr_verified": r.is_ehr_verified} for r in records]
+            items = []
+            for r in records:
+                doc = self.db.query(Doctor).filter(Doctor.id == r.doctor_id).first() if r.doctor_id else None
+                hosp = self.db.query(Hospital).filter(Hospital.id == r.hospital_id).first() if r.hospital_id else None
+                trace = self.db.query(OperationTrace).filter(OperationTrace.appointment_id == r.id).first()
+                items.append({
+                    "id": r.id,
+                    "appointment_id": r.id,
+                    "patient_name": r.patient_name or "Registered Patient",
+                    "patient_phone": r.patient_phone or "N/A",
+                    "doctor_name": doc.name if doc else "Specialist Doctor",
+                    "specialty": doc.specialty if doc else "General",
+                    "hospital_id": r.hospital_id,
+                    "hospital_name": hosp.name if hosp else "Hospital",
+                    "start_datetime": r.start_datetime.isoformat() if r.start_datetime else None,
+                    "time": r.start_datetime.strftime("%I:%M %p") if r.start_datetime else "10:00 AM",
+                    "date": r.start_datetime.strftime("%Y-%m-%d") if r.start_datetime else "",
+                    "status": r.status.value if hasattr(r.status, 'value') else str(r.status),
+                    "is_ehr_verified": bool(r.is_ehr_verified),
+                    "external_ehr_id": getattr(r, "external_ehr_id", None) or f"EHR-{r.id[:8]}",
+                    "complaint": getattr(r, "reason_for_visit", None) or f"{doc.specialty if doc else 'General'} Consultation",
+                    "trace_id": trace.trace_id if trace else None,
+                    "correlation_id": trace.correlation_id if trace else None
+                })
 
         elif cat == "ai_interactions":
             records = self.db.query(AITelemetryLog).order_by(AITelemetryLog.timestamp.desc()).limit(limit).all()

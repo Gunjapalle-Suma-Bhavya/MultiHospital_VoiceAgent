@@ -30,7 +30,7 @@ from app.routers import (
     security_concurrency_router, safety_knowledge_router, workflow_examples_router,
     product_metrics_and_scenario_router, product_principles_router, prototype_scope_router,
     should_have_router, definition_of_done_router, final_submission_router,
-    mongodb_sync_router, auth_router
+    mongodb_sync_router, auth_router, appointments_router
 )
 
 app = FastAPI(
@@ -85,6 +85,7 @@ app.include_router(onboarding_router)
 app.include_router(admin_router)
 app.include_router(doctors_router)
 app.include_router(patients_router)
+app.include_router(appointments_router)
 app.include_router(discovery_router)
 app.include_router(voice_router)
 app.include_router(context_router)

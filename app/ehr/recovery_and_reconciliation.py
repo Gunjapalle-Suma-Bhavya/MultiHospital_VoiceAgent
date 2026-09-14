@@ -74,6 +74,8 @@ class EHRFailureClassifier:
             return EHRFailureCategory.SLOT_UNAVAILABLE, False
         elif "duplicate" in lowered:
             return EHRFailureCategory.DUPLICATE_REQUEST, False
+        elif "400" in lowered or "bad request" in lowered or "validation" in lowered or status_code == 400:
+            return EHRFailureCategory.VALIDATION_ERROR, False
         elif "unknown" in lowered or "pending" in lowered:
             return EHRFailureCategory.UNKNOWN_OUTCOME, True
 

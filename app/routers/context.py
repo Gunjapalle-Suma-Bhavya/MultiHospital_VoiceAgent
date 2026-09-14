@@ -30,6 +30,33 @@ def get_context_state(session_id: str, patient_id: Optional[str] = None, phone_n
         "natural_hint": bundle.generate_natural_prompt_hint()
     }
 
+@router.get("/patient/{phone_number}")
+def get_patient_persistent_context(phone_number: str, db: Session = Depends(get_db)):
+    engine = MultiTierContextEngine(db)
+    bundle = engine.get_hierarchical_context(session_id="persistent-lookup", phone_number=phone_number)
+    return {
+        "phone_number": phone_number,
+        "patient_id": bundle.patient_id,
+        "bundle": bundle.model_dump(),
+        "tier3_long_term": bundle.tier3_long_term.model_dump(),
+        "preferred_hospitals": bundle.tier3_long_term.preferred_hospitals,
+        "preferred_doctors": bundle.tier3_long_term.preferred_doctors,
+        "previous_conversation_summaries": bundle.tier3_long_term.previous_conversation_summaries,
+        "natural_hint": bundle.generate_natural_prompt_hint()
+    }
+
+@router.get("/{session_id}")
+def get_session_context(session_id: str, db: Session = Depends(get_db)):
+    engine = MultiTierContextEngine(db)
+    bundle = engine.get_hierarchical_context(session_id=session_id)
+    return {
+        "session_id": session_id,
+        "bundle": bundle.model_dump(),
+        "tier1_turn": bundle.tier1_conversation_state.model_dump(),
+        "tier2_session": bundle.tier2_short_term.model_dump(),
+        "natural_hint": bundle.generate_natural_prompt_hint()
+    }
+
 @router.post("/resolve")
 def resolve_context_reference(payload: ContextResolveInput, db: Session = Depends(get_db)):
     context_engine = MultiTierContextEngine(db)

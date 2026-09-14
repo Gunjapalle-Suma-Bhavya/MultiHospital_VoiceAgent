@@ -608,9 +608,11 @@ def _exec_persist_questionnaire(intake_data: Dict[str, Any]) -> None:
             return
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        q_id = intake_data.get("response_id") or intake_data.get("id") or intake_data.get("questionnaire_id")
+        q_id = intake_data.get("response_id") or intake_data.get("id") or intake_data.get("questionnaire_id") or intake_data.get("appointment_id")
         clean_q = dict(intake_data)
         clean_q["updated_at"] = now_iso
+        if "submitted_at" not in clean_q:
+            clean_q["submitted_at"] = now_iso
 
         # 1. Questionnaires collection
         if q_id:
@@ -618,7 +620,28 @@ def _exec_persist_questionnaire(intake_data: Dict[str, Any]) -> None:
         else:
             db["questionnaires"].insert_one(clean_q)
 
-        # 2. Append to Patient History
+        # 2. Patient Questionnaire Responses dedicated collection
+        appt_id = clean_q.get("appointment_id")
+        if appt_id:
+            db["patient_questionnaire_responses"].update_one({"appointment_id": appt_id}, {"$set": clean_q}, upsert=True)
+            # Update appointment record if present in MongoDB
+            try:
+                db["appointments"].update_one(
+                    {"appointment_id": appt_id},
+                    {"$set": {
+                        "has_questionnaire": True,
+                        "questionnaire_status": "Complete",
+                        "intake_answers": clean_q.get("answers", {})
+                    }}
+                )
+            except Exception:
+                pass
+        elif q_id:
+            db["patient_questionnaire_responses"].update_one({"response_id": q_id}, {"$set": clean_q}, upsert=True)
+        else:
+            db["patient_questionnaire_responses"].insert_one(clean_q)
+
+        # 3. Append to Patient History
         patient_id = clean_q.get("patient_id") or clean_q.get("phone_number")
         if patient_id:
             db["patient_history"].update_one(
@@ -628,6 +651,8 @@ def _exec_persist_questionnaire(intake_data: Dict[str, Any]) -> None:
                     "$addToSet": {
                         "questionnaire_records": {
                             "questionnaire_id": clean_q.get("questionnaire_id"),
+                            "appointment_id": clean_q.get("appointment_id"),
+                            "doctor_id": clean_q.get("doctor_id"),
                             "specialty": clean_q.get("specialty", "General"),
                             "completed_at": now_iso,
                             "answers": clean_q.get("answers", {})
@@ -640,10 +665,13 @@ def _exec_persist_questionnaire(intake_data: Dict[str, Any]) -> None:
         print(f"[MongoDB Questionnaire Warning] Failed to persist questionnaire: {e}")
 
 
-def persist_questionnaire_response(intake_data: Dict[str, Any]) -> None:
-    """Non-blocking, thread-pooled questionnaire response persistence to MongoDB."""
+def persist_questionnaire_response(intake_data: Dict[str, Any], sync: bool = False) -> None:
+    """Persists questionnaire response to MongoDB (synchronously or thread-pooled)."""
     try:
-        _mongo_pool.submit(_exec_persist_questionnaire, dict(intake_data))
+        if sync:
+            _exec_persist_questionnaire(dict(intake_data))
+        else:
+            _mongo_pool.submit(_exec_persist_questionnaire, dict(intake_data))
     except Exception:
         pass
 

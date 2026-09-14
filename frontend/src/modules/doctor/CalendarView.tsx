@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Calendar as CalendarIcon, Check, Stethoscope } from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { usePlatformEvents } from '../../context/PlatformEventContext';
@@ -20,18 +20,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const { bookings, blockedSlots, blockSlot, unblockSlot } = usePlatformEvents();
 
-  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
-
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const today = new Date();
   const currentDayOfWeek = (today.getDay() + 6) % 7; // Monday = 0
 
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    return currentDayOfWeek >= 0 && currentDayOfWeek < 7 ? currentDayOfWeek : 0;
+  });
+
   const getDayDate = (dayOffset: number) => {
     const d = new Date();
     d.setDate(today.getDate() - currentDayOfWeek + dayOffset);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const isoDate = `${year}-${month}-${day}`;
     return {
       name: weekDays[dayOffset],
       dateStr: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      isoDate,
       isToday: dayOffset === currentDayOfWeek,
     };
   };
@@ -79,19 +86,31 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
-  const formatSlotTime = (t: string | undefined, startDt?: string) => {
-    if (t && t.length >= 4) {
-      const parts = t.trim().split(' ');
-      const [h, m] = parts[0].split(':');
-      if (h && m) {
-        let numH = parseInt(h);
-        const ampm = parts[1] ? parts[1].toUpperCase() : (numH >= 12 ? 'PM' : 'AM');
-        if (numH > 12) numH = numH % 12;
-        if (numH === 0) numH = 12;
-        const hh = String(numH).padStart(2, '0');
-        return `${hh}:${m.padStart(2, '0')} ${ampm}`;
+  const normalizeSlot = (str?: string): string => {
+    if (!str) return '';
+    const trimmed = str.trim();
+    const match = trimmed.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(AM|PM)?$/i);
+    if (match) {
+      let h = parseInt(match[1], 10);
+      const m = match[2] ? match[2] : '00';
+      let ampm = match[3] ? match[3].toUpperCase() : '';
+      if (!ampm) {
+        ampm = h >= 12 ? 'PM' : 'AM';
+        if (h > 12) h -= 12;
+        if (h === 0) h = 12;
+      } else {
+        if (h > 12) h = h % 12;
+        if (h === 0) h = 12;
       }
-      return t;
+      return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
+    }
+    return trimmed;
+  };
+
+  const formatSlotTime = (t: string | undefined, startDt?: string) => {
+    if (t) {
+      const normalized = normalizeSlot(t);
+      if (normalized) return normalized;
     }
     if (startDt) {
       try {
@@ -110,23 +129,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Merge context bookings with prop appointments
   const allAppointments = [
-    ...bookings.map((b) => ({
-      id: b.id,
-      time: formatSlotTime(b.slot_time, b.scheduled_time),
-      date: (b as any).date || (b.scheduled_time ? b.scheduled_time.split('T')[0] : new Date().toISOString().split('T')[0]),
-      patient_name: b.patient_name,
-      patient_phone: b.patient_phone,
-      complaint: `${b.specialty} Consultation & Symptoms Examination`,
-      intake_status: 'COMPLETED',
-      ehr_status: b.status,
-      isLive: true,
-      raw: b,
-    })),
+    ...bookings
+      .filter((b) => !b.doctor_id || !doctorId || b.doctor_id === doctorId)
+      .map((b) => ({
+        id: b.id,
+        time: formatSlotTime(b.slot_time, b.scheduled_time),
+        date: (b as any).date || (b.scheduled_time ? b.scheduled_time.split('T')[0] : new Date().toISOString().split('T')[0]),
+        patient_name: b.patient_name,
+        patient_phone: b.patient_phone,
+        complaint: `${b.specialty} Consultation & Symptoms Examination`,
+        intake_status: 'COMPLETED',
+        ehr_status: b.status,
+        isLive: true,
+        raw: b,
+      })),
     ...appointments
       .filter((a) => !bookings.some((b) => b.id === (a.id || a.appointment_id)))
       .map((a) => {
         const rawTime = a.time || a.slot_time;
-        const rawDate = a.date || (a.start_datetime ? a.start_datetime.split('T')[0] : '');
+        const rawDate = a.date ? a.date.split('T')[0].split(' ')[0] : (a.start_datetime ? a.start_datetime.split('T')[0] : '');
         return {
           ...a,
           id: a.id || a.appointment_id || 'APT-LIVE',
@@ -139,6 +160,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         };
       }),
   ];
+
+  // Auto-focus on weekday with booked consultations if current day is empty
+  useEffect(() => {
+    if (allAppointments.length > 0) {
+      const currentDayHasAppts = allAppointments.some((a) =>
+        a.date ? a.date === daysInfo[selectedDayIndex]?.isoDate : daysInfo[selectedDayIndex]?.isToday
+      );
+      if (!currentDayHasAppts) {
+        const apptDayIdx = daysInfo.findIndex((d) =>
+          allAppointments.some((a) => a.date === d.isoDate)
+        );
+        if (apptDayIdx !== -1) {
+          setSelectedDayIndex(apptDayIdx);
+        }
+      }
+    }
+  }, [allAppointments.length, appointments]);
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-md">
@@ -160,25 +198,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       {/* 7-Day Weekday Tab Selector (Upgrade 4) */}
       <div className="grid grid-cols-7 gap-1.5 p-1 bg-slate-950/80 rounded-xl border border-slate-800 text-center">
-        {daysInfo.map((day, idx) => (
-          <button
-            key={day.name}
-            onClick={() => setSelectedDayIndex(idx)}
-            className={`py-1.5 px-1 rounded-lg transition text-xs flex flex-col items-center ${
-              selectedDayIndex === idx
-                ? 'bg-sky-600 text-white font-bold shadow'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-            }`}
-          >
-            <span className="text-[10px] uppercase font-semibold">{day.name.slice(0, 3)}</span>
-            <span className="text-xs">{day.dateStr}</span>
-            {day.isToday && (
-              <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-bold mt-0.5">
-                Today
-              </span>
-            )}
-          </button>
-        ))}
+        {daysInfo.map((day, idx) => {
+          const dayApptsCount = allAppointments.filter((a) => {
+            if (a.date) return a.date === day.isoDate;
+            return day.isToday;
+          }).length;
+
+          return (
+            <button
+              key={day.name}
+              onClick={() => setSelectedDayIndex(idx)}
+              className={`py-1.5 px-1 rounded-lg transition text-xs flex flex-col items-center ${
+                selectedDayIndex === idx
+                  ? 'bg-sky-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <span className="text-[10px] uppercase font-semibold">{day.name.slice(0, 3)}</span>
+              <span className="text-xs">{day.dateStr}</span>
+              <div className="flex items-center gap-1 mt-0.5 flex-wrap justify-center">
+                {day.isToday && (
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-bold">
+                    Today
+                  </span>
+                )}
+                {dayApptsCount > 0 && (
+                  <span className="text-[9px] bg-sky-400/20 text-sky-300 border border-sky-400/30 px-1 rounded font-bold">
+                    {dayApptsCount} Booked
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Visual Time Grid for Selected Day */}
@@ -189,8 +241,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-xs">
           {baseSlots.map((time) => {
-            const bookedAppt = allAppointments.find((a) => a.time === time);
-            const isBlocked = blockedSlots.includes(time);
+            const selectedIso = daysInfo[selectedDayIndex]?.isoDate;
+            const normTime = normalizeSlot(time);
+            const bookedAppt = allAppointments.find((a) => {
+              if (normalizeSlot(a.time) !== normTime) return false;
+              if (a.date) return a.date === selectedIso;
+              return daysInfo[selectedDayIndex]?.isToday;
+            });
+            const isBlocked = blockedSlots.map(normalizeSlot).includes(normTime);
             const isBooked = !!bookedAppt;
 
             return (
@@ -205,7 +263,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }}
                 className={`p-2.5 rounded-xl border text-center transition cursor-pointer shadow-sm ${
                   isBooked
-                    ? 'bg-sky-950/60 border-sky-500 text-sky-200 hover:border-sky-400'
+                    ? 'bg-sky-950/80 border-sky-500 text-sky-200 ring-1 ring-sky-500/50 hover:border-sky-400'
                     : isBlocked
                     ? 'bg-rose-950/40 border-rose-500/50 text-rose-300 hover:border-rose-400'
                     : 'bg-slate-950/80 border-slate-800 hover:border-emerald-500/60 text-slate-300'
@@ -214,7 +272,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="font-bold text-[11px]">{time}</div>
                 <div className="text-[9px] mt-1 truncate font-medium">
                   {isBooked
-                    ? `✓ ${bookedAppt.patient_name}`
+                    ? `✓ Booked: ${bookedAppt.patient_name}`
                     : isBlocked
                     ? '⛔ Blocked'
                     : '🟢 Available'}

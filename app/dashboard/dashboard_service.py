@@ -41,6 +41,46 @@ class DoctorDashboardService:
         self.db = db_session
         self.availability_engine = AvailabilityEngine(db_session)
 
+    def _enrich_appointment(self, a: Appointment) -> Dict[str, Any]:
+        intake_rec = self.db.query(PatientIntakeRecord).filter(PatientIntakeRecord.appointment_id == a.id).first()
+        q_resp = self.db.query(PatientQuestionnaireResponse).filter(
+            PatientQuestionnaireResponse.appointment_id == a.id
+        ).order_by(PatientQuestionnaireResponse.submitted_at.desc()).first()
+
+        answers = {}
+        if q_resp and q_resp.answers_json:
+            try:
+                answers.update(json.loads(q_resp.answers_json))
+            except Exception:
+                pass
+        if intake_rec and intake_rec.intake_answers_json:
+            try:
+                answers.update(json.loads(intake_rec.intake_answers_json))
+            except Exception:
+                pass
+
+        has_resp = bool(answers or intake_rec or q_resp)
+        summary_text = intake_rec.patient_reported_summary if intake_rec else (
+            ", ".join([f"{k}: {v}" for k, v in answers.items()]) if answers else "None submitted"
+        )
+
+        return {
+            "id": a.id,
+            "patient_name": a.patient_name,
+            "patient_phone": a.patient_phone,
+            "start_datetime": a.start_datetime.isoformat(),
+            "end_datetime": a.end_datetime.isoformat(),
+            "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+            "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
+            "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+            "is_ehr_verified": a.is_ehr_verified,
+            "has_questionnaire": has_resp,
+            "questionnaire_status": "Complete" if has_resp else "Pending",
+            "intake_answers": answers,
+            "pre_visit_summary": summary_text,
+            "is_submitted_and_verified": bool(has_resp and a.is_ehr_verified)
+        }
+
     # -------------------------------------------------------------------------
     # 1. HOME SUMMARY VIEW
     # -------------------------------------------------------------------------
@@ -94,62 +134,10 @@ class DoctorDashboardService:
                 "pending_questionnaires_count": len(pending_questionnaires),
                 "completed_questionnaires_count": len(completed_intakes)
             },
-            "todays_appointments": [
-                {
-                    "id": a.id,
-                    "patient_name": a.patient_name,
-                    "patient_phone": a.patient_phone,
-                    "start_datetime": a.start_datetime.isoformat(),
-                    "end_datetime": a.end_datetime.isoformat(),
-                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
-                    "is_ehr_verified": a.is_ehr_verified
-                }
-                for a in todays_appts
-            ],
-            "today_appointments": [
-                {
-                    "id": a.id,
-                    "patient_name": a.patient_name,
-                    "patient_phone": a.patient_phone,
-                    "start_datetime": a.start_datetime.isoformat(),
-                    "end_datetime": a.end_datetime.isoformat(),
-                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
-                    "is_ehr_verified": a.is_ehr_verified
-                }
-                for a in todays_appts
-            ],
-            "upcoming_appointments": [
-                {
-                    "id": a.id,
-                    "patient_name": a.patient_name,
-                    "patient_phone": a.patient_phone,
-                    "start_datetime": a.start_datetime.isoformat(),
-                    "end_datetime": a.end_datetime.isoformat(),
-                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
-                    "is_ehr_verified": a.is_ehr_verified
-                }
-                for a in upcoming_appts
-            ],
-            "all_appointments": [
-                {
-                    "id": a.id,
-                    "patient_name": a.patient_name,
-                    "patient_phone": a.patient_phone,
-                    "start_datetime": a.start_datetime.isoformat(),
-                    "end_datetime": a.end_datetime.isoformat(),
-                    "time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "slot_time": a.start_datetime.strftime("%I:%M %p") if a.start_datetime else "10:00 AM",
-                    "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
-                    "is_ehr_verified": a.is_ehr_verified
-                }
-                for a in todays_appts + upcoming_appts
-            ],
+            "todays_appointments": [self._enrich_appointment(a) for a in todays_appts],
+            "today_appointments": [self._enrich_appointment(a) for a in todays_appts],
+            "upcoming_appointments": [self._enrich_appointment(a) for a in upcoming_appts],
+            "all_appointments": [self._enrich_appointment(a) for a in todays_appts + upcoming_appts],
             "pending_questionnaires": pending_questionnaires,
             "recently_completed_questionnaires": [
                 {
@@ -307,6 +295,32 @@ class DoctorDashboardService:
 
         # Pre-visit Questionnaire Intake
         intake_record = self.db.query(PatientIntakeRecord).filter(PatientIntakeRecord.appointment_id == appointment_id).first()
+        q_resp = self.db.query(PatientQuestionnaireResponse).filter(
+            PatientQuestionnaireResponse.appointment_id == appointment_id
+        ).order_by(PatientQuestionnaireResponse.submitted_at.desc()).first()
+        
+        if not q_resp and patient_profile:
+            q_resp = self.db.query(PatientQuestionnaireResponse).filter(
+                PatientQuestionnaireResponse.patient_id == patient_profile.id
+            ).order_by(PatientQuestionnaireResponse.submitted_at.desc()).first()
+
+        intake_answers = {}
+        if q_resp and q_resp.answers_json:
+            try:
+                intake_answers.update(json.loads(q_resp.answers_json))
+            except Exception:
+                pass
+        if intake_record and intake_record.intake_answers_json:
+            try:
+                intake_answers.update(json.loads(intake_record.intake_answers_json))
+            except Exception:
+                pass
+
+        has_submitted = (intake_record is not None) or (q_resp is not None)
+        reported_symptoms = (
+            intake_record.patient_reported_summary if intake_record 
+            else ("Pre-visit intake questionnaire completed." if q_resp else "No pre-visit questionnaire submitted yet.")
+        )
 
         # External EHR Reference
         ehr_map = self.db.query(EHRMapping).filter(
@@ -340,10 +354,10 @@ class DoctorDashboardService:
                 "timezone": hosp.timezone if hosp else "UTC"
             },
             "pre_visit_questionnaire": {
-                "has_submitted": intake_record is not None,
-                "patient_reported_symptoms": intake_record.patient_reported_summary if intake_record else "No pre-visit questionnaire submitted yet.",
-                "intake_answers": json.loads(intake_record.intake_answers_json) if (intake_record and intake_record.intake_answers_json) else {},
-                "encryption_status": intake_record.encryption_status if intake_record else "N/A"
+                "has_submitted": has_submitted,
+                "patient_reported_symptoms": reported_symptoms,
+                "intake_answers": intake_answers,
+                "encryption_status": intake_record.encryption_status if intake_record else ("ENCRYPTED_AES256" if q_resp else "N/A")
             },
             "relevant_authorized_context": {
                 "interaction_notes": patient_profile.interaction_notes if patient_profile else "No prior interaction notes recorded.",

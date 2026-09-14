@@ -22,9 +22,13 @@ import {
   Hospital as HospitalIcon,
   ChevronRight,
   Sun,
-  Moon
+  Moon,
+  RotateCw,
+  Clock,
+  Award,
+  ShieldCheck
 } from 'lucide-react';
-import { useAuth, DEMO_PERSONAS, UserRole } from '../../hooks/useAuth';
+import { useAuth, DEMO_PERSONAS, UserRole, UserSession } from '../../hooks/useAuth';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage, SUPPORTED_LANGUAGES } from '../../context/LanguageContext';
 import { apiCall } from '../../api/client';
@@ -35,8 +39,33 @@ interface HospitalOption {
   code: string;
 }
 
+interface PendingDoctorInfo {
+  doctorId: string;
+  hospitalId: string;
+  hospitalName: string;
+  name: string;
+  email: string;
+  specialty: string;
+  department: string;
+  qualifications: string;
+  experienceYears: number;
+  bio?: string;
+}
+
+interface PendingHospitalInfo {
+  hospitalId: string;
+  hospitalName: string;
+  hospitalCode: string;
+  contactEmail?: string;
+  adminName: string;
+  adminEmail: string;
+  departments?: string[];
+  phone?: string;
+  address?: string;
+}
+
 export const LandingPage: React.FC = () => {
-  const { login, signUp, loginWithGoogle } = useAuth();
+  const { login, signUp, loginWithGoogle, saveSession } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, currentOption } = useLanguage();
 
@@ -63,6 +92,13 @@ export const LandingPage: React.FC = () => {
   const [hospAdminPassword, setHospAdminPassword] = useState('');
   const [hospDepts, setHospDepts] = useState('Cardiology, Orthopedics, Emergency, General Medicine');
 
+  // Doctor Sign Up Specific Fields
+  const [docSpecialty, setDocSpecialty] = useState('General Medicine');
+  const [docDepartment, setDocDepartment] = useState('Outpatient Department');
+  const [docQualifications, setDocQualifications] = useState('MBBS, MD');
+  const [docExperienceYears, setDocExperienceYears] = useState('8');
+  const [docBio, setDocBio] = useState('');
+
   // Status & Feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -75,23 +111,164 @@ export const LandingPage: React.FC = () => {
     { id: 'HOSP-METRO-03', name: 'Metro Health Medical Center', code: 'METROHLTH' },
   ]);
 
+  const [isRefreshingHospitals, setIsRefreshingHospitals] = useState(false);
+
   // Fetch live hospitals from backend
-  useEffect(() => {
-    const fetchHospitals = async () => {
-      try {
-        const res = await apiCall('/api/v1/auth/hospitals');
-        if (res.ok && res.data && res.data.hospitals && res.data.hospitals.length > 0) {
-          setHospitals(res.data.hospitals);
-          if (!selectedHospital) {
-            setSelectedHospital(res.data.hospitals[0].id);
-          }
+  const fetchHospitals = async (preferredHospitalId?: string) => {
+    setIsRefreshingHospitals(true);
+    try {
+      const res = await apiCall('/api/v1/auth/hospitals');
+      if (res.ok && res.data && res.data.hospitals && res.data.hospitals.length > 0) {
+        setHospitals(res.data.hospitals);
+        if (preferredHospitalId) {
+          setSelectedHospital(preferredHospitalId);
+        } else {
+          setSelectedHospital((prev) => {
+            const exists = res.data.hospitals.some((h: HospitalOption) => h.id === prev);
+            return exists ? prev : res.data.hospitals[0].id;
+          });
         }
-      } catch (err) {
-        console.warn('Failed to load dynamic hospital directory:', err);
       }
-    };
+    } catch (err) {
+      console.warn('Failed to load dynamic hospital directory:', err);
+    } finally {
+      setIsRefreshingHospitals(false);
+    }
+  };
+
+  // Pending Doctor Registration Approval State
+  const [pendingDoctor, setPendingDoctor] = useState<PendingDoctorInfo | null>(null);
+  const [isPollingDoctorApproval, setIsPollingDoctorApproval] = useState(false);
+  const [approvalDetected, setApprovalDetected] = useState(false);
+  const [approvalRejected, setApprovalRejected] = useState<string | null>(null);
+
+  // Pending Hospital Facility Approval State
+  const [pendingHospital, setPendingHospital] = useState<PendingHospitalInfo | null>(null);
+  const [isPollingHospitalApproval, setIsPollingHospitalApproval] = useState(false);
+  const [hospitalApprovalDetected, setHospitalApprovalDetected] = useState(false);
+  const [hospitalApprovalRejected, setHospitalApprovalRejected] = useState<string | null>(null);
+
+  const checkDoctorApprovalStatus = async (docId?: string) => {
+    const targetId = docId || pendingDoctor?.doctorId;
+    if (!targetId || approvalDetected) return;
+
+    try {
+      setIsPollingDoctorApproval(true);
+      const res = await apiCall(`/api/v1/auth/doctor-status/${targetId}`);
+      if (res.ok && res.data) {
+        if (res.data.is_approved || res.data.doctor_status === 'ACTIVE') {
+          setApprovalDetected(true);
+          setApprovalRejected(null);
+          const session: UserSession = res.data.session || {
+            access_token: `token-${Date.now()}`,
+            role: 'DOCTOR' as UserRole,
+            user_id: res.data.user_id || targetId,
+            name: res.data.name || pendingDoctor?.name || 'Doctor',
+            identifier: pendingDoctor?.email || targetId,
+            email: pendingDoctor?.email,
+            hospital_id: res.data.hospital_id || pendingDoctor?.hospitalId,
+            hospital_name: res.data.hospital_name || pendingDoctor?.hospitalName,
+            doctor_id: res.data.doctor_id || targetId,
+            specialty: res.data.specialty || pendingDoctor?.specialty,
+            department: res.data.department || pendingDoctor?.department,
+            qualifications: res.data.qualifications || pendingDoctor?.qualifications,
+            experience_years: res.data.experience_years || pendingDoctor?.experienceYears,
+            bio: res.data.bio || pendingDoctor?.bio,
+            auth_provider: 'LOCAL',
+            permissions: [],
+            headers: { 'X-User-Role': 'DOCTOR', 'X-Doctor-Id': targetId },
+          };
+
+          setTimeout(() => {
+            saveSession(session);
+            setIsAuthModalOpen(false);
+            setPendingDoctor(null);
+          }, 1200);
+        } else if (res.data.status === 'REJECTED' || res.data.doctor_status === 'INACTIVE') {
+          setApprovalRejected(res.data.message || 'Your registration request was not approved by the hospital administrator.');
+        }
+      }
+    } catch (err) {
+      console.warn('Doctor approval check err:', err);
+    } finally {
+      setIsPollingDoctorApproval(false);
+    }
+  };
+
+  const checkHospitalApprovalStatus = async (hospId?: string) => {
+    const targetId = hospId || pendingHospital?.hospitalId;
+    if (!targetId || hospitalApprovalDetected) return;
+
+    try {
+      setIsPollingHospitalApproval(true);
+      const res = await apiCall(`/api/v1/auth/hospital-status/${targetId}`);
+      if (res.ok && res.data) {
+        if (res.data.is_approved || res.data.status === 'APPROVED') {
+          setHospitalApprovalDetected(true);
+          setHospitalApprovalRejected(null);
+          const session: UserSession = res.data.session || {
+            access_token: `token-${Date.now()}`,
+            role: 'HOSPITAL_ADMIN' as UserRole,
+            user_id: res.data.admin_user_id || `admin-${targetId}`,
+            name: res.data.admin_name || pendingHospital?.adminName || 'Hospital Administrator',
+            identifier: pendingHospital?.adminEmail || targetId,
+            email: pendingHospital?.adminEmail,
+            hospital_id: targetId,
+            hospital_name: res.data.hospital_name || pendingHospital?.hospitalName,
+            auth_provider: 'LOCAL',
+            permissions: [],
+            headers: { 'X-User-Role': 'HOSPITAL_ADMIN', 'X-Hospital-Id': targetId },
+          };
+
+          setTimeout(() => {
+            saveSession(session);
+            setIsAuthModalOpen(false);
+            setPendingHospital(null);
+          }, 1200);
+        } else if (res.data.status === 'REJECTED') {
+          setHospitalApprovalRejected(res.data.message || 'The hospital registration request was rejected by the Platform Super-Admin.');
+        }
+      }
+    } catch (err) {
+      console.warn('Hospital approval check err:', err);
+    } finally {
+      setIsPollingHospitalApproval(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!pendingDoctor?.doctorId || approvalDetected) return;
+
+    checkDoctorApprovalStatus(pendingDoctor.doctorId);
+
+    const interval = setInterval(() => {
+      checkDoctorApprovalStatus(pendingDoctor.doctorId);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [pendingDoctor?.doctorId, approvalDetected]);
+
+  useEffect(() => {
+    if (!pendingHospital?.hospitalId || hospitalApprovalDetected) return;
+
+    checkHospitalApprovalStatus(pendingHospital.hospitalId);
+
+    const interval = setInterval(() => {
+      checkHospitalApprovalStatus(pendingHospital.hospitalId);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [pendingHospital?.hospitalId, hospitalApprovalDetected]);
+
+  useEffect(() => {
     fetchHospitals();
   }, []);
+
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      fetchHospitals();
+    }
+  }, [isAuthModalOpen, selectedRole, authMode]);
 
   const openAuthWithRole = (role: UserRole, mode: 'signin' | 'signup' = 'signin') => {
     setSelectedRole(role);
@@ -122,6 +299,39 @@ export const LandingPage: React.FC = () => {
     const result = await login(email.trim(), password, selectedRole, selectedHospital);
     setIsSubmitting(false);
     if (!result.success) {
+      if (result.pendingApproval) {
+        if (result.role === 'HOSPITAL_ADMIN' || selectedRole === 'HOSPITAL_ADMIN') {
+          const hId = result.hospitalId || selectedHospital;
+          const hospObj = hospitals.find((h) => h.id === hId);
+          setPendingHospital({
+            hospitalId: hId,
+            hospitalName: result.hospitalName || hospObj?.name || 'Registered Hospital Facility',
+            hospitalCode: hospObj?.code || '',
+            adminName: 'Hospital Administrator',
+            adminEmail: email.trim(),
+          });
+          setHospitalApprovalDetected(false);
+          setHospitalApprovalRejected(null);
+          return;
+        }
+        if (result.role === 'DOCTOR' || selectedRole === 'DOCTOR') {
+          const hospObj = hospitals.find((h) => h.id === selectedHospital);
+          setPendingDoctor({
+            doctorId: result.doctorId || '',
+            hospitalId: result.hospitalId || selectedHospital,
+            hospitalName: result.hospitalName || hospObj?.name || 'Hospital',
+            name: 'Doctor',
+            email: email.trim(),
+            specialty: 'Clinical Specialist',
+            department: 'General Medicine',
+            qualifications: 'MBBS / MD',
+            experienceYears: 5,
+          });
+          setApprovalDetected(false);
+          setApprovalRejected(null);
+          return;
+        }
+      }
       setErrorMessage(result.error || 'Authentication failed. Please check your credentials.');
     }
   };
@@ -132,19 +342,46 @@ export const LandingPage: React.FC = () => {
       setErrorMessage('Please fill in all required fields.');
       return;
     }
+    if (['HOSPITAL_ADMIN', 'DOCTOR'].includes(selectedRole) && !selectedHospital) {
+      setErrorMessage('Please select an affiliated hospital from the directory.');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     const result = await signUp({
       email: email.trim(),
       password,
       fullName: fullName.trim(),
       role: selectedRole,
-      hospitalId: ['HOSPITAL_ADMIN', 'HOSPITAL_STAFF', 'DOCTOR'].includes(selectedRole) ? selectedHospital : undefined,
+      hospitalId: ['HOSPITAL_ADMIN', 'DOCTOR'].includes(selectedRole) ? selectedHospital : undefined,
       phoneNumber: phoneNumber.trim() || undefined,
+      specialty: selectedRole === 'DOCTOR' ? docSpecialty : undefined,
+      department: selectedRole === 'DOCTOR' ? docDepartment : undefined,
+      qualifications: selectedRole === 'DOCTOR' ? docQualifications : undefined,
+      experienceYears: selectedRole === 'DOCTOR' ? parseInt(docExperienceYears, 10) || 5 : undefined,
+      bio: selectedRole === 'DOCTOR' ? docBio.trim() || undefined : undefined,
     });
     setIsSubmitting(false);
     if (!result.success) {
       setErrorMessage(result.error || 'Registration failed.');
+    } else if (result.pendingApproval) {
+      const hospObj = hospitals.find((h) => h.id === selectedHospital);
+      const hospTitle = hospObj ? `${hospObj.name} (${hospObj.code})` : (result.hospitalName || 'your affiliated hospital');
+      setPendingDoctor({
+        doctorId: result.doctorId || '',
+        hospitalId: result.hospitalId || selectedHospital,
+        hospitalName: hospTitle,
+        name: fullName.trim(),
+        email: email.trim(),
+        specialty: docSpecialty,
+        department: docDepartment,
+        qualifications: docQualifications,
+        experienceYears: parseInt(docExperienceYears, 10) || 5,
+        bio: docBio.trim() || undefined,
+      });
+      setApprovalDetected(false);
+      setApprovalRejected(null);
     }
   };
 
@@ -176,9 +413,27 @@ export const LandingPage: React.FC = () => {
       });
 
       if (res.ok && res.data) {
-        setSuccessMessage(
-          `Application for "${hospName}" has been submitted successfully! The facility request is now pending approval by the Platform System Admin. Once approved, facility operations will be unlocked.`
-        );
+        const hId = res.data.hospital_id || res.data.hospital?.id || '';
+        const hName = res.data.hospital_name || res.data.hospital?.name || hospName.trim();
+        const hCode = res.data.hospital_code || res.data.hospital?.code || hospCode.trim().toUpperCase();
+        const aName = res.data.admin_name || hospAdminName.trim();
+        const aEmail = res.data.admin_email || hospAdminEmail.trim().toLowerCase();
+
+        fetchHospitals(hId);
+
+        setPendingHospital({
+          hospitalId: hId,
+          hospitalName: hName,
+          hospitalCode: hCode,
+          adminName: aName,
+          adminEmail: aEmail,
+          contactEmail: hospEmail.trim().toLowerCase(),
+          phone: hospPhone.trim() || undefined,
+          address: hospAddress.trim() || undefined,
+          departments: depts,
+        });
+        setHospitalApprovalDetected(false);
+        setHospitalApprovalRejected(null);
       } else {
         setErrorMessage(res.error || 'Failed to submit hospital application.');
       }
@@ -204,7 +459,7 @@ export const LandingPage: React.FC = () => {
       name: mockName,
       avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockEmail}`,
       role: selectedRole,
-      hospitalId: ['HOSPITAL_ADMIN', 'HOSPITAL_STAFF', 'DOCTOR'].includes(selectedRole) ? selectedHospital : undefined,
+      hospitalId: ['HOSPITAL_ADMIN', 'DOCTOR'].includes(selectedRole) ? selectedHospital : undefined,
     });
 
     setIsSubmitting(false);
@@ -231,15 +486,6 @@ export const LandingPage: React.FC = () => {
       color: 'border-sky-500/40 hover:border-sky-400 bg-sky-500/5',
       desc: "Today's patient schedule, pre-visit intake briefs, working hours & calendar blocks.",
       features: ['Real-time Today Schedule & Calendar Blocks', 'AI Pre-Visit Clinical Briefing', 'Symptom Severity Analysis', 'Multi-facility Consultation Windows'],
-    },
-    {
-      role: 'HOSPITAL_STAFF' as UserRole,
-      label: 'Hospital Staff',
-      badge: 'Care Coordination',
-      icon: <Users className="w-5 h-5 text-teal-400" />,
-      color: 'border-teal-500/40 hover:border-teal-400 bg-teal-500/5',
-      desc: 'Front desk reception, intake review, patient check-in & operational flow.',
-      features: ['Reception Front-Desk Queue', 'Real-time Patient Arrival Check-in', 'Dynamic Intake Questionnaire Verification', 'Escalation Routing to Charge Nurse'],
     },
     {
       role: 'HOSPITAL_ADMIN' as UserRole,
@@ -363,7 +609,7 @@ export const LandingPage: React.FC = () => {
           </h1>
 
           <p className="text-base sm:text-xl text-slate-400 max-w-3xl mx-auto font-normal leading-relaxed">
-            Unifying Patients, Doctors, Hospital Staff, Facility Admins, and Entire System SRE in a secure, multilingual, FHIR-integrated operating platform.
+            Unifying Patients, Doctors, Facility Admins, and Entire System SRE in a secure, multilingual, FHIR-integrated operating platform.
           </p>
 
           {/* Action CTAs */}
@@ -428,11 +674,11 @@ export const LandingPage: React.FC = () => {
               Dedicated Workspaces for Every Healthcare Stakeholder
             </p>
             <p className="text-sm text-slate-400">
-              Strict boundary rules, facility-level data isolation, and granular permissions across 5 specialized roles.
+              Strict boundary rules, facility-level data isolation, and granular permissions across 4 specialized roles.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {rolesConfig.map((item) => (
               <div
                 key={item.role}
@@ -704,12 +950,436 @@ export const LandingPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 relative shadow-2xl space-y-6 my-8">
             {/* Close Button */}
             <button
-              onClick={() => setIsAuthModalOpen(false)}
+              onClick={() => {
+                setIsAuthModalOpen(false);
+                setPendingDoctor(null);
+                setApprovalDetected(false);
+                setApprovalRejected(null);
+                setPendingHospital(null);
+                setHospitalApprovalDetected(false);
+                setHospitalApprovalRejected(null);
+              }}
               className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
             >
               <X className="w-5 h-5" />
             </button>
 
+            {pendingDoctor ? (
+              <div className="space-y-5 animate-fadeIn">
+                {/* Header banner */}
+                <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
+                  <div className="w-11 h-11 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                    <Stethoscope className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Physician Credentialing &amp; Hospital Onboarding</span>
+                    </div>
+                    <h2 className="text-xl font-extrabold text-white">
+                      Doctor Registration Submitted
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Dynamic Status Display */}
+                {approvalDetected ? (
+                  <div className="bg-emerald-500/15 border-2 border-emerald-500/50 rounded-2xl p-5 text-emerald-200 space-y-3 shadow-lg shadow-emerald-950/40">
+                    <div className="flex items-center space-x-2.5 font-black text-base text-emerald-300">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                      <span>Application Approved &amp; Credentialed!</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed">
+                      The Hospital Administrator at <strong>{pendingDoctor.hospitalName}</strong> has approved Dr. {pendingDoctor.name}.
+                      Your consultation calendar and clinical workstation are provisioned.
+                    </p>
+                    <div className="flex items-center space-x-2.5 pt-1 text-xs font-bold text-emerald-400">
+                      <span className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Launching your Doctor Clinical Workstation...</span>
+                    </div>
+                  </div>
+                ) : approvalRejected ? (
+                  <div className="bg-rose-500/15 border border-rose-500/40 rounded-2xl p-5 text-rose-200 space-y-3">
+                    <div className="flex items-center space-x-2.5 font-bold text-base text-rose-400">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      <span>Application Not Approved</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed">{approvalRejected}</p>
+                    <div className="flex items-center space-x-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingDoctor(null);
+                          setApprovalRejected(null);
+                          setAuthMode('signup');
+                        }}
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Edit Registration
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-sky-950/60 to-slate-900 border-2 border-sky-500/40 rounded-2xl p-5 space-y-3 shadow-xl">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                          <span>Awaiting Hospital Admin Approval</span>
+                        </span>
+                        <h3 className="text-base font-extrabold text-white mt-1.5">
+                          Wait for {pendingDoctor.hospitalName} admin to approve
+                        </h3>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                        <Building2 className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Your physician credentials have been submitted and routed to the Hospital Administrator at <strong>{pendingDoctor.hospitalName}</strong> for clinical credentialing and approval.
+                    </p>
+
+                    <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800 text-[11px] text-sky-300 flex items-center space-x-2">
+                      <RotateCw className={`w-3.5 h-3.5 text-sky-400 shrink-0 ${isPollingDoctorApproval ? 'animate-spin' : ''}`} />
+                      <span>
+                        {isPollingDoctorApproval
+                          ? 'Checking administrator decision in real time...'
+                          : 'As soon as the hospital admin approves, this interface will automatically refresh and open your workstation.'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Candidate Doctor Profile Details Card */}
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 text-xs">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                    <User className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Submitted Physician Profile &amp; Details</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-300">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Doctor Full Name</span>
+                      <span className="font-bold text-white text-sm">Dr. {pendingDoctor.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Primary Specialty</span>
+                      <span className="font-semibold text-sky-400">{pendingDoctor.specialty}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Clinical Department</span>
+                      <span className="font-medium text-slate-200">{pendingDoctor.department}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Qualifications &amp; Practice</span>
+                      <span className="font-medium text-slate-200">{pendingDoctor.qualifications} &bull; {pendingDoctor.experienceYears} Years</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Target Hospital Facility</span>
+                      <span className="font-medium text-emerald-400">{pendingDoctor.hospitalName}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Account Email</span>
+                      <span className="font-mono text-slate-300">{pendingDoctor.email}</span>
+                    </div>
+                  </div>
+
+                  {pendingDoctor.bio && (
+                    <div className="pt-2 border-t border-slate-900 text-slate-400 text-[11px]">
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Clinical Focus &amp; Bio</span>
+                      <span>{pendingDoctor.bio}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4-Stage Approval Journey Tracker */}
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Registration &amp; Activation Journey
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-2.5 text-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      <div className="font-bold text-emerald-300">1. Details Filed</div>
+                      <div className="text-[10px] text-slate-400">Completed</div>
+                    </div>
+
+                    <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-2.5 text-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      <div className="font-bold text-emerald-300">2. Routed to Admin</div>
+                      <div className="text-[10px] text-slate-400">Target Queue</div>
+                    </div>
+
+                    <div className={`rounded-xl p-2.5 text-center border ${approvalDetected ? 'bg-emerald-950/30 border-emerald-500/40' : 'bg-amber-950/30 border-amber-500/50'}`}>
+                      {approvalDetected ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-amber-400 mx-auto mb-1 animate-pulse" />
+                      )}
+                      <div className={`font-bold ${approvalDetected ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        3. Admin Approval
+                      </div>
+                      <div className="text-[10px] text-slate-400">{approvalDetected ? 'Approved' : 'Under Review'}</div>
+                    </div>
+
+                    <div className={`rounded-xl p-2.5 text-center border ${approvalDetected ? 'bg-emerald-950/30 border-emerald-500/40' : 'bg-slate-950 border-slate-800 opacity-60'}`}>
+                      {approvalDetected ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      ) : (
+                        <Stethoscope className="w-4 h-4 text-slate-500 mx-auto mb-1" />
+                      )}
+                      <div className={`font-bold ${approvalDetected ? 'text-emerald-300' : 'text-slate-400'}`}>
+                        4. Workstation Live
+                      </div>
+                      <div className="text-[10px] text-slate-400">{approvalDetected ? 'Activated' : 'Pending'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingDoctor(null);
+                      setApprovalDetected(false);
+                      setApprovalRejected(null);
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-200 transition underline cursor-pointer"
+                  >
+                    Cancel &amp; Return
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isPollingDoctorApproval || approvalDetected}
+                    onClick={() => checkDoctorApprovalStatus(pendingDoctor.doctorId)}
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isPollingDoctorApproval ? 'animate-spin' : ''}`} />
+                    <span>Check Approval Status Now</span>
+                  </button>
+                </div>
+              </div>
+            ) : pendingHospital ? (
+              <div className="space-y-5 animate-fadeIn">
+                {/* Header banner */}
+                <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                    <Building2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Facility Accreditation &amp; Platform Onboarding</span>
+                    </div>
+                    <h2 className="text-xl font-extrabold text-white">
+                      Hospital Registration Submitted
+                    </h2>
+                  </div>
+                </div>
+
+                {/* Dynamic Status Display */}
+                {hospitalApprovalDetected ? (
+                  <div className="bg-emerald-500/15 border-2 border-emerald-500/50 rounded-2xl p-5 text-emerald-200 space-y-3 shadow-lg shadow-emerald-950/40">
+                    <div className="flex items-center space-x-2.5 font-black text-base text-emerald-300">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                      <span>Facility Approved &amp; Accredited by Platform Admin!</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed">
+                      The System Super-Admin has approved <strong>{pendingHospital.hospitalName}</strong> ({pendingHospital.hospitalCode || pendingHospital.hospitalId}).
+                      Your facility workstation, EHR integration hub, and doctor scheduling pipelines are unlocked.
+                    </p>
+                    <div className="flex items-center space-x-2.5 pt-1 text-xs font-bold text-emerald-400">
+                      <span className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                      <span>Launching Hospital Administrative Command Center...</span>
+                    </div>
+                  </div>
+                ) : hospitalApprovalRejected ? (
+                  <div className="bg-rose-500/15 border border-rose-500/40 rounded-2xl p-5 text-rose-200 space-y-3">
+                    <div className="flex items-center space-x-2.5 font-bold text-base text-rose-400">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      <span>Registration Not Approved</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-relaxed">{hospitalApprovalRejected}</p>
+                    <div className="flex items-center space-x-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingHospital(null);
+                          setHospitalApprovalRejected(null);
+                          setAuthMode('hospital_register');
+                        }}
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                      >
+                        Edit Registration
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-indigo-950/60 to-slate-900 border-2 border-indigo-500/40 rounded-2xl p-5 space-y-3 shadow-xl">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                          <span>Awaiting Platform / System Super-Admin Approval</span>
+                        </span>
+                        <h3 className="text-base font-extrabold text-white mt-1.5">
+                          Wait for Platform Admin to approve {pendingHospital.hospitalName}
+                        </h3>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Your hospital facility registration has been registered in the platform database and queued for verification by the <strong>Platform / System Super-Admin</strong>. The hospital command center will open automatically once approved.
+                    </p>
+
+                    <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800 text-[11px] text-indigo-300 flex items-center space-x-2">
+                      <RotateCw className={`w-3.5 h-3.5 text-indigo-400 shrink-0 ${isPollingHospitalApproval ? 'animate-spin' : ''}`} />
+                      <span>
+                        {isPollingHospitalApproval
+                          ? 'Checking platform approval decision in real time...'
+                          : 'As soon as the platform administrator approves, this interface will automatically transition to the Hospital Operations Hub.'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Candidate Hospital Profile Details Card */}
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 text-xs">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Submitted Facility Profile &amp; Onboarding Details</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-300">
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Hospital / Health System</span>
+                      <span className="font-bold text-white text-sm">{pendingHospital.hospitalName}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Facility Code</span>
+                      <span className="font-semibold text-indigo-400 font-mono">{pendingHospital.hospitalCode || pendingHospital.hospitalId}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Lead Administrator</span>
+                      <span className="font-medium text-slate-200">{pendingHospital.adminName}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block">Admin Email</span>
+                      <span className="font-mono text-slate-300">{pendingHospital.adminEmail}</span>
+                    </div>
+                    {pendingHospital.contactEmail && (
+                      <div>
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 block">Contact Email</span>
+                        <span className="font-mono text-slate-300">{pendingHospital.contactEmail}</span>
+                      </div>
+                    )}
+                    {pendingHospital.phone && (
+                      <div>
+                        <span className="text-[10px] uppercase font-semibold text-slate-500 block">Phone</span>
+                        <span className="font-medium text-slate-200">{pendingHospital.phone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {pendingHospital.departments && pendingHospital.departments.length > 0 && (
+                    <div className="pt-2 border-t border-slate-900 text-slate-400 text-[11px]">
+                      <span className="text-[10px] uppercase font-semibold text-slate-500 block mb-1">Declared Clinical Departments</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pendingHospital.departments.map((d) => (
+                          <span key={d} className="bg-slate-900 border border-slate-800 text-indigo-300 px-2 py-0.5 rounded-lg text-[10px]">
+                            {d}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4-Stage Approval Journey Tracker */}
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Accreditation &amp; Approval Journey
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                    <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-2.5 text-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      <div className="font-bold text-emerald-300">1. Facility Filed</div>
+                      <div className="text-[10px] text-slate-400">Completed</div>
+                    </div>
+
+                    <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-2.5 text-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      <div className="font-bold text-emerald-300">2. DB Ingested</div>
+                      <div className="text-[10px] text-slate-400">Ready for Review</div>
+                    </div>
+
+                    <div className={`rounded-xl p-2.5 text-center border transition ${
+                      hospitalApprovalDetected
+                        ? 'bg-emerald-950/30 border-emerald-500/40'
+                        : 'bg-amber-950/30 border-amber-500/40 animate-pulse'
+                    }`}>
+                      {hospitalApprovalDetected ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                      ) : (
+                        <RotateCw className="w-4 h-4 text-amber-400 mx-auto mb-1 animate-spin" />
+                      )}
+                      <div className={`font-bold ${hospitalApprovalDetected ? 'text-emerald-300' : 'text-amber-300'}`}>
+                        3. Platform Review
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {hospitalApprovalDetected ? 'Approved' : 'Awaiting Super-Admin'}
+                      </div>
+                    </div>
+
+                    <div className={`rounded-xl p-2.5 text-center border ${
+                      hospitalApprovalDetected
+                        ? 'bg-emerald-950/30 border-emerald-500/40'
+                        : 'bg-slate-900 border-slate-800 opacity-60'
+                    }`}>
+                      <CheckCircle2 className={`w-4 h-4 mx-auto mb-1 ${hospitalApprovalDetected ? 'text-emerald-400' : 'text-slate-500'}`} />
+                      <div className={`font-bold ${hospitalApprovalDetected ? 'text-emerald-300' : 'text-slate-400'}`}>
+                        4. Hospital Hub
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {hospitalApprovalDetected ? 'Provisioned' : 'Locked'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingHospital(null);
+                      setHospitalApprovalDetected(false);
+                      setHospitalApprovalRejected(null);
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-200 transition underline cursor-pointer"
+                  >
+                    Cancel &amp; Return
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isPollingHospitalApproval || hospitalApprovalDetected}
+                    onClick={() => checkHospitalApprovalStatus(pendingHospital.hospitalId)}
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition disabled:opacity-50 cursor-pointer"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isPollingHospitalApproval ? 'animate-spin' : ''}`} />
+                    <span>Check Approval Status Now</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Header */}
             <div className="space-y-1">
               <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
@@ -812,8 +1482,18 @@ export const LandingPage: React.FC = () => {
                   onClick={() => {
                     setSuccessMessage(null);
                     setAuthMode('signin');
+                    if (authMode === 'hospital_register') {
+                      setSelectedRole('HOSPITAL_ADMIN');
+                      if (hospAdminEmail) {
+                        setEmail(hospAdminEmail);
+                      }
+                      if (hospAdminPassword) {
+                        setPassword(hospAdminPassword);
+                      }
+                    }
+                    fetchHospitals();
                   }}
-                  className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+                  className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   <span>Proceed to Sign In</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -837,7 +1517,7 @@ export const LandingPage: React.FC = () => {
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-emerald-400">
-                          {p.role === 'PATIENT' ? <User className="w-4 h-4" /> : p.role === 'DOCTOR' ? <Stethoscope className="w-4 h-4" /> : p.role === 'HOSPITAL_ADMIN' ? <Building2 className="w-4 h-4" /> : p.role === 'HOSPITAL_STAFF' ? <Users className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                          {p.role === 'PATIENT' ? <User className="w-4 h-4" /> : p.role === 'DOCTOR' ? <Stethoscope className="w-4 h-4" /> : p.role === 'HOSPITAL_ADMIN' ? <Building2 className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
                         </div>
                         <div>
                           <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition">
@@ -1061,7 +1741,7 @@ export const LandingPage: React.FC = () => {
                   <label className="text-xs font-bold text-slate-300 block">
                     Select Your Role:
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {rolesConfig.map((r) => (
                       <button
                         key={r.role}
@@ -1080,13 +1760,25 @@ export const LandingPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3. Hospital Selector (Shown for Hospital Admin, Staff, and Doctor) */}
-                {['HOSPITAL_ADMIN', 'HOSPITAL_STAFF', 'DOCTOR'].includes(selectedRole) && (
+                {/* 3. Hospital Selector (Shown for Hospital Admin and Doctor) */}
+                {['HOSPITAL_ADMIN', 'DOCTOR'].includes(selectedRole) && (
                   <div className="space-y-1.5 bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-                    <label className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
-                      <HospitalIcon className="w-3.5 h-3.5 text-sky-400" />
-                      <span>Select Affiliated Hospital:</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                        <HospitalIcon className="w-3.5 h-3.5 text-sky-400" />
+                        <span>Select Affiliated Hospital:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => fetchHospitals()}
+                        disabled={isRefreshingHospitals}
+                        className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center space-x-1 transition cursor-pointer disabled:opacity-50"
+                        title="Reload approved hospitals from network"
+                      >
+                        <RotateCw className={`w-3 h-3 ${isRefreshingHospitals ? 'animate-spin' : ''}`} />
+                        <span>Refresh Facilities</span>
+                      </button>
+                    </div>
                     <select
                       value={selectedHospital}
                       onChange={(e) => setSelectedHospital(e.target.value)}
@@ -1168,6 +1860,101 @@ export const LandingPage: React.FC = () => {
                     </div>
                   )}
 
+                  {authMode === 'signup' && selectedRole === 'DOCTOR' && (
+                    <div className="space-y-3 bg-sky-950/30 border border-sky-500/30 rounded-xl p-3 text-xs">
+                      <div className="flex items-center space-x-1.5 text-xs font-bold text-sky-400">
+                        <Stethoscope className="w-3.5 h-3.5" />
+                        <span>Physician Credentialing &amp; Practice Details</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[11px] text-slate-300 block mb-1">
+                            Primary Specialty *
+                          </label>
+                          <select
+                            value={docSpecialty}
+                            onChange={(e) => setDocSpecialty(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 cursor-pointer"
+                          >
+                            <option value="General Medicine">General Medicine</option>
+                            <option value="Cardiology">Cardiology</option>
+                            <option value="Orthopedics">Orthopedics</option>
+                            <option value="Neurology">Neurology</option>
+                            <option value="Pediatrics">Pediatrics</option>
+                            <option value="Dermatology">Dermatology</option>
+                            <option value="Gastroenterology">Gastroenterology</option>
+                            <option value="Oncology">Oncology</option>
+                            <option value="Emergency Medicine">Emergency Medicine</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] text-slate-300 block mb-1">
+                            Clinical Department *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={docDepartment}
+                            onChange={(e) => setDocDepartment(e.target.value)}
+                            placeholder="e.g. Department of Orthopedics"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[11px] text-slate-300 block mb-1">
+                            Qualifications / Degrees *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={docQualifications}
+                            onChange={(e) => setDocQualifications(e.target.value)}
+                            placeholder="e.g. MBBS, MD, FACS, Board Certified"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] text-slate-300 block mb-1">
+                            Years of Clinical Practice *
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={60}
+                            required
+                            value={docExperienceYears}
+                            onChange={(e) => setDocExperienceYears(e.target.value)}
+                            placeholder="8"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] text-slate-300 block mb-1">
+                          Clinical Focus / Bio (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={docBio}
+                          onChange={(e) => setDocBio(e.target.value)}
+                          placeholder="Brief description of sub-specialty or clinical expertise..."
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                        />
+                      </div>
+
+                      <p className="text-[10px] text-sky-300/80 leading-relaxed">
+                        Notice: Upon submitting, your credentialing request is routed to the Hospital Administrator of the selected facility for review and approval.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
@@ -1189,6 +1976,8 @@ export const LandingPage: React.FC = () => {
                   </button>
                 </form>
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

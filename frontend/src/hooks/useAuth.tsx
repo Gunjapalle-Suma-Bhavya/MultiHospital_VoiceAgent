@@ -18,6 +18,11 @@ export interface UserSession {
   auth_provider?: string;
   permissions?: string[];
   headers?: Record<string, string>;
+  specialty?: string;
+  department?: string;
+  qualifications?: string;
+  experience_years?: number;
+  bio?: string;
 }
 
 export const DEMO_PERSONAS = [
@@ -38,15 +43,6 @@ export const DEMO_PERSONAS = [
     description: "Today's patient schedule, pre-visit intake briefs, working hours & calendar blocks.",
     color: 'sky',
     badge: 'Clinical Care',
-  },
-  {
-    role: 'HOSPITAL_STAFF' as UserRole,
-    identifier: 'staff@citymemorial.org',
-    name: 'Staff Jordan',
-    hospital_id: 'HOSP-CITY-01',
-    description: 'Patient front desk reception, intake review & operational appointment coordination.',
-    color: 'teal',
-    badge: 'Hospital Staff',
   },
   {
     role: 'HOSPITAL_ADMIN' as UserRole,
@@ -74,6 +70,11 @@ export interface SignUpParams {
   role: UserRole;
   hospitalId?: string;
   phoneNumber?: string;
+  specialty?: string;
+  department?: string;
+  qualifications?: string;
+  experienceYears?: number;
+  bio?: string;
 }
 
 export interface GoogleAuthParams {
@@ -92,10 +93,36 @@ interface AuthContextType {
     identifierOrPassword?: string,
     defaultNameOrRole?: string,
     hospitalId?: string
-  ) => Promise<{ success: boolean; error?: string }>;
-  signUp: (params: SignUpParams) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{
+    success: boolean;
+    error?: string;
+    pendingApproval?: boolean;
+    role?: string;
+    hospitalId?: string;
+    hospitalName?: string;
+    doctorId?: string;
+  }>;
+  signUp: (params: SignUpParams) => Promise<{
+    success: boolean;
+    error?: string;
+    pendingApproval?: boolean;
+    message?: string;
+    doctorId?: string;
+    hospitalId?: string;
+    hospitalName?: string;
+    doctorData?: {
+      name: string;
+      email: string;
+      specialty?: string;
+      department?: string;
+      qualifications?: string;
+      experienceYears?: number;
+      bio?: string;
+    };
+  }>;
   loginWithGoogle: (params: GoogleAuthParams) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  saveSession: (session: UserSession) => void;
   activePortal: string;
   setActivePortal: (portal: string) => void;
 }
@@ -135,34 +162,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     identifierOrPassword?: string,
     defaultNameOrRole?: string,
     hospitalId = 'HOSP-CITY-01'
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    pendingApproval?: boolean;
+    role?: string;
+    hospitalId?: string;
+    hospitalName?: string;
+    doctorId?: string;
+  }> => {
     try {
       const validRoles = ['PATIENT', 'DOCTOR', 'HOSPITAL_STAFF', 'HOSPITAL_ADMIN', 'PLATFORM_ADMIN'];
       const isLegacyCall = validRoles.includes(roleOrIdentifier);
 
       let payload: Record<string, any>;
       let expectedRole: UserRole = 'PATIENT';
-      let expectedName = '';
       let expectedIdentifier = '';
+      let expectedName = '';
 
       if (isLegacyCall) {
         expectedRole = roleOrIdentifier as UserRole;
-        expectedIdentifier = identifierOrPassword || '';
+        expectedIdentifier = identifierOrPassword || `user-${Date.now()}`;
         expectedName = defaultNameOrRole || expectedIdentifier;
         payload = {
           role: expectedRole,
-          email_or_identifier: expectedIdentifier,
+          identifier: expectedIdentifier,
+          name: expectedName,
           hospital_id: hospitalId,
         };
       } else {
-        expectedIdentifier = roleOrIdentifier;
-        expectedRole = (defaultNameOrRole as UserRole) || 'PATIENT';
+        const inputId = roleOrIdentifier.trim();
+        expectedIdentifier = inputId;
+        const password = identifierOrPassword || '';
+        const role = defaultNameOrRole as UserRole | undefined;
+
         payload = {
-          email_or_identifier: expectedIdentifier,
-          password: identifierOrPassword,
-          role: defaultNameOrRole,
+          email_or_identifier: inputId,
+          identifier: inputId,
+          password: password,
           hospital_id: hospitalId,
         };
+        if (role) {
+          payload.role = role;
+          expectedRole = role;
+        }
       }
 
       const res = await apiCall('/api/v1/auth/login', {
@@ -193,8 +236,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       } else {
         const err = res.error || 'Invalid credentials or account not found.';
-        console.warn('Authentication rejected by platform:', err);
-        return { success: false, error: err };
+        const errObj = (typeof err === 'object' && err !== null ? err : {}) as Record<string, any>;
+        const errStr = typeof err === 'string' ? err : (errObj.message || JSON.stringify(err));
+        const isPending =
+          res.status === 403 ||
+          Boolean(errObj.is_pending_approval) ||
+          errStr.includes('awaiting approval') ||
+          errStr.includes('credentialing and approval') ||
+          errStr.includes('inactive');
+
+        console.warn('Authentication rejected by platform:', errStr);
+        return {
+          success: false,
+          error: errStr,
+          pendingApproval: isPending,
+          role: errObj.role || expectedRole,
+          hospitalId: errObj.hospital_id || hospitalId,
+          hospitalName: errObj.hospital_name,
+          doctorId: errObj.doctor_id,
+        };
       }
     } catch (e: any) {
       console.error('Login error:', e);
@@ -202,7 +262,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (params: SignUpParams): Promise<{ success: boolean; error?: string }> => {
+  const signUp = async (params: SignUpParams): Promise<{
+    success: boolean;
+    error?: string;
+    pendingApproval?: boolean;
+    message?: string;
+    doctorId?: string;
+    hospitalId?: string;
+    hospitalName?: string;
+    doctorData?: {
+      name: string;
+      email: string;
+      specialty?: string;
+      department?: string;
+      qualifications?: string;
+      experienceYears?: number;
+      bio?: string;
+    };
+  }> => {
     try {
       const res = await apiCall('/api/v1/auth/signup', {
         method: 'POST',
@@ -213,10 +290,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: params.role,
           hospital_id: params.hospitalId,
           phone_number: params.phoneNumber,
+          specialty: params.specialty,
+          department: params.department,
+          qualifications: params.qualifications,
+          experience_years: params.experienceYears,
+          bio: params.bio,
         }),
       });
 
       if (res.ok && res.data) {
+        if (res.data.is_pending_approval) {
+          return {
+            success: true,
+            pendingApproval: true,
+            message: res.data.message || 'Registration submitted and pending administrator approval.',
+            doctorId: res.data.doctor_id,
+            hospitalId: res.data.hospital_id,
+            hospitalName: res.data.hospital_name,
+            doctorData: {
+              name: params.fullName,
+              email: params.email,
+              specialty: params.specialty || res.data.specialty,
+              department: params.department || res.data.department,
+              qualifications: params.qualifications || res.data.qualifications,
+              experienceYears: params.experienceYears || res.data.experience_years,
+              bio: params.bio || res.data.bio,
+            },
+          };
+        }
+
         const raw = res.data.session || res.data;
         const session: UserSession = {
           access_token: raw.access_token || `token-${Date.now()}`,
@@ -303,6 +405,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         loginWithGoogle,
         logout,
+        saveSession,
         activePortal,
         setActivePortal,
       }}

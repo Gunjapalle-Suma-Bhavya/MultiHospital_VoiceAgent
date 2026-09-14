@@ -2,7 +2,7 @@ from datetime import time
 from app.database.config import SessionLocal
 from app.database.models import (
     Hospital, HospitalStatus, Doctor, DoctorStatus,
-    DoctorCalendar, CalendarType, DoctorWorkingHour
+    DoctorCalendar, CalendarType, DoctorWorkingHour, DoctorApprovedQuestion
 )
 from app.database.mongodb import persist_to_mongodb
 
@@ -144,7 +144,46 @@ def seed_providers():
             except Exception:
                 pass
 
-        print("SUCCESSFULLY SEEDED DOCTORS AND HOSPITALS")
+        # Seed Doctor Approved Questions (Section 5.23 & Section 24)
+        default_qs = [
+            ("DQ-SHARMA-01", "DOC-SHARMA-01", "Do you have shoulder pain?", "YES_NO"),
+            ("DQ-SHARMA-02", "DOC-SHARMA-01", "How long have you had the pain?", "TEXT"),
+            ("DQ-SHARMA-03", "DOC-SHARMA-01", "Have you had any previous treatment?", "YES_NO"),
+            ("DQ-RAO-01", "DOC-RAO-02", "Are you experiencing chest discomfort or palpitations?", "YES_NO"),
+            ("DQ-RAO-02", "DOC-RAO-02", "What is your current blood pressure reading?", "TEXT"),
+        ]
+        for q_id, doc_id, text, q_type in default_qs:
+            existing_q = db.query(DoctorApprovedQuestion).filter(DoctorApprovedQuestion.id == q_id).first()
+            if not existing_q:
+                q = DoctorApprovedQuestion(id=q_id, doctor_id=doc_id, question_text=text, question_type=q_type)
+                db.add(q)
+        db.commit()
+
+        # Seed / Backfill Canonical 16-Step Operation Traces (Section 5.34 & 5.35)
+        try:
+            from app.database.models import Appointment, OperationTrace
+            from app.observability.trace_manager import TraceManager
+            untraced_appts = db.query(Appointment).limit(25).all()
+            for appt in untraced_appts:
+                existing_trace = db.query(OperationTrace).filter(OperationTrace.appointment_id == appt.id).first()
+                if not existing_trace:
+                    doc = db.query(Doctor).filter(Doctor.id == appt.doctor_id).first() if appt.doctor_id else None
+                    hosp = db.query(Hospital).filter(Hospital.id == appt.hospital_id).first() if appt.hospital_id else None
+                    TraceManager.record_canonical_booking_lifecycle(
+                        db_session=db,
+                        session_id=f"SESS-{appt.id[:8]}",
+                        hospital_id=appt.hospital_id or "HOSP-CITY-01",
+                        patient_id=appt.patient_id or f"PAT-{appt.patient_phone[-6:] if appt.patient_phone else 'USER'}",
+                        appointment_id=appt.id,
+                        doctor_id=appt.doctor_id,
+                        doctor_name=doc.name if doc else "Attending Specialist",
+                        hospital_name=hosp.name if hosp else "Affiliated Hospital",
+                        start_datetime=appt.start_datetime.isoformat() if appt.start_datetime else None
+                    )
+        except Exception as tr_err:
+            print(f"[Trace Seeding Warning]: {tr_err}")
+
+        print("SUCCESSFULLY SEEDED DOCTORS, HOSPITALS, AND CANONICAL TRACES")
     finally:
         db.close()
 

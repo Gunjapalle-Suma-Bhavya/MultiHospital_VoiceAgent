@@ -39,28 +39,61 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
   const [selectedAppt, setSelectedAppt] = useState<any>(null);
   const [encounterAppt, setEncounterAppt] = useState<any>(null);
   const [homeMetrics, setHomeMetrics] = useState({
-    appointmentsCount: 0,
-    pendingQuestionnaires: 0,
+    todayCount: 0,
     upcomingCount: 0,
+    totalCount: 0,
+    pendingQuestionnaires: 0,
+    completedQuestionnaires: 0,
   });
 
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
         const res = await apiCall('/api/v1/doctors');
-        if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
-          setDoctorList(res.data);
-          if (user?.doctor_id) {
-            const found = res.data.find((d: any) => (d.doctor_id || d.id) === user.doctor_id);
-            if (found) {
-              setDoctorId(user.doctor_id);
-              return;
+        let list: any[] = res.ok && Array.isArray(res.data) ? res.data : [];
+
+        if (user?.doctor_id) {
+          const found = list.find((d: any) => (d.doctor_id || d.id) === user.doctor_id);
+          if (!found) {
+            try {
+              const myRes = await apiCall(`/api/v1/doctors/${user.doctor_id}`);
+              if (myRes.ok && myRes.data) {
+                list = [myRes.data, ...list];
+              } else {
+                list = [{
+                  doctor_id: user.doctor_id,
+                  id: user.doctor_id,
+                  name: user.name,
+                  specialty: user.specialty || 'General Medicine',
+                  department: user.department || 'Clinical Practice',
+                  hospital_name: user.hospital_name || 'Affiliated Hospital',
+                  qualifications: user.qualifications || 'MBBS, MD',
+                  experience_years: user.experience_years || 5,
+                  bio: user.bio || '',
+                  default_appointment_duration: 30,
+                }, ...list];
+              }
+            } catch {
+              list = [{
+                doctor_id: user.doctor_id,
+                id: user.doctor_id,
+                name: user.name,
+                specialty: user.specialty || 'General Medicine',
+                department: user.department || 'Clinical Practice',
+                hospital_name: user.hospital_name || 'Affiliated Hospital',
+                qualifications: user.qualifications || 'MBBS, MD',
+                experience_years: user.experience_years || 5,
+                bio: user.bio || '',
+                default_appointment_duration: 30,
+              }, ...list];
             }
           }
-          if (!user?.doctor_id) {
-            setDoctorId(res.data[0].doctor_id || res.data[0].id || 'DOC-SHARMA-01');
-          }
+          setDoctorId(user.doctor_id);
+        } else if (list.length > 0) {
+          setDoctorId(list[0].doctor_id || list[0].id || 'DOC-SHARMA-01');
         }
+
+        setDoctorList(list);
       } catch (err) {
         console.error('Failed to load doctors catalog:', err);
       }
@@ -98,16 +131,19 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
         }
       }
 
-      // 2. Fetch summary metrics
+      // 2. Fetch live summary metrics and appointments from dynamic backend
       const homeRes = await apiCall(`/api/v1/doctor-dashboard/${docId}/home`);
       if (homeRes.ok && homeRes.data) {
         if (list.length === 0) {
           list = homeRes.data.all_appointments || homeRes.data.upcoming_appointments || homeRes.data.today_appointments || [];
         }
+        const summary = homeRes.data.summary_counts || {};
         setHomeMetrics({
-          appointmentsCount: (homeRes.data.all_appointments?.length ?? list.length) + bookings.length,
-          pendingQuestionnaires: homeRes.data.pending_questionnaires_count || 0,
-          upcomingCount: homeRes.data.upcoming_appointments_count || 0,
+          todayCount: summary.today_appointments_count ?? homeRes.data.today_appointments?.length ?? 0,
+          upcomingCount: summary.upcoming_appointments_count ?? homeRes.data.upcoming_appointments?.length ?? 0,
+          totalCount: (summary.total_appointments_count ?? homeRes.data.all_appointments?.length ?? list.length) + bookings.length,
+          pendingQuestionnaires: summary.pending_questionnaires_count ?? homeRes.data.pending_questionnaires?.length ?? 0,
+          completedQuestionnaires: summary.completed_questionnaires_count ?? homeRes.data.recently_completed_questionnaires?.length ?? 0,
         });
       }
 
@@ -122,14 +158,33 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
 
   useEffect(() => {
     loadDoctorData(doctorId);
-  }, [doctorId, bookings.length]);
+    const interval = setInterval(() => {
+      loadDoctorData(doctorId);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [doctorId, activeTab, bookings.length]);
 
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
     window.location.hash = `/doctor/${tab}`;
+    loadDoctorData(doctorId);
   };
 
-  const currentDoctor = doctorList.find((d) => (d.doctor_id || d.id) === doctorId);
+  const currentDoctor =
+    doctorList.find((d) => (d.doctor_id || d.id) === doctorId) ||
+    (user?.doctor_id === doctorId
+      ? {
+          doctor_id: user.doctor_id,
+          id: user.doctor_id,
+          name: user.name,
+          specialty: (user as any).specialty || 'Physician',
+          department: (user as any).department || 'Clinical Practice',
+          hospital_name: user.hospital_name || 'Affiliated Hospital',
+          qualifications: (user as any).qualifications || 'MBBS, MD',
+          experience_years: (user as any).experience_years || 5,
+          default_appointment_duration: 30,
+        }
+      : undefined);
 
   return (
     <div className="space-y-6">
@@ -171,6 +226,64 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
               </>
             )}
           </select>
+        </div>
+      </div>
+
+      {/* Dynamic Statistical Telemetry Cards Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-sky-400" />
+            <span>Today's Appts</span>
+          </div>
+          <div className="text-xl font-extrabold text-white mt-1">
+            {homeMetrics.todayCount}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Scheduled for today</div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Upcoming Appts</span>
+          </div>
+          <div className="text-xl font-extrabold text-indigo-400 mt-1">
+            {homeMetrics.upcomingCount}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Next 7 days</div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Total Schedule</span>
+          </div>
+          <div className="text-xl font-extrabold text-emerald-400 mt-1">
+            {homeMetrics.totalCount}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">EHR synchronized</div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-sm">
+          <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <ClipboardList className="w-3.5 h-3.5 text-amber-400" />
+            <span>Pending Questions</span>
+          </div>
+          <div className="text-xl font-extrabold text-amber-400 mt-1">
+            {homeMetrics.pendingQuestionnaires}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Patient voice intake</div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 shadow-sm col-span-2 sm:col-span-1">
+          <div className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+            <span>Completed Intakes</span>
+          </div>
+          <div className="text-xl font-extrabold text-teal-400 mt-1">
+            {homeMetrics.completedQuestionnaires}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Ready for review</div>
         </div>
       </div>
 
@@ -245,7 +358,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Appointment View ({homeMetrics.appointmentsCount})</span>
+          <span>Appointment View ({homeMetrics.totalCount})</span>
         </button>
 
         <button
@@ -304,7 +417,7 @@ export const DoctorPortal: React.FC<Props> = ({ initialTab = 'profile' }) => {
           </div>
         )}
 
-        {activeTab === 'questionnaires' && <DoctorQuestionnaireBuilder />}
+        {activeTab === 'questionnaires' && <DoctorQuestionnaireBuilder doctorId={doctorId} />}
       </div>
 
       {/* Active Clinical Encounter & E-Prescription Modal */}

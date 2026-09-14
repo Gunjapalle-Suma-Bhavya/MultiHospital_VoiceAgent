@@ -4,7 +4,7 @@ Routers package initialization.
 
 from app.routers.onboarding import router as onboarding_router, admin_router
 from app.routers.doctors import router as doctors_router
-from app.routers.patients import router as patients_router
+from app.routers.patients import router as patients_router, appointments_router
 from app.routers.discovery import router as discovery_router
 from app.routers.voice import router as voice_router
 from app.routers.context import router as context_router

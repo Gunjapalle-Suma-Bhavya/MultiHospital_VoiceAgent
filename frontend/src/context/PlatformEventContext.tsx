@@ -41,6 +41,7 @@ interface PlatformEventContextType {
   ) => void;
   resolveEscalation: (ticketId: string, notes: string) => void;
   triggerEHRSync: (connector: string) => void;
+  refreshAppointments: () => Promise<void>;
 }
 
 const PlatformEventContext = createContext<PlatformEventContextType | undefined>(undefined);
@@ -52,12 +53,12 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
   const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
   const [hospitalUtilization, setHospitalUtilization] = useState<number>(82);
 
-  // Synchronize live appointments from backend API on initialization
-  useEffect(() => {
-    fetch('/api/v1/appointments')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && Array.isArray(data.appointments) && data.appointments.length > 0) {
+  const refreshAppointments = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/appointments');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.appointments)) {
           const mapped: LiveBooking[] = data.appointments.map((a: any) => ({
             id: a.id || a.appointment_id || `APT-${Math.floor(1000 + Math.random() * 9000)}`,
             doctor_id: a.doctor_id || 'DOC-SHARMA-01',
@@ -72,9 +73,14 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
           }));
           setBookings(mapped);
         }
-      })
-      .catch(() => {});
+      }
+    } catch {}
   }, []);
+
+  // Synchronize live appointments from backend API on initialization
+  useEffect(() => {
+    refreshAppointments();
+  }, [refreshAppointments]);
 
   const addEvent = useCallback((event: Omit<PlatformEvent, 'id' | 'timestamp'>) => {
     const newEvent: PlatformEvent = {
@@ -94,6 +100,9 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           const payload = JSON.parse(e.data);
           if (payload && payload.type && payload.type !== 'HEARTBEAT') {
+            if (payload.type === 'APPOINTMENT_BOOKED' || payload.type === 'BOOKING_CREATED') {
+              refreshAppointments();
+            }
             addEvent({
               type: payload.type === 'SSE_CONNECTED' ? 'EHR_SYNCED' : payload.type,
               title: payload.title || 'Platform Event Received',
@@ -112,7 +121,7 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       es?.close();
     };
-  }, [addEvent]);
+  }, [addEvent, refreshAppointments]);
 
   const createBooking = useCallback(
     (data: Omit<LiveBooking, 'id' | 'status' | 'is_ehr_verified'>): LiveBooking => {
@@ -267,6 +276,7 @@ export const PlatformEventProvider: React.FC<{ children: React.ReactNode }> = ({
         completeEncounter,
         resolveEscalation,
         triggerEHRSync,
+        refreshAppointments,
       }}
     >
       {children}

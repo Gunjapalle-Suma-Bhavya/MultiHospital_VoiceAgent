@@ -174,3 +174,64 @@ def get_ai_evaluation_dashboard(
     - Common failure categories with counts and resolutions
     """
     return AIEvaluationFrameworkService.get_dashboard_metrics(db=db, hospital_id=hospital_id)
+
+
+@router.get("/activity", summary="Get Live AI Activity & Telemetry (Section 5.34 / 5.36)")
+def get_ai_activity(
+    hospital_id: Optional[str] = Query(None, description="Optional hospital filter"),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns real-time AI activity streams, conversation turns, latencies, capabilities invoked, and economics.
+    """
+    from app.database.models import AITelemetryLog, Hospital
+    q = db.query(AITelemetryLog)
+    if hospital_id:
+        q = q.filter((AITelemetryLog.hospital_id == hospital_id) | (AITelemetryLog.hospital_id == None))
+    logs = q.order_by(AITelemetryLog.timestamp.desc()).limit(limit).all()
+
+    # Aggregates
+    all_logs = db.query(AITelemetryLog).all()
+    if hospital_id:
+        all_logs = [l for l in all_logs if l.hospital_id == hospital_id or l.hospital_id is None]
+    
+    total_calls = len(all_logs)
+    avg_latency = round(sum(l.latency_ms for l in all_logs) / max(total_calls, 1), 1)
+    total_tokens = sum((l.total_tokens or (l.prompt_tokens + l.completion_tokens)) for l in all_logs)
+    total_cost = round(sum(l.estimated_cost_usd or 0.0 for l in all_logs), 4)
+    escalated_count = sum(1 for l in all_logs if l.escalated_to_human)
+    success_rate = round(((total_calls - escalated_count) / max(total_calls, 1)) * 100, 1)
+
+    interactions = []
+    for l in logs:
+        hosp = db.query(Hospital).filter(Hospital.id == l.hospital_id).first() if l.hospital_id else None
+        interactions.append({
+            "id": l.id,
+            "session_id": l.session_id,
+            "hospital_id": l.hospital_id,
+            "hospital_name": hosp.name if hosp else "Platform Wide",
+            "summary": l.ai_attempt_summary,
+            "capability_invoked": l.capability_invoked or "GENERAL_CONVERSATION",
+            "model_name": l.model_name or "gemini-3.6-flash",
+            "latency_ms": l.latency_ms,
+            "escalated_to_human": l.escalated_to_human,
+            "prompt_tokens": l.prompt_tokens,
+            "completion_tokens": l.completion_tokens,
+            "total_tokens": l.total_tokens or (l.prompt_tokens + l.completion_tokens),
+            "estimated_cost_usd": l.estimated_cost_usd or 0.0,
+            "timestamp": l.timestamp.isoformat() if hasattr(l, 'timestamp') and l.timestamp else None,
+        })
+
+    return {
+        "total": len(interactions),
+        "summary": {
+            "total_interactions": total_calls,
+            "avg_latency_ms": avg_latency,
+            "total_tokens": total_tokens,
+            "total_cost_usd": total_cost,
+            "escalated_to_human": escalated_count,
+            "success_rate_percentage": success_rate,
+        },
+        "interactions": interactions
+    }

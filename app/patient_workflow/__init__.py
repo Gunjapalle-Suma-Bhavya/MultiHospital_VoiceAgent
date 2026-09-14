@@ -70,6 +70,7 @@ class WorkflowExecutionRequest(BaseModel):
     phone_number: str = Field(default="+1-555-0199", description="Patient phone number")
     patient_name: str = Field(default="Alex Miller", description="Patient full name")
     channel: WorkflowChannel = Field(default=WorkflowChannel.WEB_VOICE, description="Access channel")
+    hospital_id: Optional[str] = Field(default=None, description="Optional hospital ID or code")
     utterance: str = Field(
         default="I've been having knee pain and I'd like to see a doctor this week.",
         description="Patient spoken requirement"

@@ -35,3 +35,16 @@ def get_hospital_management_overview(hospital_id: str, db: Session = Depends(get
         return service.get_management_overview(hospital_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{hospital_id}/appointments")
+def get_hospital_appointments(hospital_id: str, db: Session = Depends(get_db)):
+    """
+    Returns live patient intake and appointment booking roster for this hospital,
+    including 5-point EHR verification status, clinical intake complaint, and linked 16-step operational traces.
+    """
+    service = HospitalDashboardService(db)
+    try:
+        return service.get_hospital_appointments(hospital_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

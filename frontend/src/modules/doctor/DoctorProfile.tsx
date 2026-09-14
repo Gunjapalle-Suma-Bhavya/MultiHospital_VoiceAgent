@@ -27,6 +27,8 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
   const [specialty, setSpecialty] = useState(isRao ? 'Cardiology' : 'Orthopedic Surgery');
   const [licenseNumber, setLicenseNumber] = useState(isRao ? 'MD-LIC-448291' : 'MD-LIC-889102');
   const [npiNumber, setNpiNumber] = useState(isRao ? 'NPI-199482012' : 'NPI-198234812');
+  const [department, setDepartment] = useState('Outpatient Department');
+  const [experienceYears, setExperienceYears] = useState('8');
   const [hospitalName, setHospitalName] = useState('City Memorial Hospital');
   const [consultDuration, setConsultDuration] = useState('30');
   const [consultFee, setConsultFee] = useState(isRao ? '180' : '150');
@@ -52,6 +54,8 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
         if (res.ok && res.data) {
           setName(res.data.name || '');
           setSpecialty(res.data.specialty || '');
+          if (res.data.department) setDepartment(res.data.department);
+          if (res.data.experience_years) setExperienceYears(String(res.data.experience_years));
           setLicenseNumber(res.data.qualifications || res.data.external_provider_id || `LIC-${doctorId}`);
           setNpiNumber(res.data.external_provider_id || `NPI-${doctorId}`);
           setHospitalName(res.data.hospital_name || 'City Memorial Hospital');
@@ -94,7 +98,9 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
         body: JSON.stringify({
           name,
           specialty,
+          department,
           qualifications: licenseNumber,
+          experience_years: parseInt(experienceYears) || 5,
           default_appointment_duration: parseInt(consultDuration) || 30,
           bio,
           special_instructions: clinicalInstructions,
@@ -107,6 +113,8 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
       JSON.stringify({
         name,
         specialty,
+        department,
+        experienceYears,
         licenseNumber,
         npiNumber,
         hospitalName,
@@ -169,6 +177,30 @@ export const DoctorProfile: React.FC<Props> = ({ doctorId = 'DOC-SHARMA-01' }) =
                 value={specialty}
                 onChange={(e) => setSpecialty(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 block mb-1 font-medium">Clinical Department</label>
+              <input
+                type="text"
+                required
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400 block mb-1 font-medium">Years of Clinical Practice</label>
+              <input
+                type="number"
+                min={1}
+                max={60}
+                required
+                value={experienceYears}
+                onChange={(e) => setExperienceYears(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
               />
             </div>
 

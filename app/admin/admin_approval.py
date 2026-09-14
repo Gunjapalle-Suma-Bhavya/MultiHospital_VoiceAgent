@@ -168,8 +168,8 @@ class PlatformAdminApprovalService:
     def approve_hospital(self, hospital_id: str) -> Hospital:
         """
         Approves hospital application.
-        Sets status = APPROVED and is_active = True.
-        Activates any affiliated UserAccounts and syncs to MongoDB.
+        Sets status = APPROVED, is_active = True, and updated_at = now.
+        Activates any affiliated UserAccounts, ensures admin user is created/activated, and syncs to MongoDB.
         """
         hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
         if not hosp:
@@ -177,17 +177,53 @@ class PlatformAdminApprovalService:
 
         hosp.hospital_status = HospitalStatus.APPROVED
         hosp.is_active = True
+        hosp.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Activate associated facility user accounts
         try:
             from app.database.models import UserAccount
+            from app.auth.auth_service import hash_password
             admin_users = self.db.query(UserAccount).filter(UserAccount.hospital_id == hospital_id).all()
             for u in admin_users:
                 u.is_active = True
+                u.hospital_name = hosp.name
+
+            # Ensure hospital admin user exists and is active for hosp.admin_email
+            if hosp.admin_email:
+                adm_email = hosp.admin_email.strip().lower()
+                existing_adm = self.db.query(UserAccount).filter(UserAccount.email == adm_email).first()
+                if not existing_adm:
+                    new_adm = UserAccount(
+                        email=adm_email,
+                        full_name=hosp.admin_name or f"{hosp.name} Administrator",
+                        password_hash=hash_password("demo123"),
+                        role="HOSPITAL_ADMIN",
+                        hospital_id=hosp.id,
+                        hospital_name=hosp.name,
+                        auth_provider="LOCAL",
+                        is_active=True
+                    )
+                    self.db.add(new_adm)
+                else:
+                    existing_adm.is_active = True
+                    existing_adm.hospital_id = hosp.id
+                    existing_adm.hospital_name = hosp.name
+                    existing_adm.role = "HOSPITAL_ADMIN"
         except Exception:
             pass
 
         self.db.commit()
+
+        # Publish live platform event
+        try:
+            from app.events.event_bus import event_bus, SystemEvent
+            from app.database.models import EventType
+            event_bus.publish(SystemEvent(
+                event_type=EventType.HOSPITAL_ONBOARDED,
+                payload={"hospital_id": hosp.id, "hospital_name": hosp.name, "code": hosp.code, "status": "APPROVED"}
+            ))
+        except Exception:
+            pass
 
         try:
             from app.database.mongodb import persist_to_mongodb

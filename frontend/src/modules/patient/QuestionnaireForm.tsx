@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, CheckCircle2, RotateCw, HelpCircle, ShieldCheck } from 'lucide-react';
+import { ClipboardList, CheckCircle2, RotateCw, HelpCircle, ShieldCheck, Mic, MicOff, Volume2 } from 'lucide-react';
 import { apiCall } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../context/ToastContext';
@@ -37,6 +37,8 @@ export const QuestionnaireForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [listeningQuestionId, setListeningQuestionId] = useState<string | null>(null);
+
 
   const fetchQuestionnaire = async (spec: string) => {
     setIsLoading(true);
@@ -69,6 +71,93 @@ export const QuestionnaireForm: React.FC = () => {
   const handleAnswerChange = (qId: string, val: string) => {
     setAnswers((prev) => ({ ...prev, [qId]: val }));
   };
+
+  const handleVoiceAnswer = (q: QuestionItem) => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      const utterance = window.prompt(`Voice input simulation: Type your spoken response for "${q.question_text}"`);
+      if (utterance) {
+        parseAndSetVoiceResponse(q, utterance);
+      }
+      return;
+    }
+
+    if (listeningQuestionId === q.question_id) {
+      setListeningQuestionId(null);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      setListeningQuestionId(q.question_id);
+      showToast('info', 'Microphone Active', `Listening for your answer to: "${q.question_text}"`);
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results?.[0]?.[0]?.transcript || '';
+        setListeningQuestionId(null);
+        if (transcript) {
+          parseAndSetVoiceResponse(q, transcript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        setListeningQuestionId(null);
+        if (event.error !== 'aborted') {
+          const fallback = window.prompt(
+            `Microphone error (${event.error}). Type your spoken utterance to test conversational response parser:`
+          );
+          if (fallback) {
+            parseAndSetVoiceResponse(q, fallback);
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        setListeningQuestionId(null);
+      };
+
+      recognition.start();
+    } catch (err: any) {
+      setListeningQuestionId(null);
+      const fallback = window.prompt(`Voice recognition error. Type your spoken response:`);
+      if (fallback) {
+        parseAndSetVoiceResponse(q, fallback);
+      }
+    }
+  };
+
+  const parseAndSetVoiceResponse = async (q: QuestionItem, utterance: string) => {
+    try {
+      const res = await apiCall('/api/v1/questionnaires/parse-response', {
+        method: 'POST',
+        body: JSON.stringify({
+          question_id: q.question_id,
+          question_text: q.question_text,
+          response_type: q.response_type,
+          user_utterance: utterance,
+        }),
+      });
+
+      if (res.ok && res.data) {
+        const parsedVal = res.data.parsed_value || utterance;
+        handleAnswerChange(q.question_id, parsedVal);
+        showToast(
+          'success',
+          'Voice Response Parsed',
+          `Spoken: "${utterance}" → Parsed as: "${parsedVal}"`
+        );
+      } else {
+        handleAnswerChange(q.question_id, utterance);
+      }
+    } catch {
+      handleAnswerChange(q.question_id, utterance);
+    }
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,14 +385,55 @@ export const QuestionnaireForm: React.FC = () => {
                 className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <label className="text-xs font-semibold text-slate-200 flex items-start gap-1.5">
+                  <label className="text-xs font-semibold text-slate-200 flex items-start gap-1.5 flex-1">
                     <span className="text-emerald-400 font-bold">{idx + 1}.</span>
                     <span>{q.question_text}</span>
                   </label>
-                  {q.is_required && (
-                    <span className="text-[10px] text-rose-400 font-bold uppercase">Required</span>
-                  )}
+                  <div className="flex items-center space-x-2 shrink-0">
+                    {q.is_required && (
+                      <span className="text-[10px] text-rose-400 font-bold uppercase">Required</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleVoiceAnswer(q)}
+                      title="Answer via voice"
+                      className={`px-2 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1.5 transition shadow-sm ${
+                        listeningQuestionId === q.question_id
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                          : 'bg-slate-900 hover:bg-slate-800 text-sky-400 border-slate-700 hover:border-sky-500'
+                      }`}
+                    >
+                      {listeningQuestionId === q.question_id ? (
+                        <>
+                          <MicOff className="w-3.5 h-3.5 text-rose-400 animate-spin" />
+                          <span>Listening...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5" />
+                          <span>Voice Answer</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
+
+                {listeningQuestionId === q.question_id && (
+                  <div className="bg-rose-950/40 border border-rose-500/40 p-2 rounded-lg flex items-center justify-between text-xs text-rose-300">
+                    <div className="flex items-center space-x-2">
+                      <Volume2 className="w-4 h-4 text-rose-400 animate-bounce" />
+                      <span>Speak clearly now... Speech will be converted &amp; parsed into structured format.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setListeningQuestionId(null)}
+                      className="text-[10px] underline text-rose-400 hover:text-rose-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
 
                 {q.response_type === 'YES_NO' ? (
                   <div className="flex space-x-3 pt-1">

@@ -25,27 +25,11 @@ interface BlockedSlot {
 }
 
 export const DoctorBlockedSlots: React.FC<Props> = ({ doctorId }) => {
-  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([
-    {
-      id: 'BLK-01',
-      leave_type: 'SURGERY_OR',
-      start_date: '2026-09-15',
-      end_date: '2026-09-15',
-      reason: 'Scheduled Arthroscopic Rotator Cuff Procedures (OR 4)',
-      status: 'ACTIVE',
-    },
-    {
-      id: 'BLK-02',
-      leave_type: 'GRAND_ROUNDS',
-      start_date: '2026-09-18',
-      end_date: '2026-09-18',
-      reason: 'Departmental Clinical Morbidity & Mortality Conference',
-      status: 'ACTIVE',
-    },
-  ]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
 
-  const [startDate, setStartDate] = useState('2026-09-20');
-  const [endDate, setEndDate] = useState('2026-09-20');
+  const todayIso = new Date().toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(todayIso);
   const [blockType, setBlockType] = useState('SURGERY_OR');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,18 +38,16 @@ export const DoctorBlockedSlots: React.FC<Props> = ({ doctorId }) => {
   const fetchLeaves = async () => {
     try {
       const res = await apiCall(`/api/v1/doctor-dashboard/${doctorId}/leaves`);
-      if (res.ok && res.data && Array.isArray(res.data.leaves) && res.data.leaves.length > 0) {
-        setBlockedSlots((prev) => {
-          const fetched: BlockedSlot[] = res.data.leaves.map((l: any) => ({
-            id: l.id || l.leave_id,
-            leave_type: l.leave_type || 'BLOCKED_SLOT',
-            start_date: l.start_date,
-            end_date: l.end_date,
-            reason: l.reason,
-            status: l.status || 'ACTIVE',
-          }));
-          return [...prev, ...fetched.filter((f) => !prev.some((p) => p.id === f.id))];
-        });
+      if (res.ok && res.data && Array.isArray(res.data.leaves)) {
+        const fetched: BlockedSlot[] = res.data.leaves.map((l: any) => ({
+          id: l.id || l.leave_id,
+          leave_type: l.leave_type || 'BLOCKED_SLOT',
+          start_date: l.start_date,
+          end_date: l.end_date,
+          reason: l.reason,
+          status: l.status || 'ACTIVE',
+        }));
+        setBlockedSlots(fetched);
       }
     } catch {}
   };

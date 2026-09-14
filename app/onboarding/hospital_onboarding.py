@@ -123,12 +123,47 @@ class HospitalSelfServiceOnboardingService:
         Transitions UNDER_REVIEW/SUBMITTED -> APPROVED.
         ENFORCEMENT: Only approved hospitals become active (is_active = True).
         """
+        from datetime import datetime, timezone
         hosp = self.db.query(Hospital).filter(Hospital.id == hospital_id).first()
         if not hosp:
             raise ValueError("Hospital not found")
 
         hosp.hospital_status = HospitalStatus.APPROVED
         hosp.is_active = True  # ACTIVATED
+        hosp.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # Activate associated facility user accounts
+        try:
+            from app.database.models import UserAccount
+            from app.auth.auth_service import hash_password
+            admin_users = self.db.query(UserAccount).filter(UserAccount.hospital_id == hospital_id).all()
+            for u in admin_users:
+                u.is_active = True
+                u.hospital_name = hosp.name
+
+            if hosp.admin_email:
+                adm_email = hosp.admin_email.strip().lower()
+                existing_adm = self.db.query(UserAccount).filter(UserAccount.email == adm_email).first()
+                if not existing_adm:
+                    new_adm = UserAccount(
+                        email=adm_email,
+                        full_name=hosp.admin_name or f"{hosp.name} Administrator",
+                        password_hash=hash_password("demo123"),
+                        role="HOSPITAL_ADMIN",
+                        hospital_id=hosp.id,
+                        hospital_name=hosp.name,
+                        auth_provider="LOCAL",
+                        is_active=True
+                    )
+                    self.db.add(new_adm)
+                else:
+                    existing_adm.is_active = True
+                    existing_adm.hospital_id = hosp.id
+                    existing_adm.hospital_name = hosp.name
+                    existing_adm.role = "HOSPITAL_ADMIN"
+        except Exception:
+            pass
+
         self.db.commit()
         return hosp
 

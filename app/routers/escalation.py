@@ -1,4 +1,4 @@
-﻿"""
+"""
 Escalation Router (Section 5.39) — Human Escalation REST API.
 
 Endpoints:
@@ -23,10 +23,15 @@ router = APIRouter(tags=["Human Escalation"])
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+import uuid
+
 class TriggerEscalationRequest(BaseModel):
-    session_id: str = Field(..., description="AI conversation session ID")
-    trigger_reason: str = Field(..., description="One of the 8 typed trigger reasons")
+    session_id: Optional[str] = Field(None, description="AI conversation session ID")
+    trigger_reason: Optional[str] = Field(None, description="One of the 8 typed trigger reasons")
+    reason: Optional[str] = Field(None, description="Alternative reason description")
+    patient_phone: Optional[str] = Field(None, description="Patient phone number")
     hospital_id: Optional[str] = Field(None, description="Hospital scope")
+    urgency: Optional[str] = Field("HIGH", description="Urgency level")
     trace_id: Optional[str] = Field(None, description="Links to OperationTrace")
     failure_count: int = Field(0, description="Number of retries before escalation")
     context_snapshot: Optional[Dict[str, Any]] = Field(
@@ -51,6 +56,7 @@ class ResolveEscalationRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/trigger")
+@router.post("/tickets")
 def trigger_escalation(
     req: TriggerEscalationRequest,
     db: Session = Depends(get_db)
@@ -61,18 +67,33 @@ def trigger_escalation(
     Returns a ticket ID (ESC-XXXXXXXX) for the operator to reference.
     """
     engine = EscalationEngine(db)
+    sid = req.session_id or f"ESC-SES-{uuid.uuid4().hex[:10]}"
+    reason = req.trigger_reason or req.reason or "PATIENT_REQUESTED"
+    if reason not in ESCALATION_TRIGGER_REASONS:
+        reason = "PATIENT_REQUESTED"
+
+    snapshot = req.context_snapshot or {}
+    if req.patient_phone:
+        snapshot["patient_phone"] = req.patient_phone
+    if req.reason:
+        snapshot["patient_reason"] = req.reason
+
     try:
         result = engine.trigger_escalation(
-            session_id=req.session_id,
-            trigger_reason=req.trigger_reason,
+            session_id=sid,
+            trigger_reason=reason,
             hospital_id=req.hospital_id,
             trace_id=req.trace_id,
             failure_count=req.failure_count,
-            context_snapshot=req.context_snapshot,
+            context_snapshot=snapshot,
         )
+        result["ticket_id"] = result.get("escalation_id")
+        result["id"] = result.get("escalation_id")
+        result["urgency"] = req.urgency or "HIGH"
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return result
+
 
 
 @router.get("/records")
