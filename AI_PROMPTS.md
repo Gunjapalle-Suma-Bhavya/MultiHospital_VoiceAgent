@@ -1,6 +1,6 @@
 # AI Prompts Used in Platform Engineering
 
-This document records the actual prompts, instructions, and system directives utilized across all phases of engineering the **Autonomous Multi-Hospital Patient Intake Platform**.
+This document records the actual prompts, instructions, and system directives utilized across all phases of engineering the **Autonomous Multi-Hospital Patient Intake Platform**, organized by functional category.
 
 ---
 
@@ -10,7 +10,7 @@ This document records the actual prompts, instructions, and system directives ut
 > **Prompt**:
 > *"Migrate the frontend to a modern, decoupled Single-Page Application (SPA) using React 18, TypeScript, Vite, and Tailwind CSS. Implement a dark, sleek clinical theme using slate-950, emerald-500, and sky-500 accents. Eliminate all static data and connect every view directly to live FastAPI endpoints. Structure the application into dedicated sub-routes: Voice Intake AI Portal, Doctor Discovery, My Appointments, Pre-Visit Questionnaires, Patient Notifications, Doctor Dashboard, Hospital Admin Portal, Platform Super-Admin, Observability/SRE, and MongoDB Atlas Document Inspector."*
 >
-> **What It Produced**:
+> **What It Produced / Changed**:
 > - Scaffolding in `frontend/src/` with modular components, custom hooks, and React context providers.
 > - Responsive layout with persistent navigation, active tab badges, and toast notification system.
 
@@ -18,26 +18,26 @@ This document records the actual prompts, instructions, and system directives ut
 > **Prompt**:
 > *"Build an interactive Web Speech voice console that supports real-time continuous speech recognition and speech synthesis. Include: 1) An interim transcript buffer that updates as the patient speaks, 2) Automatic submission when the patient stops speaking (silence trigger), 3) A dedicated 'Send to AI' manual button, 4) A 'Test Audio' speaker check button, 5) Utterance keep-alive timers to prevent Chrome speech synthesis freezing on long turns, and 6) An animated bidirectional waveform audio visualizer indicating microphone input and AI speech output."*
 >
-> **What It Produced**:
-> - Implemented `frontend/src/modules/patient/VoiceConsole.tsx` with Web Speech API integration.
+> **What It Produced / Changed**:
+> - Implemented `frontend/src/modules/patient/VoiceAgentScreen.tsx` with Web Speech API integration.
 > - Added animated SVG waveform bars responding to speech state.
 
 ### Prompt 1.3: Doctor Card Consolidation & Time Slot Selection Pills
 > **Prompt**:
 > *"In the Doctor Discovery portal, group available appointment slots by doctor_id and hospital_id so each physician appears exactly once. Display open appointment times as interactive emerald pill chips (e.g. 08:00 AM, 08:30 AM). Allow the patient to select their preferred time slot and book with one click, eliminating redundant duplicate doctor cards."*
 >
-> **What It Produced**:
+> **What It Produced / Changed**:
 > - Refactored `frontend/src/modules/patient/DoctorDiscovery.tsx` with slot grouping and interactive chip selection.
 
 ---
 
-## 2. Backend & Cloud Integration Prompts
+## 2. Backend Development Prompts
 
 ### Prompt 2.1: Non-Blocking MongoDB Atlas Cloud Persistence
 > **Prompt**:
 > *"Implement universal, non-blocking cloud persistence with MongoDB Atlas in app/database/mongodb.py. Connect to the cluster using MONGODB_URI and persist JSON documents for hospitals, doctors, appointments, patients, questionnaires, leaves, and notifications. Crucially, ensure all write operations are executed asynchronously via a Python ThreadPoolExecutor so that cloud network latency or connection drops never block HTTP requests or unit tests. Add REST endpoints to check connection status and inspect collection documents."*
 >
-> **What It Produced**:
+> **What It Produced / Changed**:
 > - Implemented `persist_to_mongodb` and `sync_event_to_mongodb` in `app/database/mongodb.py` with `ThreadPoolExecutor`.
 > - Created `app/routers/mongodb_sync.py` exposing `/status`, `/collections`, and `/collection/{name}`.
 
@@ -45,22 +45,14 @@ This document records the actual prompts, instructions, and system directives ut
 > **Prompt**:
 > *"Seed a comprehensive multi-hospital provider network with 14 board-certified doctors across 4 approved partner hospitals: City Memorial Hospital, Care Regional Medical Center, Metro Health Hospital, and St. Jude Research Hospital. Cover key specialties: Orthopedics, Cardiology, Neurology, Dermatology, Gastroenterology, Pulmonology, Oncology, Pediatrics, and Rheumatology. Configure full 7-day working hours (08:00 to 18:00) with 30-minute consultation slots and primary calendars. Dual-write all seeded data to both SQLite and MongoDB Atlas."*
 >
-> **What It Produced**:
+> **What It Produced / Changed**:
 > - Created database seed scripts in `app/database/config.py` and dual-wrote to MongoDB Atlas.
 
 ---
 
-## 3. AI Agent & Clinical Triage Prompts
+## 3. AI Agent Prompts
 
-### Prompt 3.1: Clinical Symptom NLU & Specialist Redirection
-> **Prompt**:
-> *"Implement SymptomIntentResolver in app/agent/patient_access_agent.py. When a patient describes symptoms through speech or text (e.g. 'terrible migraine', 'knee pain when walking', 'rash on forearm', 'acid reflux after meals'), extract the primary clinical complaints and automatically triage them to the appropriate medical specialty (Neurology, Orthopedics, Dermatology, Gastroenterology). Immediately query matching doctors across partner hospitals and present recommendations. If red-flag symptoms are detected (chest pain, acute shortness of breath, loss of consciousness), immediately halt scheduling and redirect to 911 emergency services."*
->
-> **What It Produced**:
-> - Implemented clinical entity resolution and emergency safety triage in `app/agent/patient_access_agent.py`.
-> - Tested across diverse clinical scenarios with zero medical hallucinations.
-
-### Prompt 3.2: Patient Access Voice Agent System Directive
+### Prompt 3.1: Patient Access Voice Agent System Directive
 > **Prompt (Configured in `LiveLLMClient` & `PatientAccessAgent`)**:
 > ```
 > You are the Autonomous Patient Access Voice Agent for a Multi-Hospital Healthcare Network.
@@ -78,30 +70,101 @@ This document records the actual prompts, instructions, and system directives ut
 > 5. Capability Grounding: Never make up availability. Always query check_availability.
 > ```
 >
-> **What It Produced**:
+> **What It Produced / Changed**:
 > - Grounded voice agent behavior in `app/agent/patient_access_agent.py`.
 
----
-
-## 4. Notification & Event Bus Prompts
-
-### Prompt 4.1: Event-Driven Multi-Channel Notification Pipeline
+### Prompt 3.2: Multi-Doctor Voice Booking & Context Resolution (PRD Section 24)
 > **Prompt**:
-> *"Wire the notification engine into the platform event bus. When appointments are created, confirmed, or cancelled, or when pre-visit questionnaires are completed, publish structured SystemEvents (APPOINTMENT_BOOKED, APPOINTMENT_CANCELLED, QUESTIONNAIRE_COMPLETED) to the central EventBus. Decoupled consumers in PlatformEventConsumers must automatically dispatch multi-role notifications across SMS, Email, and Voice channels to the patient, the physician, and the hospital administrator. Persist notification records to both SQLite and MongoDB Atlas."*
+> *"Update app/agent/resolver.py and app/agent/patient_access_agent.py to handle multi-doctor recommendations and accurate selection resolution. When the user says 'Dr. Sharma at 4 PM' or 'first doctor' or 'option 2' or '5:30 PM', resolve the selected physician and slot without falling back to a default doctor. Confirm the appointment, immediately trigger that doctor's pre-visit questionnaire, record responses in the doctor's clinical workstation, and conclude with a confirmation that responses have been shared directly with the doctor."*
 >
-> **What It Produced**:
-> - Updated `app/agent/actions.py`, `app/appointments/appointment_management.py`, and `app/events/consumers.py`.
-> - Connected real-time notification endpoints `GET /api/v1/notifications/recipient/{role}/{recipient_id}` and `GET /api/v1/notifications/recent`.
+> **What It Produced / Changed**:
+> - Advanced multi-modal resolution in `app/agent/resolver.py`.
+> - Guaranteed selection accuracy matching PRD Section 24 flow.
 
 ---
 
-## 5. Verification & Testing Prompts
+## 4. Voice Prompts
 
-### Prompt 5.1: 255-Test Suite Maintenance & Timezone Stabilization
+### Prompt 4.1: Natural Conversational Voice Turn Shaping
 > **Prompt**:
-> *"Ensure all 255 automated tests across 59 suites pass with 100% green status. Stabilize any time-dependent tests (such as hospital dashboard slots crossing midnight UTC) by anchoring relative appointment times to midday. Ensure that non-blocking MongoDB Atlas thread pool workers and mock EHR integrations never cause test timeouts or hangs."*
+> *"Ensure all voice responses generated by the agent follow natural telephony cadence: keep responses concise (1 to 2 sentences), avoid Markdown syntax or symbols in spoken text, speak slot times in natural language (e.g., 'tomorrow at 4 PM' instead of '2026-09-15T16:00:00Z'), and provide an immediate audible confirmation before initiating questionnaires."*
 >
-> **What It Produced**:
-> - Fixed midnight boundary edge case in `test_hospital_dashboard_5_32.py`.
-> - Made MongoDB synchronization 100% non-blocking via `ThreadPoolExecutor`.
-> - Verified 255 passed tests in 131.93s.
+> **What It Produced / Changed**:
+> - Clean text normalization and TTS formatting in `PatientAccessAgent`.
+
+---
+
+## 5. EHR Integration Prompts
+
+### Prompt 5.1: 5-Point Authoritative Verification & Circuit Breaker
+> **Prompt**:
+> *"Implement a resilient EHR integration layer with a 5-point verification protocol and thread-safe EHRCircuitBreaker. Outbound booking calls must verify: 1) Patient Identity, 2) Provider NPI, 3) Facility ID, 4) Slot Availability, and 5) Concurrency Timestamp against SMART-on-FHIR R4 or Mock EHR before setting is_ehr_verified=True. On 5 consecutive timeouts or connection errors, trip the circuit breaker to OPEN to protect downstream hospital infrastructure."*
+>
+> **What It Produced / Changed**:
+> - Implemented `app/ehr/integration_layer.py` and `app/ehr/adapters.py`.
+
+---
+
+## 6. Workflow Prompts
+
+### Prompt 6.1: Doctor-Specific Pre-Visit Questionnaire Intake
+> **Prompt**:
+> *"When a booking is confirmed, look up the custom questionnaire configured for that selected doctor (e.g. shoulder pain duration and past treatments for Dr. Sharma; chest discomfort and BP for Dr. Rao). Ask questions sequentially, persist responses in PatientIntakeRecord and PatientQuestionnaireResponse, dual-write to MongoDB Atlas, and display them in the doctor's clinical workstation under Patient Pre-Visit Briefings."*
+>
+> **What It Produced / Changed**:
+> - Dynamic questionnaire execution in `app/agent/patient_access_agent.py` and doctor portal integration.
+
+---
+
+## 7. Testing Prompts
+
+### Prompt 7.1: Comprehensive Unit & Integration Test Suite Generation
+> **Prompt**:
+> *"Write comprehensive pytest test suites covering: 1) Multi-hospital doctor discovery, 2) Slot booking concurrency with anti-double-booking locks, 3) Symptom intent resolution, 4) Emergency 911 guardrails, 5) 5-point EHR verification, 6) Section 35 Definition of Done, and 7) Section 41 final submission checklist. Ensure 100% test pass rate with isolated SQLite StaticPool databases."*
+>
+> **What It Produced / Changed**:
+> - 59 test suites containing 255 passing tests in `tests/`.
+
+---
+
+## 8. Debugging Prompts
+
+### Prompt 8.1: Fixing Doctor Selection Fallback & Collisions
+> **Prompt**:
+> *"Fix the bug where selecting 'Dr. Sharma at 4 PM' or 'Dr. Rao at 5:30 PM' mistakenly fell back to the first available doctor in the database. Ensure the resolver checks the active recommended doctors list first, parses slot times and ordinals, and binds the chosen provider ID to the appointment draft."*
+>
+> **What It Produced / Changed**:
+> - Overhauled `resolve_doctor_reference` in `app/agent/resolver.py` with multi-modal scoring.
+
+---
+
+## 9. UI / Design Prompts
+
+### Prompt 9.1: Role Refinement & Hospital Staff Removal
+> **Prompt**:
+> *"Remove 'Hospital Staff' from both Sign In and Create Account interfaces, 1-click demo personas, and the landing page role explorer. Streamline the platform to 4 distinct healthcare roles: Patient, Doctor, Hospital Admin, and Entire System Admin (Platform Super-Admin). Arrange the auth role selector in a clean 2x2 grid."*
+>
+> **What It Produced / Changed**:
+> - Updated `frontend/src/modules/landing/LandingPage.tsx` and `frontend/src/hooks/useAuth.tsx`.
+
+---
+
+## 10. Documentation Prompts
+
+### Prompt 10.1: Architecture & README Standardization
+> **Prompt**:
+> *"Update README.md and ARCHITECTURE.md to strictly fulfill all requirements of Sections 36.2, 36.4, 36.5, 36.6, and 36.7. Include high-level architecture diagram, sequence diagram for PRD Section 24 booking, data model entity relationship diagram, failure flow with circuit breaker, reconciliation flow, and the complete 17 numbered sections in README.md."*
+>
+> **What It Produced / Changed**:
+> - Fully standardized `README.md`, `ARCHITECTURE.md`, `AI_TOOLS.md`, and `AI_PROMPTS.md`.
+
+---
+
+## 11. Evaluation Prompts
+
+### Prompt 11.1: Automated AI Quality Evaluation Framework
+> **Prompt**:
+> *"Build an automated AI evaluation framework in app/evaluation/ai_evaluation_framework.py that executes standardized benchmark scenarios across Intent Accuracy, Slot Completeness, Safety Compliance, and Latency. Expose metrics through GET /api/v1/observability/ai-eval and render them in the Platform Admin SRE dashboard."*
+>
+> **What It Produced / Changed**:
+> - AI evaluation pipeline generating quality scores and latency percentiles.\n
