@@ -9,6 +9,10 @@ from app.database.models import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hospital_platform.db")
 
+# Automatically redirect SQLite path to writable /tmp directory if executing in Vercel serverless environment
+if os.getenv("VERCEL") and DATABASE_URL.startswith("sqlite:///."):
+    DATABASE_URL = "sqlite:////tmp/hospital_platform.db"
+
 is_sqlite = "sqlite" in DATABASE_URL
 
 engine_kwargs = {}
