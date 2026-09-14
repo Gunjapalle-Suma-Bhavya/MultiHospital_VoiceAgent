@@ -617,6 +617,8 @@ class AIPatientAccessAgent:
                             f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None
+                        session_state.is_active = False
+                        session_state.workflow_step = "CONVERSATION_COMPLETED"
                         self.db.commit()
                         action_executed = "RECORD_QUESTIONNAIRE_RESPONSE"
                         action_payload = {"appointment_id": appt_id, "answers": answers, "is_conversation_ended": True}
@@ -671,6 +673,8 @@ class AIPatientAccessAgent:
                             f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None
+                        session_state.is_active = False
+                        session_state.workflow_step = "CONVERSATION_COMPLETED"
                         self.db.commit()
                         action_executed = "RECORD_QUESTIONNAIRE_RESPONSE"
                         action_payload = {"appointment_id": appt_id, "answers": answers, "is_conversation_ended": True}
@@ -1668,6 +1672,8 @@ class AIPatientAccessAgent:
         except Exception as e:
             print(f"[MongoDB Persist Voice Turn Error]: {e}")
 
+        is_convo_ended = bool(action_payload.get("is_conversation_ended") if isinstance(action_payload, dict) else False) or (session_state and not session_state.is_active)
+
         return {
             "status": "SUCCESS",
             "success": True,
@@ -1684,7 +1690,10 @@ class AIPatientAccessAgent:
             "action_executed": action_executed,
             "action_payload": action_payload,
             "escalation_triggered": escalation_triggered,
-            "capabilities_invoked": capabilities_invoked
+            "capabilities_invoked": capabilities_invoked,
+            "is_conversation_ended": is_convo_ended,
+            "conversation_ended": is_convo_ended,
+            "telephony_action": "HANGUP" if is_convo_ended else None
         }
 
 

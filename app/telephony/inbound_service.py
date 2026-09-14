@@ -70,6 +70,8 @@ class TelephonyInboundService:
 
             if res.get("escalation_triggered"):
                 res["telephony_action"] = "TRANSFER_TO_HUMAN_OPERATOR"
+            elif res.get("is_conversation_ended") or res.get("conversation_ended"):
+                res["telephony_action"] = "CALL_TERMINATED"
 
             return res
 

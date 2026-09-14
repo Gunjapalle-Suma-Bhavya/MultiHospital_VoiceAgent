@@ -63,6 +63,9 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
     isEndpointPending,
     handsFreeMode,
     setHandsFreeMode,
+    isConversationEnded,
+    setIsConversationEnded,
+    resetSession,
   } = useVoiceAgent(language);
 
   const [inputVal, setInputVal] = useState('');
@@ -281,6 +284,13 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
         if (isEscalation) {
           setCallState('ESCALATED');
           setEscalationTicketId(res.data.escalation_ticket_id || 'ESC-PHONE-LIVE');
+        } else if (
+          action === 'CALL_TERMINATED' ||
+          action === 'HANGUP' ||
+          res.data.is_conversation_ended ||
+          res.data.conversation_ended
+        ) {
+          setCallState('ENDED');
         }
 
         setPhoneMessages((prev) => [
@@ -793,6 +803,28 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 </div>
               ))}
             </div>
+
+            {/* Conversation Ended Notice & Restart CTA */}
+            {isConversationEnded && (
+              <div className="bg-emerald-950/60 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between mt-1 mb-1 animate-fadeIn">
+                <div className="flex items-center space-x-2 text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                  <div>
+                    <div className="text-xs font-bold text-emerald-300">Consultation Complete &bull; Conversation Ended</div>
+                    <div className="text-[10px] text-slate-300">Your pre-visit responses have been sent directly to the doctor.</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    resetSession();
+                    setIsConversationEnded(false);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg shadow transition"
+                >
+                  Start New Consultation
+                </button>
+              </div>
+            )}
 
             {/* Input Bar */}
             <div className="flex space-x-2 pt-1">

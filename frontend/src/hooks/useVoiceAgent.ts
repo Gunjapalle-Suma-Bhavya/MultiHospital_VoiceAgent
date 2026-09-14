@@ -68,6 +68,8 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
   // Automatic Speech Endpointing (VAD) & Continuous Hands-Free Dialogue
   const [isEndpointPending, setIsEndpointPending] = useState<boolean>(false);
   const [handsFreeMode, setHandsFreeMode] = useState<boolean>(true);
+  const [isConversationEnded, setIsConversationEnded] = useState<boolean>(false);
+  const isConversationEndedRef = useRef<boolean>(false);
 
   const selectedLanguageRef = useRef<string>(selectedLanguage);
 
@@ -727,6 +729,9 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
     onInterim?: (text: string) => void,
     onFinalSubmit?: (text: string) => void
   ) => {
+    if (isConversationEndedRef.current) {
+      return;
+    }
     setVoiceNotice(null);
     handsFreeRef.current = true;
     if (endpointTimerRef.current) {
@@ -955,7 +960,31 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
         isEmergency,
       };
 
-      setMessages((prev) => [...prev, aiMsg]);
+      const convoEnded = !!(
+        res?.data?.is_conversation_ended ||
+        res?.data?.conversation_ended ||
+        res?.data?.action_payload?.is_conversation_ended
+      );
+
+      setMessages((prev) => {
+        const next = [...prev, aiMsg];
+        if (convoEnded) {
+          next.push({
+            id: `msg-ended-${Date.now()}`,
+            sender: 'system',
+            text: 'Consultation completed. Conversation ended.',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          });
+        }
+        return next;
+      });
+
+      if (convoEnded) {
+        setIsConversationEnded(true);
+        isConversationEndedRef.current = true;
+        stopVoiceRecording();
+      }
+
       speak(replyText);
 
       return {
@@ -983,6 +1012,8 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
     sessionIdRef.current = `voice-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     stopSpeaking();
     stopVoiceRecording();
+    setIsConversationEnded(false);
+    isConversationEndedRef.current = false;
   }, [stopSpeaking, stopVoiceRecording]);
 
   return {
@@ -1018,6 +1049,8 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
     setHandsFreeMode,
     commitAndSendVoice,
     resetSession,
+    isConversationEnded,
+    setIsConversationEnded,
     sessionId: sessionIdRef.current,
   };
 }
