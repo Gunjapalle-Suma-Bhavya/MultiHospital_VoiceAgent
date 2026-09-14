@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Test Suite for Step 11: Platform Dashboard — Front-End Feature Breakdown.
 Validates the complete 4-role, 49-page frontend catalog and data retrieval:

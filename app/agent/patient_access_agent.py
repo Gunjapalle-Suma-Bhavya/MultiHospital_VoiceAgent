@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 AI Patient Access Agent Conversational Orchestrator (Section 5.9).
 

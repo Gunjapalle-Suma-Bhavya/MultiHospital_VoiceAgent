@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Final Submission Router
 Exposes APIs for Sections 39 (Final Product Definition), 40 (Creativity Note),
