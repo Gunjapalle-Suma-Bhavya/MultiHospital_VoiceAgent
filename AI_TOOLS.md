@@ -13,6 +13,7 @@ This document provides transparent, exhaustive documentation of all AI-powered d
 | **SymptomIntentResolver** | Clinical Triage & AI Orchestration | Spoken clinical symptom parsing and medical specialty mapping | Clinical NLU Layer | Mapped patient symptoms to specialties and triggered emergency 911 guardrails | Deterministic and LLM-guided specialty recommendations without hallucinations |
 | **Tailwind CSS & Lucide React** | UI Generation & Design | Modern clinical portal theme, responsive layouts, icons, and components | Presentation Layer | Designed slate-950 dark clinical theme with emerald-500 accents and animated waveforms | Unified Patient, Doctor, Hospital Admin, and Platform Admin interfaces |
 | **Web Speech API & Web Audio** | Voice Processing | Browser-native speech recognition (STT) and speech synthesis (TTS) | Voice Intake Portal | Continuous listening, silence auto-submission, keep-alive timers, and animated audio visualizer | Real-time hands-free voice dialogue with 180ms barge-in |
+| **ElevenLabs Neural TTS** | High-Fidelity Voice Synthesis | Natural clinical telephony voice output | Telephony / Voice Gateway | Generates high-fidelity neural speech via `eleven_flash_v2_5` with automatic fallback | Natural clinical voice delivery with sub-second synthesis latency |
 | **MongoDB Atlas Cloud Document Store** | Document Processing & Cloud Persistence | Non-blocking dual-write JSON document storage and live document inspection | Data Layer | Asynchronous thread pool dual-write replication of real-time clinical events | Global cloud collections (`hospitals`, `doctors`, `appointments`, `questionnaires`) |
 | **Pytest Testing & Benchmark Harness** | Testing & Evaluation | Automated unit, integration, concurrency, and end-to-end scenario verification | Quality Assurance & CI/CD | Executed 255 automated tests verifying DoD, checklists, and multi-doctor workflows | 255 passing tests across 59 test suites with 100% pass rate |
 | **Pydantic v2 Schema Enforcer** | AI Boundary & Safety Guardrails | Strict runtime input/output validation and zero-raw-PHI sanitization | Middleware & Capabilities | Compiled C-speed validation of all 19 typed tools and API payloads | Hard boundary enforcement preventing schema drift and malformed inputs |
@@ -59,7 +60,16 @@ This document provides transparent, exhaustive documentation of all AI-powered d
   - Interactive bidirectional audio visualizer with animated waveforms responding to user and agent voice activity.
 - **What Was Produced**: Real-time voice portal with sub-180ms barge-in and audio latency masking.
 
-### 2.5 MongoDB Atlas Cloud Document Store
+### 2.5 ElevenLabs Neural Voice Synthesis
+- **Purpose**: High-definition, low-latency neural voice synthesis for patient telephony.
+- **Project Section**: Voice Router & Telephony Gateway (`app/routers/voice.py`).
+- **How It Was Used**:
+  - Configured with `eleven_flash_v2_5` model for ultra-low latency audio streaming.
+  - Generates realistic speech with clinical empathy and pronunciation of medical terminology.
+  - Implements automatic fallback to local Web Speech synthesis if network quota or rate limits are reached.
+- **What Was Produced**: Server-side audio synthesis endpoint `/api/v1/voice/speak` returning MP3 audio streams.
+
+### 2.6 MongoDB Atlas Cloud Document Store
 - **Purpose**: Global, cloud-hosted JSON document persistence with real-time inspection capabilities.
 - **Project Section**: Database Layer (`app/database/mongodb.py` and `frontend/src/modules/admin/MongoDBAtlasViewer.tsx`).
 - **How It Was Used**:
@@ -68,7 +78,7 @@ This document provides transparent, exhaustive documentation of all AI-powered d
   - Live document inspector rendering formatted JSON payloads directly from MongoDB Atlas.
 - **What Was Produced**: `app/database/mongodb.py`, `app/routers/mongodb_sync.py`, and the cloud document inspector module.
 
-### 2.6 Multi-Channel Notification Engine
+### 2.7 Multi-Channel Notification Engine
 - **Purpose**: Automated multi-channel communication across appointment and clinical lifecycle events.
 - **Project Section**: Notification Center (`app/notifications/notification_engine.py`, `app/events/consumers.py`).
 - **How It Was Used**:
@@ -77,7 +87,7 @@ This document provides transparent, exhaustive documentation of all AI-powered d
   - Exposed live querying via `GET /api/v1/notifications/recipient/{role}/{recipient_id}` and `GET /api/v1/notifications/recent`.
 - **What Was Produced**: Complete event-driven notification pipeline with dual-write persistence to SQL and MongoDB Atlas.
 
-### 2.7 AI Quality Feedback Loop & Testing Harness
+### 2.8 AI Quality Feedback Loop & Testing Harness
 - **Purpose**: Measurable, systematic evaluation of AI quality and system reliability across 255 automated tests.
 - **Project Section**: Evaluation and CI/CD Pipeline (`app/evaluation/ai_evaluation_framework.py`, `tests/`).
 - **How It Was Used**:

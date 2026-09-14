@@ -13,118 +13,162 @@ The platform is designed as an event-driven, multi-tenant clinical coordination 
 ### High-Level Architecture Diagram
 
 ```mermaid
-graph TD
-    subgraph Users["1. Users & Personas"]
-        P[Patient]
-        D[Doctor]
-        HA[Hospital Admin]
-        PA[Platform Super Admin]
+flowchart TD
+    subgraph S_Users["1. Users and Personas"]
+        P["Patient"]
+        D["Doctor"]
+        HA["Hospital Admin"]
+        PA["Platform Super Admin"]
     end
 
-    subgraph Interfaces["2. Presentation Layer"]
-        WebUI[React 18 + Vite SPA\nModern Clinical Dark UI]
-        VoiceConsole[Web Speech STT/TTS Console\nAnimated Audio Visualizer]
-        RESTAPI[FastAPI Gateway\nOpenAPI / Swagger / JWT]
+    subgraph S_Interfaces["2. Presentation Layer"]
+        WebUI["React 18 + Vite SPA - Modern Clinical Dark UI"]
+        VoiceConsole["Web Speech STT/TTS Console - Animated Audio Visualizer"]
+        RESTAPI["FastAPI Gateway - OpenAPI / Swagger / JWT"]
     end
 
-    subgraph AIApp["3. AI & Orchestration Layer"]
-        VoiceAgent[Patient Access Voice Agent]
-        SymptomResolver[SymptomIntentResolver\nClinical Specialty Triage]
-        ContextEngine[Context & Memory Resolution]
-        Guardrails[Clinical Safety & Emergency 911 Engine]
-        LLM[Live LLM Engine\nGPT-4o-mini / AICredits]
+    subgraph S_AI["3. AI and Orchestration Layer"]
+        VoiceAgent["Patient Access Voice Agent"]
+        SymptomResolver["SymptomIntentResolver - Clinical Specialty Triage"]
+        ContextEngine["Context and Memory Resolution"]
+        Guardrails["Clinical Safety and Emergency 911 Engine"]
+        LLM["Live LLM Engine - GPT-4o-mini / AICredits"]
     end
 
-    subgraph CapLayer["4. Capability Engine"]
-        CapRegistry[Capability Registry\n19 Typed Capabilities]
-        CapEnforcer[RBAC & Schema Enforcer]
-        Idempotency[Idempotency Store]
+    subgraph S_Cap["4. Capability Engine"]
+        CapRegistry["Capability Registry - 19 Typed Capabilities"]
+        CapEnforcer["RBAC and Schema Enforcer"]
+        Idempotency["Idempotency Store"]
     end
 
-    subgraph CoreServices["5. Core Application Services"]
-        SchedEngine[Scheduling & Slot Engine\nConsolidated Time Pills]
-        HospService[Multi-Hospital Registry\n4 Network Hospitals]
-        PatientService[Patient Profile & Preferences]
-        WorkflowService[Workflow & Doctor Questionnaire Engine]
-        NotifService[Notification Engine\nSMS / Email / Voice]
+    subgraph S_Core["5. Core Application Services"]
+        SchedEngine["Scheduling and Slot Engine - Consolidated Time Pills"]
+        HospService["Multi-Hospital Registry - 4 Network Hospitals"]
+        PatientService["Patient Profile and Preferences"]
+        WorkflowService["Workflow and Doctor Questionnaire Engine"]
+        NotifService["Notification Engine - SMS / Email / Voice"]
     end
 
-    subgraph EHRLayer["6. EHR Integration & Reliability Layer"]
-        EHRRouter[EHR Integration Router]
-        Adapters["EHR Adapters\nFHIR R4 | Epic | Cerner | HL7"]
-        CircuitBreaker[EHR Circuit Breaker]
-        ReliabilityEng[Retry & Backoff Engine]
+    subgraph S_EHR["6. EHR Integration and Reliability Layer"]
+        EHRRouter["EHR Integration Router"]
+        Adapters["EHR Adapters - FHIR R4 / Epic / Cerner / HL7"]
+        CircuitBreaker["EHR Circuit Breaker"]
+        ReliabilityEng["Retry and Backoff Engine"]
     end
 
-    subgraph ExtSystems["7. External Systems"]
-        EpicEHR[Epic MyChart / Interconnect]
-        CernerEHR[Cerner Millennium]
-        FHIRServer[Hospital SMART-on-FHIR R4]
-        MockEHR[Authoritative Mock EHR Sandbox]
+    subgraph S_Ext["7. External Systems"]
+        EpicEHR["Epic MyChart / Interconnect"]
+        CernerEHR["Cerner Millennium"]
+        FHIRServer["Hospital SMART-on-FHIR R4"]
+        MockEHR["Authoritative Mock EHR Sandbox"]
     end
 
-    subgraph VerifSync["8. Verification & Synchronization"]
-        VerifProtocol[5-Point Authoritative Verification]
-        SyncEngine[Bi-directional State Synchronizer]
-        ReconEngine[Discrepancy Reconciliation Engine]
-        DLQ[Dead Letter Queue & Escalation]
+    subgraph S_Sync["8. Verification and Synchronization"]
+        VerifProtocol["5-Point Authoritative Verification"]
+        SyncEngine["Bi-directional State Synchronizer"]
+        ReconEngine["Discrepancy Reconciliation Engine"]
+        DLQ["Dead Letter Queue and Escalation"]
     end
 
-    subgraph EventStream["9. Event Processing"]
-        EventBus[Decoupled Event Publisher]
-        Consumers[Platform Event Consumers\nAnalytics | Notifications | Workflows | Audit]
+    subgraph S_Events["9. Event Processing"]
+        EventBus["Decoupled Event Publisher"]
+        Consumers["Platform Event Consumers - Analytics / Notifications / Workflows / Audit"]
     end
 
-    subgraph DataPersistence["10. Hybrid Polyglot Persistence Layer"]
-        SQLStore[(Multi-Tenant Relational DB\nSQLite / PostgreSQL)]
-        MongoStore[(MongoDB Atlas Cloud Store\nAsync ThreadPool Dual-Write)]
-        SecretsVault[AES-256 Secrets Vault]
-        AuditStore[(Tamper-Evident Audit Logs)]
+    subgraph S_Data["10. Hybrid Polyglot Persistence Layer"]
+        SQLStore[("Multi-Tenant Relational DB - SQLite / PostgreSQL")]
+        MongoStore[("MongoDB Atlas Cloud Store - Async ThreadPool Dual-Write")]
+        SecretsVault["AES-256 Secrets Vault"]
+        AuditStore[("Tamper-Evident Audit Logs")]
     end
 
-    subgraph Observability["11. Observability & SRE"]
-        TraceEngine[16-Step Lifecycle Operation Trace]
-        GoldenSignals[4 Golden Signals SRE Dashboard]
-        AIEval[AI Quality Feedback Loop & Benchmarks]
-        MongoViewer[Live Cloud Document Inspector]
+    subgraph S_Obs["11. Observability and SRE"]
+        TraceEngine["16-Step Lifecycle Operation Trace"]
+        GoldenSignals["4 Golden Signals SRE Dashboard"]
+        AIEval["AI Quality Feedback Loop and Benchmarks"]
+        MongoViewer["Live Cloud Document Inspector"]
     end
 
-    Users --> Interfaces
-    Interfaces --> AIApp
-    Interfaces --> RESTAPI
-    RESTAPI --> CapLayer
-    AIApp --> CapLayer
-    CapLayer --> CoreServices
-    CoreServices --> EHRLayer
-    EHRLayer --> ExtSystems
-    ExtSystems --> VerifSync
-    VerifSync --> EventStream
-    EventStream --> DataPersistence
-    DataPersistence --> Observability
+    P --> WebUI
+    P --> VoiceConsole
+    D --> WebUI
+    HA --> WebUI
+    PA --> WebUI
+
+    WebUI --> RESTAPI
+    VoiceConsole --> VoiceAgent
+    RESTAPI --> CapRegistry
+
+    VoiceAgent --> SymptomResolver
+    VoiceAgent --> ContextEngine
+    VoiceAgent --> Guardrails
+    VoiceAgent --> LLM
+    VoiceAgent --> CapRegistry
+
+    CapRegistry --> CapEnforcer
+    CapEnforcer --> Idempotency
+    Idempotency --> SchedEngine
+    Idempotency --> HospService
+    Idempotency --> PatientService
+    Idempotency --> WorkflowService
+    Idempotency --> NotifService
+
+    SchedEngine --> EHRRouter
+    WorkflowService --> EHRRouter
+    EHRRouter --> Adapters
+    Adapters --> CircuitBreaker
+    CircuitBreaker --> ReliabilityEng
+
+    ReliabilityEng --> EpicEHR
+    ReliabilityEng --> CernerEHR
+    ReliabilityEng --> FHIRServer
+    ReliabilityEng --> MockEHR
+
+    EpicEHR --> VerifProtocol
+    CernerEHR --> VerifProtocol
+    FHIRServer --> VerifProtocol
+    MockEHR --> VerifProtocol
+
+    VerifProtocol --> SyncEngine
+    SyncEngine --> ReconEngine
+    ReconEngine --> DLQ
+
+    SyncEngine --> EventBus
+    EventBus --> Consumers
+
+    Consumers --> SQLStore
+    Consumers --> MongoStore
+    Consumers --> AuditStore
+
+    SQLStore --> TraceEngine
+    MongoStore --> TraceEngine
+    TraceEngine --> GoldenSignals
+    GoldenSignals --> AIEval
+    MongoStore --> MongoViewer
 ```
 
 ---
 
 ## 2. Layer-by-Layer Architectural Breakdown
 
-### 2.1 Frontend
+### 2.1 Frontend Architecture
 - **Framework**: React 18 + TypeScript + Vite + Tailwind CSS.
-- **Portals**: Dedicated workspaces for **Patient**, **Doctor**, **Hospital Admin**, and **Platform Super-Admin**.
-- **Voice UI**: Browser-native Web Speech API STT/TTS with animated SVG waveforms, auto-submit after speech completion, and latency masking.
-- **Discovery**: Consolidated doctor profile cards with interactive emerald time-slot selector pills (`08:00 AM`, `08:30 AM`).
+- **Portals**: Dedicated, isolated workspaces for **Patient**, **Doctor**, **Hospital Admin**, and **Entire System Admin (Platform Super-Admin)**.
+- **Voice UI (`VoiceAgentScreen.tsx`)**: Browser-native Web Speech API speech recognition and speech synthesis, with animated SVG waveform visualizers, auto-submit on speech completion, keep-alive timers, and Test Audio speaker diagnostics.
+- **Doctor Discovery**: Consolidated doctor profile cards with interactive emerald time-slot selector pills (`08:00 AM`, `08:30 AM`, etc.), eliminating duplicate physician listings.
 
-### 2.2 Backend
+### 2.2 Backend Architecture
 - **Framework**: FastAPI (Python 3.11+) with asynchronous ASGI concurrency.
-- **REST Endpoints**: Over 37 dedicated routers covering auth, context, voice, discovery, doctors, patients, appointments, questionnaires, EHR, workflows, and observability.
-- **Data Validation**: Pydantic v2 schemas for all requests, responses, and internal tool invocations.
+- **REST Endpoints**: Over 37 dedicated routers covering authentication, context, voice, discovery, doctors, patients, appointments, questionnaires, EHR, workflows, and observability.
+- **Data Validation**: Strict Pydantic v2 schemas for all requests, responses, and internal tool invocations compiled to C speed.
 
 ### 2.3 AI Layer
-- **Live LLM Integration**: Pluggable `LiveLLMClient` supporting OpenAI, Azure OpenAI, and proxy gateways (AICredits).
-- **Prompt Grounding**: Strict system directives that prevent medical hallucinations, enforce brief voice responses (under 2 sentences), and ground suggestions in database query results.
+- **Live LLM Client**: Pluggable provider architecture via `LiveLLMClient` supporting OpenAI, Azure OpenAI, and OpenAI-compatible proxy gateways (e.g. AICredits) with temperature control and token tracking.
+- **Prompt Grounding**: Strict clinical system directives preventing medical hallucinations, enforcing conversational brevity (under 2 sentences), and grounding recommendations in database query results.
 
 ### 2.4 Conversation Layer
 - **Turn Management**: Multi-turn dialogue state machine (`PatientAccessAgent`) tracking conversation intent, active step, selected doctor, draft appointment, and questionnaire progress.
-- **Interruption & Barge-in**: 180ms client-side barge-in detection cancelling text-to-speech output immediately when patient speaks.
+- **Interruption & Barge-in**: 180ms client-side barge-in detection cancelling text-to-speech output immediately when the patient speaks.
 
 ### 2.5 Context Layer
 - **Multi-Modal Resolution (`resolver.py`)**: Resolves patient intent and doctor selections by:
@@ -132,7 +176,7 @@ graph TD
   - Number / Ordinal (e.g., `"first doctor"`, `"2"`, `"option 2"`, `"3rd doctor"`).
   - Slot Time (e.g., `"4 PM"`, `"5:30 PM"`, `"09:00 AM"`).
   - Facility Name (e.g., `"Care Hospital"`, `"City Hospital"`).
-- **State Retention**: Retains patient demographic preferences and previous symptom mentions across turns.
+- **Context Retention**: Retains patient demographic preferences and previous symptom mentions across turns.
 
 ### 2.6 Capability Layer
 - **Typed Capabilities**: 19 typed tools with strict Pydantic parameter validation (`search_hospitals`, `search_doctors`, `get_doctor_slots`, `book_appointment`, `submit_questionnaire`, etc.).
@@ -141,18 +185,18 @@ graph TD
 
 ### 2.7 Scheduling Engine
 - **Concurrency & Anti-Double-Booking**: Pessimistic relational row locks (`with_for_update`) on slot booking, combined with in-memory `BlockedSlot` reservations.
-- **Slot Discovery**: Consolidates 30-minute consultation intervals per provider across 7-day calendars (08:00–18:00).
+- **Slot Discovery**: Consolidates 30-minute consultation intervals per provider across 7-day calendars (08:00 to 18:00).
 
 ### 2.8 EHR / Healthcare-System Integration Layer
 - **Router & Adapters**: Pluggable adapter pattern supporting SMART-on-FHIR R4, Epic MyChart, Cerner Millennium, HL7 v2.x, and Mock EHR.
-- **Resilience**: Thread-safe `EHRCircuitBreaker` with failure counting, cooldown intervals, and state transitions (`CLOSED` -> `OPEN` -> `HALF_OPEN`).
+- **Resilience**: Thread-safe `EHRCircuitBreaker` with failure counting, cooldown intervals, and state transitions (`CLOSED` to `OPEN` to `HALF_OPEN`).
 
 ### 2.9 Verification, Synchronization & Reconciliation
 - **5-Point Verification**: Verifies Patient Identity, Provider NPI, Facility ID, Slot Availability, and Concurrency Timestamp against the authoritative external system.
 - **Reconciliation Engine**: Periodic and on-demand discrepancy detection aligning internal booking statuses with external EHR states.
 
 ### 2.10 Workflow & Event Processing
-- **Doctor Questionnaire Workflow**: Dynamically retrieves intake questionnaires authored by the chosen physician, asks questions sequentially or in batch, and stores structured answers in `PatientIntakeRecord`.
+- **Doctor Questionnaire Workflow**: Dynamically retrieves intake questionnaires authored by the chosen physician (e.g. Dr. Sharma vs. Dr. Rao), asks questions sequentially or in batch, and stores structured answers in `PatientIntakeRecord`.
 - **Event Bus**: Decoupled `EventBus` publishing `APPOINTMENT_BOOKED`, `APPOINTMENT_CANCELLED`, `QUESTIONNAIRE_COMPLETED`, and `HOSPITAL_APPROVED`.
 - **Multi-Channel Notifications**: Decoupled consumers dispatch SMS, Email, and Voice notifications to patients, providers, and administrators.
 
@@ -170,9 +214,9 @@ graph TD
 - **Encryption**: Secrets and tokens encrypted at rest using AES-256; TLS 1.3 in transit.
 - **RBAC Governance**: Strict boundary enforcement separating Patient, Doctor, Hospital Admin, and Platform Admin access.
 
-### 2.14 Deployment
+### 2.14 Deployment Architecture
 - **Containerized**: Production `Dockerfile` and `docker-compose.yml`.
-- **Cloud Ready**: Deployable to Render, Railway, AWS ECS, or bare-metal Linux.
+- **Serverless & Cloud**: Deployable to Vercel (FastAPI serverless + React static assets), Render, Railway, AWS ECS, or bare-metal Linux.
 
 ---
 
@@ -190,37 +234,37 @@ sequenceDiagram
     participant Sched as Scheduling Engine
     participant EHR as EHR Integration Layer
     participant ExtEHR as External Hospital EHR
-    participant DB as Polyglot Persistence (SQL + Atlas)
-    participant DocPortal as Doctor Clinical Interface
+    participant DB as Polyglot Persistence
+    participant DocPortal as Doctor Clinical Workstation
 
-    Patient->>Mic: "I've been having shoulder pain for the last week and I'd like to see a doctor."
-    Mic->>Agent: Streamed speech text
-    Agent->>Resolver: Resolve symptom ("shoulder pain") -> Specialty ("Orthopedics")
+    Patient->>Mic: Spoken clinical complaint: shoulder pain for the last week
+    Mic->>Agent: Streamed speech transcript
+    Agent->>Resolver: Resolve symptom to specialty Orthopedics
     Agent->>Sched: Query available Orthopedic doctors across partner hospitals
-    Sched-->>Agent: Dr. Sharma (City Hospital @ 4 PM), Dr. Rao (Care Hospital @ 5:30 PM)
-    Agent-->>Patient: "I found available options. Dr. Sharma at City Hospital tomorrow at 4 PM, Dr. Rao at Care Hospital tomorrow at 5:30 PM. Which would you prefer?"
-    
-    Patient->>Mic: "Dr. Sharma at 4 PM."
-    Mic->>Agent: Doctor & Slot selection
+    Sched-->>Agent: Dr. Sharma at City Hospital 4 PM, Dr. Rao at Care Hospital 5:30 PM
+    Agent-->>Patient: Found available options: Dr. Sharma at City Hospital 4 PM, Dr. Rao at Care Hospital 5:30 PM
+
+    Patient->>Mic: Selection: Dr. Sharma at 4 PM
+    Mic->>Agent: Doctor and Slot selection
     Agent->>Sched: Hold slot and lock provider schedule
     Agent->>EHR: Initiate 5-point external booking request
-    EHR->>ExtEHR: Book consultation slot (SMART-on-FHIR / Epic)
-    ExtEHR-->>EHR: 201 Created (External EHR ID: EXT-9821)
+    EHR->>ExtEHR: Book consultation slot via SMART-on-FHIR or Epic
+    ExtEHR-->>EHR: 201 Created with External EHR ID EXT-9821
     EHR-->>Agent: 5-Point Verification Passed
-    Agent->>DB: Persist Appointment (CONFIRMED, is_ehr_verified=True)
-    Agent-->>Patient: "Your appointment with Dr. Sharma at City Hospital is confirmed for tomorrow at 4 PM. Dr. Sharma has configured a few questions. Would you like to answer them now?"
+    Agent->>DB: Persist Appointment CONFIRMED with is_ehr_verified=True
+    Agent-->>Patient: Appointment confirmed with Dr. Sharma for tomorrow at 4 PM. Pre-visit questionnaire available.
 
-    Patient->>Mic: "Yes"
-    Agent-->>Patient: "First question: Do you have shoulder pain?"
-    Patient->>Mic: "Yes"
-    Agent-->>Patient: "Next question: How long have you had the pain?"
-    Patient->>Mic: "For one week"
-    Agent-->>Patient: "Next question: Have you had any previous treatment?"
-    Patient->>Mic: "No treatment yet"
+    Patient->>Mic: Yes start questionnaire
+    Agent-->>Patient: First question: Do you have shoulder pain?
+    Patient->>Mic: Yes
+    Agent-->>Patient: Next question: How long have you had the pain?
+    Patient->>Mic: For one week
+    Agent-->>Patient: Next question: Have you had any previous treatment?
+    Patient->>Mic: No treatment yet
 
-    Agent->>DB: Store PatientIntakeRecord & PatientQuestionnaireResponse
-    Agent->>DocPortal: Push intake summary to Dr. Sharma's clinical workstation
-    Agent-->>Patient: "Thank you! I have recorded your pre-visit information for Dr. Sharma: Shoulder pain: Yes, Duration: 1 week, Previous treatment: No. All of your responses have been shared directly with Dr. Sharma's clinical interface. Your pre-visit questionnaire is complete, and your appointment is confirmed. Goodbye!"
+    Agent->>DB: Store PatientIntakeRecord and PatientQuestionnaireResponse
+    Agent->>DocPortal: Push intake brief to Dr. Sharma clinical workstation
+    Agent-->>Patient: Thank you! Information recorded and shared directly with Dr. Sharma. Session complete.
 ```
 
 ---
@@ -229,26 +273,26 @@ sequenceDiagram
 
 ```mermaid
 erDiagram
-    HOSPITAL ||--o{ DOCTOR : employs
-    HOSPITAL ||--o{ APPOINTMENT : hosts
-    DOCTOR ||--o{ WORKING_HOURS : defines
-    DOCTOR ||--o{ CALENDAR_BLOCK : reserves
-    DOCTOR ||--o{ APPOINTMENT : attends
-    DOCTOR ||--o{ QUESTIONNAIRE_TEMPLATE : authors
-    PATIENT ||--o{ APPOINTMENT : books
-    PATIENT ||--o{ INTAKE_RECORD : completes
-    APPOINTMENT ||--o| EHR_MAPPING : synchronizes
-    APPOINTMENT ||--o| INTAKE_RECORD : informs
-    APPOINTMENT ||--o{ NOTIFICATION : triggers
+    Hospital ||--o{ Doctor : employs
+    Hospital ||--o{ Appointment : hosts
+    Doctor ||--o{ WorkingHours : defines
+    Doctor ||--o{ CalendarBlock : reserves
+    Doctor ||--o{ Appointment : attends
+    Doctor ||--o{ QuestionnaireTemplate : authors
+    Patient ||--o{ Appointment : books
+    Patient ||--o{ IntakeRecord : completes
+    Appointment ||--o| EHRMapping : synchronizes
+    Appointment ||--o| IntakeRecord : informs
+    Appointment ||--o{ NotificationRecord : triggers
 
-    HOSPITAL {
+    Hospital {
         string id PK
         string name
         string code
         string address
         string status
     }
-    DOCTOR {
+    Doctor {
         string id PK
         string hospital_id FK
         string full_name
@@ -256,13 +300,13 @@ erDiagram
         string department
         int experience_years
     }
-    PATIENT {
+    Patient {
         string id PK
         string full_name
         string email
         string phone_number
     }
-    APPOINTMENT {
+    Appointment {
         string id PK
         string patient_id FK
         string doctor_id FK
@@ -271,21 +315,21 @@ erDiagram
         string status
         boolean is_ehr_verified
     }
-    EHR_MAPPING {
+    EHRMapping {
         string id PK
         string appointment_id FK
         string external_system
         string external_id
         string sync_status
     }
-    INTAKE_RECORD {
+    IntakeRecord {
         string id PK
         string appointment_id FK
         string doctor_id FK
         string responses_json
         string status
     }
-    NOTIFICATION {
+    NotificationRecord {
         string id PK
         string recipient_id
         string channel
@@ -304,17 +348,17 @@ sequenceDiagram
     autonumber
     participant App as Application Service
     participant CB as EHRCircuitBreaker
-    participant Adap as EHR Adapter (FHIR / Epic)
+    participant Adap as EHR Adapter
     participant Ext as External EHR System
     participant DLQ as Dead Letter Queue
-    participant SRE as Observability & SRE Alert
+    participant SRE as Observability and SRE Alert
 
     App->>CB: Execute external booking call
     alt Circuit is CLOSED (Normal Operation)
         CB->>Adap: Forward request
         Adap->>Ext: POST /Appointment
         alt External System Times Out or Returns 5xx
-            Ext-->>Adap: 504 Gateway Timeout / Connection Refused
+            Ext-->>Adap: 504 Gateway Timeout or Connection Refused
             Adap-->>CB: Record Failure
             CB->>CB: Increment failure count
             alt Failures >= Threshold (e.g. 5 consecutive)
@@ -328,14 +372,14 @@ sequenceDiagram
     else Circuit is OPEN (Outage Protection)
         CB-->>App: Immediate Fast-Fail (Block outbound network calls)
         App->>DLQ: Enqueue transaction
-        App-->>App: Hold slot internally + notify user of delayed verification
-    else Cooldown Expired -> Circuit is HALF_OPEN (Trial Probe)
+        App-->>App: Hold slot internally and notify user of delayed verification
+    else Cooldown Expired: Circuit is HALF_OPEN (Trial Probe)
         CB->>Adap: Send single probe transaction
         alt Probe Succeeds (200 OK)
-            CB->>CB: Reset failure count -> State CLOSED
+            CB->>CB: Reset failure count to state CLOSED
             CB-->>App: Success
         else Probe Fails
-            CB->>CB: Reset cooldown -> State OPEN
+            CB->>CB: Reset cooldown to state OPEN
             CB-->>App: Fast-Fail
         end
     end
@@ -356,19 +400,19 @@ sequenceDiagram
     participant Ext as External EHR System
     participant Bus as Platform EventBus
 
-    Recon->>DB: Query appointments with status="PENDING_RECONCILIATION"
+    Recon->>DB: Query appointments with status PENDING_RECONCILIATION
     loop For each ambiguous appointment
-        Recon->>EHR: Query external record by correlation_id / slot_id
+        Recon->>EHR: Query external record by correlation_id or slot_id
         EHR->>Ext: GET /Appointment?identifier=APPT-CORR-1024
         alt External EHR confirms appointment exists
-            Ext-->>EHR: Status: Booked (External ID: EXT-7712)
+            Ext-->>EHR: Status Booked with External ID EXT-7712
             EHR-->>Recon: Verified External Booking
-            Recon->>DB: UPDATE Appointment SET status='CONFIRMED', is_ehr_verified=True
+            Recon->>DB: UPDATE Appointment SET status=CONFIRMED and is_ehr_verified=True
             Recon->>Bus: Publish APPOINTMENT_RECONCILED event
         else External EHR has no record of appointment
             Ext-->>EHR: 404 Not Found
             EHR-->>Recon: Not Present in External EHR
-            Recon->>DB: UPDATE Appointment SET status='CANCELLED'
+            Recon->>DB: UPDATE Appointment SET status=CANCELLED
             Recon->>DB: Release BlockedSlot reservation
             Recon->>Bus: Publish APPOINTMENT_RECONCILIATION_FAILED event
         end

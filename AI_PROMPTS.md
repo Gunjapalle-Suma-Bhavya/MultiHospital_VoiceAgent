@@ -92,6 +92,13 @@ This document records the actual prompts, instructions, and system directives ut
 > **What It Produced / Changed**:
 > - Clean text normalization and TTS formatting in `PatientAccessAgent`.
 
+### Prompt 4.2: ElevenLabs Neural Voice Integration
+> **Prompt**:
+> *"Integrate ElevenLabs neural text-to-speech API in app/routers/voice.py using model eleven_flash_v2_5 for ultra-low latency voice streaming. Provide automatic fallback to Web Speech synthesis if network quota or rate limits are reached."*
+>
+> **What It Produced / Changed**:
+> - Implemented `/api/v1/voice/speak` audio streaming endpoint with error resilience.
+
 ---
 
 ## 5. EHR Integration Prompts
@@ -153,10 +160,10 @@ This document records the actual prompts, instructions, and system directives ut
 
 ### Prompt 10.1: Architecture & README Standardization
 > **Prompt**:
-> *"Update README.md and ARCHITECTURE.md to strictly fulfill all requirements of Sections 36.2, 36.4, 36.5, 36.6, and 36.7. Include high-level architecture diagram, sequence diagram for PRD Section 24 booking, data model entity relationship diagram, failure flow with circuit breaker, reconciliation flow, and the complete 17 numbered sections in README.md."*
+> *"Update README.md, ARCHITECTURE.md, AI_TOOLS.md, and AI_PROMPTS.md to strictly fulfill all requirements of Sections 36.2, 36.4, 36.5, 36.6, and 36.7. Fix all Mermaid diagram syntax errors by quoting node labels, removing direct subgraph-to-subgraph connections, using valid alphanumeric entity names in ER diagrams, and documenting the full multi-hospital voice booking architecture."*
 >
 > **What It Produced / Changed**:
-> - Fully standardized `README.md`, `ARCHITECTURE.md`, `AI_TOOLS.md`, and `AI_PROMPTS.md`.
+> - Completely valid, error-free Markdown documentation files.
 
 ---
 
