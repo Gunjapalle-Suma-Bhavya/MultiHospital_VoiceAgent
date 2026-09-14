@@ -8,12 +8,12 @@ from sqlalchemy.orm import sessionmaker
 from app.database.models import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hospital_platform.db")
+is_sqlite = "sqlite" in DATABASE_URL
 
 # Automatically redirect SQLite path to writable /tmp directory if executing in Vercel serverless environment
-if os.getenv("VERCEL") and DATABASE_URL.startswith("sqlite:///."):
+if os.getenv("VERCEL") and is_sqlite and not DATABASE_URL.startswith("sqlite:////tmp"):
     DATABASE_URL = "sqlite:////tmp/hospital_platform.db"
-
-is_sqlite = "sqlite" in DATABASE_URL
+    is_sqlite = True
 
 engine_kwargs = {}
 if is_sqlite:
