@@ -611,10 +611,10 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
           setTranscriptLive('');
           fn(finalVal);
         }
-        // Always maintain continuous listening in hands-free mode
-        if (handsFreeRef.current) {
+        // Always maintain continuous listening in hands-free mode (unless conversation has ended)
+        if (handsFreeRef.current && !isConversationEndedRef.current) {
           setTimeout(() => {
-            if (handsFreeRef.current && !isRecordingRef.current) {
+            if (handsFreeRef.current && !isRecordingRef.current && !isConversationEndedRef.current) {
               try {
                 recognitionRef.current?.start();
                 setIsRecording(true);
@@ -637,9 +637,9 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
           setVoiceNotice('Microphone blocked: Please click the lock or camera icon in your browser address bar to Allow microphone access.');
         } else if (e.error === 'no-speech') {
           // Normal timeout on silence: in hands-free mode, restart immediately so mic stays ready
-          if (handsFreeRef.current) {
+          if (handsFreeRef.current && !isConversationEndedRef.current) {
             setTimeout(() => {
-              if (handsFreeRef.current && !isRecordingRef.current) {
+              if (handsFreeRef.current && !isRecordingRef.current && !isConversationEndedRef.current) {
                 try {
                   recognitionRef.current?.start();
                   setIsRecording(true);
@@ -706,7 +706,7 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
         recognitionRef.current.abort();
       } catch {}
       setTimeout(() => {
-        if (handsFreeRef.current && !isRecordingRef.current) {
+        if (handsFreeRef.current && !isRecordingRef.current && !isConversationEndedRef.current) {
           try {
             recognitionRef.current?.start();
             setIsRecording(true);
@@ -982,7 +982,14 @@ export function useVoiceAgent(selectedLanguage: string = 'en') {
       if (convoEnded) {
         setIsConversationEnded(true);
         isConversationEndedRef.current = true;
+        handsFreeRef.current = false;
+        setHandsFreeMode(false);
         stopVoiceRecording();
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {}
+        }
       }
 
       speak(replyText);

@@ -388,6 +388,24 @@ class AIPatientAccessAgent:
                 session_state = self.db.query(PatientSessionState).filter(PatientSessionState.session_id == sid).first()
         capabilities_invoked.append("PERSISTENT_CONTEXT_LOADED")
 
+        # If conversation has already concluded, immediately return silence and end
+        if session_state and (session_state.workflow_step == "CONVERSATION_COMPLETED" or not session_state.is_active):
+            return {
+                "status": "SUCCESS",
+                "success": True,
+                "channel": channel,
+                "session_id": sid,
+                "patient_id": patient.id,
+                "detected_intent": "CONVERSATION_ENDED",
+                "intent_detected": "CONVERSATION_ENDED",
+                "speech_response": "",
+                "agent_response": "",
+                "language": language or "en",
+                "is_conversation_ended": True,
+                "conversation_ended": True,
+                "telephony_action": "HANGUP"
+            }
+
         # 2. Safety Boundary & Non-Clinical Guardrail Check
         guardrail_res = self.guardrail.evaluate_utterance(user_utterance)
         escalation_triggered = False
@@ -612,8 +630,7 @@ class AIPatientAccessAgent:
                         time_phrase = draft_info.get("time_phrase") or "tomorrow"
                         agent_response = (
                             f"I have recorded your responses and sent them to the doctor ({doc_name}): {formatted_summary}. "
-                            f"All of your responses have been shared directly with {doc_name}'s clinical interface. "
-                            f"Your pre-visit questionnaire is complete, and your appointment is confirmed for tomorrow at {time_phrase}. "
+                            f"Your appointment is confirmed for tomorrow at {time_phrase}. "
                             f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None
@@ -668,8 +685,7 @@ class AIPatientAccessAgent:
                         time_phrase = draft_info.get("time_phrase") or "tomorrow"
                         agent_response = (
                             f"I have recorded your responses and sent them to the doctor ({doc_name}): {formatted_summary}. "
-                            f"All of your responses have been shared directly with {doc_name}'s clinical interface. "
-                            f"Your pre-visit questionnaire is complete, and your appointment is confirmed for tomorrow at {time_phrase}. "
+                            f"Your appointment is confirmed for tomorrow at {time_phrase}. "
                             f"Thank you, and goodbye!"
                         )
                         session_state.active_draft_booking_json = None

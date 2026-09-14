@@ -151,6 +151,7 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
   };
 
   const handleMicToggle = () => {
+    if (isConversationEnded) return;
     if (isRecording) {
       stopVoiceRecording();
     } else {
@@ -832,16 +833,21 @@ export const VoiceAgentScreen: React.FC<VoiceAgentScreenProps> = ({ onSpecialtyS
                 type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend(inputVal)}
+                onKeyDown={(e) => e.key === 'Enter' && !isConversationEnded && handleSend(inputVal)}
+                disabled={isConversationEnded}
                 placeholder={
-                  isRecording ? 'Listening to your voice...' : 'Speak into microphone or enter symptoms...'
+                  isConversationEnded
+                    ? 'Consultation concluded. Click "Start New Consultation" to start again.'
+                    : isRecording
+                    ? 'Listening to your voice...'
+                    : 'Speak into microphone or enter symptoms...'
                 }
-                className="flex-1 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="flex-1 bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 onClick={() => handleSend(inputVal)}
-                disabled={isProcessing}
-                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md disabled:opacity-50 flex items-center space-x-1"
+                disabled={isProcessing || isConversationEnded}
+                className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Send</span>
