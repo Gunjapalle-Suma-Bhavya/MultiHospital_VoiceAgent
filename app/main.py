@@ -128,7 +128,19 @@ app.include_router(mongodb_sync_router)
 
 
 # Mount Static Assets & Web Frontend UI
-static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+def find_static_dir():
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "static"),
+        os.path.join(os.getcwd(), "static"),
+        "/var/task/static",
+        os.path.abspath("static"),
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.exists(os.path.join(c, "index.html")):
+            return os.path.abspath(c)
+    return candidates[0]
+
+static_dir = find_static_dir()
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -143,6 +155,21 @@ def read_root():
         "docs_url": "/docs"
     }
 
+@app.get("/api/index.py")
+def read_vercel_entry():
+    return read_root()
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.get("/{full_path:path}")
+def catch_all_spa(full_path: str):
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi") or full_path.startswith("static"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not Found")
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return read_root()
+
