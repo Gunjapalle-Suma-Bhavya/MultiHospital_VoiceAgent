@@ -1,23 +1,23 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.py"
+      "source": "/api/:path*",
+      "destination": "/api/index.py?_vercel_path=/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?_vercel_path=/health"
     },
     {
       "source": "/docs",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?_vercel_path=/docs"
     },
     {
       "source": "/openapi.json",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?_vercel_path=/openapi.json"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api|health|docs|openapi\\.json).*)",
       "destination": "/index.html"
     }
   ]

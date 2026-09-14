@@ -1,4 +1,5 @@
 from starlette.types import ASGIApp, Scope, Receive, Send
+from urllib.parse import parse_qs, urlencode
 from app.main import app
 
 class VercelPathRewriteMiddleware:
@@ -10,19 +11,35 @@ class VercelPathRewriteMiddleware:
         if scope["type"] == "http":
             headers = dict(scope.get("headers", []))
             
-            # Extract candidate paths from Vercel proxy headers
+            # 1. Extract candidate paths from standard Vercel proxy headers
             candidates = [
                 headers.get(b"x-matched-path", b"").decode("utf-8"),
                 headers.get(b"x-vercel-matched-path", b"").decode("utf-8"),
                 headers.get(b"x-forwarded-uri", b"").decode("utf-8").split("?")[0],
                 headers.get(b"x-invoke-path", b"").decode("utf-8"),
+                headers.get(b"x-original-url", b"").decode("utf-8").split("?")[0],
+                headers.get(b"x-rewrite-url", b"").decode("utf-8").split("?")[0],
             ]
             
             resolved_path = None
             for cand in candidates:
-                if cand and cand != "/api/index.py":
+                if cand and cand != "/api/index.py" and not cand.startswith("/index."):
                     resolved_path = cand
                     break
+
+            # 2. Check fallback query parameter passed via vercel.json rewrite
+            raw_qs = scope.get("query_string", b"").decode("utf-8")
+            if "_vercel_path" in raw_qs:
+                try:
+                    parsed_qs = parse_qs(raw_qs)
+                    if "_vercel_path" in parsed_qs:
+                        fallback_path = parsed_qs.pop("_vercel_path")[0]
+                        if not resolved_path or resolved_path == "/api/index.py":
+                            resolved_path = fallback_path
+                        # Clean query string for underlying FastAPI route handlers
+                        scope["query_string"] = urlencode(parsed_qs, doseq=True).encode("utf-8")
+                except Exception:
+                    pass
 
             raw_path = scope.get("path", "")
             if resolved_path:

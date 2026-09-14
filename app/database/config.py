@@ -11,9 +11,29 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hospital_platform.db")
 is_sqlite = "sqlite" in DATABASE_URL
 
 # Automatically redirect SQLite path to writable /tmp directory if executing in Vercel serverless environment
-if os.getenv("VERCEL") and is_sqlite and not DATABASE_URL.startswith("sqlite:////tmp"):
-    DATABASE_URL = "sqlite:////tmp/hospital_platform.db"
+if (os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME")) and is_sqlite:
+    tmp_db = "/tmp/hospital_platform.db"
+    if not os.path.exists(tmp_db) or os.path.getsize(tmp_db) == 0:
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "..", "..", "hospital_platform.db"),
+            os.path.join(os.getcwd(), "hospital_platform.db"),
+            "/var/task/hospital_platform.db",
+            os.path.abspath("hospital_platform.db"),
+        ]
+        import shutil
+        for c in candidates:
+            if os.path.exists(c) and os.path.getsize(c) > 0:
+                try:
+                    shutil.copyfile(c, tmp_db)
+                    for ext in ["-wal", "-shm"]:
+                        if os.path.exists(c + ext):
+                            shutil.copyfile(c + ext, tmp_db + ext)
+                    break
+                except Exception as e:
+                    print(f"[DB Copy Warning]: {e}")
+    DATABASE_URL = f"sqlite:///{tmp_db}"
     is_sqlite = True
+
 
 engine_kwargs = {}
 if is_sqlite:

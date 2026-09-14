@@ -478,7 +478,14 @@ class AuthService:
         ident_lower = identifier.lower()
 
         # 1. Platform Admin
-        if "platform" in ident_lower or "admin@hospitalplatform" in ident_lower or "voiceplatform" in ident_lower or role_hint == "PLATFORM_ADMIN":
+        if (
+            "platform" in ident_lower
+            or "admin@hospitalplatform" in ident_lower
+            or "voiceplatform" in ident_lower
+            or "nexushealth" in ident_lower
+            or ident_lower in ("admin", "superadmin", "system_admin", "systemadmin", "admin@nexushealth.org")
+            or role_hint == "PLATFORM_ADMIN"
+        ):
             clean_email = identifier.lower() if "@" in identifier else f"{identifier.replace(' ', '.').lower()}@hospitalplatform.org"
             user = self.db.query(UserAccount).filter(UserAccount.email == clean_email).first()
             if not user:
